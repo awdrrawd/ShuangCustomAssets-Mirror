@@ -7,7 +7,7 @@
 ### 油猴脚本安装
 
 **方法一：一键安装（推荐）**
-1. 点击这个链接：[loader.user.js](./loader.user.js)
+1. 点击这个链接：[loader.user.js](https://gitgud.io/yeshuang26/shuangcustomassets/-/raw/master/loader.user.js)
 2. Tampermonkey 会自动弹出安装界面
 3. 点击 **安装** 完成
 
