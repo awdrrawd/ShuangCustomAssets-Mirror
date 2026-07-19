@@ -13,7 +13,9 @@ const DEFAULT_TEXTURE = {
     OffsetX: 1,
     OffsetY: 1,
     Scale: 100,
-    Rotation: 0
+    Rotation: 0,
+    Visible: true,   // 可见开关
+    Opacity: 100     // 透明度（0-100）
 };
 
 /**
@@ -33,6 +35,10 @@ const INPUT_OFFSET_X = "CustomTextureOffsetXInput";
 const INPUT_OFFSET_Y = "CustomTextureOffsetYInput";
 const INPUT_SCALE = "CustomTextureScaleInput";
 const INPUT_ROTATION = "CustomTextureRotationInput";
+const INPUT_OPACITY = "CustomTextureOpacityInput";
+
+// 可见开关按钮 ID 前缀
+const VISIBLE_BTN_PREFIX = "CustomTextureVisibleBtn_";
 
 // 预定义的图层名称（16 个图层）
 const LAYER_NAMES = [
@@ -106,7 +112,7 @@ const extended = {
             tempTextureData = null;
             
             // 清理输入框
-            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION].forEach(id => ElementRemove(id));
+            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         },
 
         Draw: (data, originalFunction) => {
@@ -136,7 +142,7 @@ const extended = {
         Exit: (data) => {
             currentEditTexture = -1;
             tempTextureData = null;
-            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION].forEach(id => ElementRemove(id));
+            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         },
 
         // 绘制每个图层
@@ -152,11 +158,14 @@ const extended = {
             
             const texture = textures[layerIndex];
             if (!texture || !texture.TextureURL || !isValidImageUrl(texture.TextureURL)) return;
+            // 不可见则跳过
+            if (texture.Visible === false) return;
 
             const offsetX = texture.OffsetX || 0;
             const offsetY = texture.OffsetY || 0;
             const scale = (texture.Scale || 100) / 100;
             const rotation = texture.Rotation || 0;
+            const opacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
 
             const img = DrawGetImage(texture.TextureURL);
             if (!img.complete || img.naturalWidth <= 0) return;
@@ -164,7 +173,8 @@ const extended = {
             const width = Math.round(img.naturalWidth * scale);
             const height = Math.round(img.naturalHeight * scale);
             
-            const cacheKey = `${texture.TextureURL}_${width}_${height}_${rotation}_${layerIndex}`;
+            // 缓存键包含透明度，透明度变化时重新生成 canvas
+            const cacheKey = `${texture.TextureURL}_${width}_${height}_${rotation}_${opacity}_${layerIndex}`;
             let tempCanvas = data.PersistentData?.[cacheKey];
             
             if (!tempCanvas) {
@@ -172,6 +182,7 @@ const extended = {
                 const ctx = tempCanvas.getContext("2d");
                 ctx.clearRect(0, 0, width, height);
                 ctx.save();
+                ctx.globalAlpha = opacity;
                 ctx.translate(width / 2, height / 2);
                 ctx.rotate(rotation * Math.PI / 180);
                 ctx.translate(-width / 2, -height / 2);
@@ -207,10 +218,16 @@ function drawTextureListMain(item) {
         DrawRect(1150, y, 400, itemHeight - 5, "rgba(0,0,0,0.5)");
         
         const urlPreview = texture?.TextureURL 
-            ? (texture.TextureURL.length > 15 ? texture.TextureURL.substring(0, 15) + "..." : texture.TextureURL)
+            ? (texture.TextureURL.length > 12 ? texture.TextureURL.substring(0, 12) + "..." : texture.TextureURL)
             : "(空)";
         
         DrawText(`图层${i + 1}: ${urlPreview}`, 1160, y + 20, "White", "Black");
+        
+        // 可见开关
+        const isVisible = texture?.Visible !== false;
+        DrawButton(1390, y + 5, 70, 35, isVisible ? "可见" : "隐藏", 
+            isVisible ? "#4CAF50" : "#666666", 
+            isVisible ? "#66BB6A" : "#999999", false);
         
         DrawButton(1480, y + 5, 60, 35, "编辑", "White", null, false);
     }
@@ -239,6 +256,14 @@ function handleTextureListClick(item, data) {
     
     for (let i = 0; i < textures.length; i++) {
         const y = startY + i * itemHeight;
+        // 可见开关
+        if (MouseIn(1390, y + 5, 70, 35)) {
+            textures[i].Visible = textures[i].Visible === false ? true : false;
+            const C = CharacterGetCurrent();
+            if (C) CharacterRefresh(C, false);
+            return;
+        }
+        // 编辑按钮
         if (MouseIn(1480, y + 5, 60, 35)) {
             currentEditTexture = i;
             tempTextureData = { ...textures[i] };
@@ -348,7 +373,9 @@ function importConfig(item) {
                 OffsetX: parseInt(t.OffsetX) || 0,
                 OffsetY: parseInt(t.OffsetY) || 0,
                 Scale: parseInt(t.Scale) || 100,
-                Rotation: parseInt(t.Rotation) || 0
+                Rotation: parseInt(t.Rotation) || 0,
+                Visible: t.Visible !== false,
+                Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100))
             }));
             
             if (!item.Property) item.Property = { Textures: [] };
@@ -387,10 +414,10 @@ function createEditInputs(texture) {
         input.style.width = "350px";
     }
     
-    input = ElementCreateInput(INPUT_OFFSET_X, "number", String(texture.OffsetX || 0), "10");
+    input = ElementCreateInput(INPUT_OFFSET_X, "number", String(texture.OffsetX ?? 1), "10");
     if (input) input.style.width = "80px";
     
-    input = ElementCreateInput(INPUT_OFFSET_Y, "number", String(texture.OffsetY || 0), "10");
+    input = ElementCreateInput(INPUT_OFFSET_Y, "number", String(texture.OffsetY ?? 1), "10");
     if (input) input.style.width = "80px";
     
     input = ElementCreateInput(INPUT_SCALE, "number", String(texture.Scale || 100), "10");
@@ -398,6 +425,13 @@ function createEditInputs(texture) {
     
     input = ElementCreateInput(INPUT_ROTATION, "number", String(texture.Rotation || 0), "10");
     if (input) input.style.width = "80px";
+    
+    input = ElementCreateInput(INPUT_OPACITY, "number", String(texture.Opacity ?? 100), "10");
+    if (input) {
+        input.style.width = "80px";
+        input.min = "0";
+        input.max = "100";
+    }
 }
 
 /**
@@ -409,6 +443,7 @@ function drawTextureEditPanel(item, textureIndex, data) {
     const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
     const scaleInput = document.getElementById(INPUT_SCALE);
     const rotationInput = document.getElementById(INPUT_ROTATION);
+    const opacityInput = document.getElementById(INPUT_OPACITY);
     
     if (tempTextureData) {
         const newUrl = urlInput?.value?.trim() || "";
@@ -416,18 +451,21 @@ function drawTextureEditPanel(item, textureIndex, data) {
         const newOffsetY = parseInt(offsetYInput?.value) || 0;
         const newScale = parseInt(scaleInput?.value) || 100;
         const newRotation = parseInt(rotationInput?.value) || 0;
+        const newOpacity = Math.max(0, Math.min(100, parseInt(opacityInput?.value) || 100));
         
         if (tempTextureData.TextureURL !== newUrl ||
             tempTextureData.OffsetX !== newOffsetX ||
             tempTextureData.OffsetY !== newOffsetY ||
             tempTextureData.Scale !== newScale ||
-            tempTextureData.Rotation !== newRotation) {
+            tempTextureData.Rotation !== newRotation ||
+            tempTextureData.Opacity !== newOpacity) {
             
             tempTextureData.TextureURL = newUrl;
             tempTextureData.OffsetX = newOffsetX;
             tempTextureData.OffsetY = newOffsetY;
             tempTextureData.Scale = newScale;
             tempTextureData.Rotation = newRotation;
+            tempTextureData.Opacity = newOpacity;
             
             const textures = item.Property?.Textures || [];
             textures[textureIndex] = { ...tempTextureData };
@@ -462,6 +500,10 @@ function drawTextureEditPanel(item, textureIndex, data) {
     
     DrawText("旋转 °:", 1150, y, "White", "Gray");
     ElementPosition(INPUT_ROTATION, 1300, y - 5, 100, 30);
+    y += lineHeight;
+    
+    DrawText("透明度 %:", 1150, y, "White", "Gray");
+    ElementPosition(INPUT_OPACITY, 1300, y - 5, 100, 30);
     y += lineHeight + 20;
     
     DrawText("修改后自动预览，点击「确认」返回列表", 1300, y, "Yellow", "Black");
@@ -478,13 +520,13 @@ function drawTextureEditPanel(item, textureIndex, data) {
 function handleTextureEditClick(item, textureIndex, data) {
     let y = 400;
     const lineHeight = 45;
-    y += lineHeight * 5 + 20 + 30;  // 5个输入行 + 提示行
+    y += lineHeight * 6 + 20 + 30;  // 6个输入行 + 提示行
     
     if (MouseIn(1150, y, 150, 35)) {
         item.Property.Textures.splice(textureIndex, 1);
         currentEditTexture = -1;
         tempTextureData = null;
-        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION].forEach(id => ElementRemove(id));
+        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
         return;
@@ -496,23 +538,33 @@ function handleTextureEditClick(item, textureIndex, data) {
         const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
         const scaleInput = document.getElementById(INPUT_SCALE);
         const rotationInput = document.getElementById(INPUT_ROTATION);
+        const opacityInput = document.getElementById(INPUT_OPACITY);
         
         const finalTexture = {
             TextureURL: urlInput?.value?.trim() || "",
             OffsetX: parseInt(offsetXInput?.value) || 0,
             OffsetY: parseInt(offsetYInput?.value) || 0,
             Scale: parseInt(scaleInput?.value) || 100,
-            Rotation: parseInt(rotationInput?.value) || 0
+            Rotation: parseInt(rotationInput?.value) || 0,
+            Opacity: Math.max(0, Math.min(100, parseInt(opacityInput?.value) || 100))
         };
         
         if (!item.Property) item.Property = { Textures: [] };
         if (!item.Property.Textures) item.Property.Textures = [];
         
+        // 保留 Visible 字段
+        const existing = item.Property.Textures[textureIndex];
+        if (existing && existing.Visible !== undefined) {
+            finalTexture.Visible = existing.Visible;
+        } else {
+            finalTexture.Visible = true;
+        }
+        
         item.Property.Textures[textureIndex] = finalTexture;
         
         currentEditTexture = -1;
         tempTextureData = null;
-        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION].forEach(id => ElementRemove(id));
+        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         return;
     }
     
@@ -523,7 +575,7 @@ function handleTextureEditClick(item, textureIndex, data) {
         }
         currentEditTexture = -1;
         tempTextureData = null;
-        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION].forEach(id => ElementRemove(id));
+        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
         return;
