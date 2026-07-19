@@ -88,6 +88,11 @@ const layerNames = {
 const extended = {
     Archetype: "noarch",
     DrawImages: false,
+    // 声明自定义属性的字段及默认值类型
+    // BC 的 Crafting 系统会根据 baselineProperty 的键来决定保存哪些属性
+    BaselineProperty: {
+        Textures: []  // 贴图数组，每个元素包含 TextureURL/OffsetX/OffsetY/Scale/Rotation
+    },
     ScriptHooks: {
         Load: (data, originalFunction) => {
             originalFunction();
