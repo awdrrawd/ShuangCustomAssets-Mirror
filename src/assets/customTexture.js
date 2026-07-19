@@ -10,8 +10,8 @@ import { isValidImageUrl, Logger } from "@lib/utils.js";
  */
 const DEFAULT_TEXTURE = {
     TextureURL: "",
-    OffsetX: 0,
-    OffsetY: 0,
+    OffsetX: 1,
+    OffsetY: 1,
     Scale: 100,
     Rotation: 0
 };
