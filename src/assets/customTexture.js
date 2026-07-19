@@ -42,28 +42,34 @@ const LAYER_NAMES = [
     "Layer13", "Layer14", "Layer15", "Layer16"
 ];
 
+// 所有物品部位组（覆盖游戏所有 Item 分类）
+const ALL_ITEM_GROUPS = [
+    "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
+    "ItemDevices", "ItemEars", "ItemFeet", "ItemHands", "ItemHead",
+    "ItemHood", "ItemLegs", "ItemMisc", "ItemMouth", "ItemMouth2",
+    "ItemMouth3", "ItemNeck", "ItemNeckAccessories", "ItemNeckRestraints",
+    "ItemNipples", "ItemNipplesPiercings", "ItemNose", "ItemPelvis",
+    "ItemTorso", "ItemTorso2", "ItemVulva", "ItemVulvaPiercings",
+    "ItemHandheld"
+];
+
 /**
  * 道具定义
+ * 参考 echo 玩偶设计：注册到 ItemMisc + ItemHandheld，所有部位可用
  * @type {CustomAssetDefinition}
  */
 const asset = {
     Name: "自定义贴图",
     Random: false,
-    Gender: "F",
-    Top: 0,
-    Left: 0,
-    Difficulty: 1,
-    Time: 3,
-    RemoveTime: 1,
-    DrawImages: false,
+    Left: 125,
+    Top: 225,
+    ParentGroup: {},
+    Priority: 50,
+    PoseMapping: {},
+    DynamicGroupName: "ItemMisc",
     AllowColorize: false,
     Extended: true,
-    Prerequisite: [],
-    ParentGroup: {},
-    PoseMapping: { BaseUpper: "BaseUpper" },
-    Block: [],
-    // 预定义 16 个图层
-    Layer: LAYER_NAMES.map(name => ({ Name: name }))
+    Layer: LAYER_NAMES.map(name => ({ Name: name, AllowColorize: false }))
 };
 
 const translation = {
@@ -211,6 +217,11 @@ function drawTextureListMain(item) {
         DrawButton(1150, btnY, 195, 40, "添加新贴图", "#4CAF50", "#66BB6A", false);
     }
     DrawButton(1355, btnY, 195, 40, "确认保存", "#2196F3", "#42A5F5", false);
+    
+    // 导入导出按钮
+    const ioBtnY = btnY + 50;
+    DrawButton(1150, ioBtnY, 195, 40, "导出配置", "#FF9800", "#FFB74D", false);
+    DrawButton(1355, ioBtnY, 195, 40, "导入配置", "#9C27B0", "#BA68C8", false);
 }
 
 /**
@@ -258,7 +269,107 @@ function handleTextureListClick(item, data) {
             CharacterRefresh(C, false);
             Logger.info("贴图设置已保存并同步");
         }
+        return;
     }
+    
+    // 导入导出按钮
+    const ioBtnY = btnY + 50;
+    
+    // 导出配置
+    if (MouseIn(1150, ioBtnY, 195, 40)) {
+        exportConfig(item);
+        return;
+    }
+    
+    // 导入配置
+    if (MouseIn(1355, ioBtnY, 195, 40)) {
+        importConfig(item);
+        return;
+    }
+}
+
+/**
+ * 导出配置到剪贴板
+ */
+function exportConfig(item) {
+    const textures = item.Property?.Textures || [];
+    const config = {
+        type: "ShuangCustomAssets",
+        version: 1,
+        textures: textures
+    };
+    const json = JSON.stringify(config, null, 2);
+    
+    // 复制到剪贴板
+    navigator.clipboard.writeText(json).then(() => {
+        Logger.info("配置已复制到剪贴板");
+        // 在游戏中显示通知
+        if (typeof ChatRoomSendLocal !== "undefined") {
+            ChatRoomSendLocal(`[ShuangAssets] 配置已复制到剪贴板，共 ${textures.length} 个图层`);
+        }
+    }).catch(err => {
+        Logger.error("复制失败:", err);
+        // 降级方案：创建下载
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "shuang-custom-assets-config.json";
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+/**
+ * 从剪贴板导入配置
+ */
+function importConfig(item) {
+    navigator.clipboard.readText().then(text => {
+        try {
+            const config = JSON.parse(text);
+            if (config.type !== "ShuangCustomAssets") {
+                throw new Error("无效的配置类型");
+            }
+            if (!Array.isArray(config.textures)) {
+                throw new Error("配置格式错误");
+            }
+            if (config.textures.length > 16) {
+                throw new Error(`图层数量超过限制（最多 16 个，当前 ${config.textures.length} 个）`);
+            }
+            
+            // 验证并清理数据
+            const validTextures = config.textures.map(t => ({
+                TextureURL: String(t.TextureURL || ""),
+                OffsetX: parseInt(t.OffsetX) || 0,
+                OffsetY: parseInt(t.OffsetY) || 0,
+                Scale: parseInt(t.Scale) || 100,
+                Rotation: parseInt(t.Rotation) || 0
+            }));
+            
+            if (!item.Property) item.Property = { Textures: [] };
+            item.Property.Textures = validTextures;
+            
+            Logger.info("配置导入成功:", validTextures.length, "个图层");
+            
+            if (typeof ChatRoomSendLocal !== "undefined") {
+                ChatRoomSendLocal(`[ShuangAssets] 配置导入成功，共 ${validTextures.length} 个图层`);
+            }
+            
+            // 刷新角色
+            const C = CharacterGetCurrent();
+            if (C) CharacterRefresh(C, false);
+        } catch (err) {
+            Logger.error("导入失败:", err.message);
+            if (typeof ChatRoomSendLocal !== "undefined") {
+                ChatRoomSendLocal(`[ShuangAssets] 导入失败: ${err.message}`);
+            }
+        }
+    }).catch(err => {
+        Logger.error("读取剪贴板失败:", err);
+        if (typeof ChatRoomSendLocal !== "undefined") {
+            ChatRoomSendLocal(`[ShuangAssets] 读取剪贴板失败，请确保已复制配置 JSON`);
+        }
+    });
 }
 
 /**
@@ -420,7 +531,8 @@ const assetStrings = {
 };
 
 export default function register(AssetManager) {
-    AssetManager.addAssetWithConfig("ItemHands", asset, {
+    // 注册到所有物品部位组，让玩家可以在任何部位使用
+    AssetManager.addAssetWithConfig(ALL_ITEM_GROUPS, asset, {
         layerNames,
         extended,
         translation,
