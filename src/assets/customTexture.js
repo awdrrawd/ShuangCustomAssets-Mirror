@@ -1,21 +1,14 @@
 /**
- * 自定义贴图道具示例
- * 演示如何创建一个支持动态贴图 URL 的道具
+ * 自定义贴图道具 - 多图层版本
+ * 支持多个独立图层，每个图层可单独调整位置、缩放、旋转
  */
 
 import { isValidImageUrl, Logger } from "@lib/utils.js";
 
-// 输入框 ID
-const INPUT_URL = "CustomTextureURLInput";
-const INPUT_X = "CustomTextureXInput";
-const INPUT_Y = "CustomTextureYInput";
-const INPUT_SCALE = "CustomTextureScaleInput";
-const INPUT_ROTATION = "CustomTextureRotationInput";
-
 /**
- * 默认参数
+ * 单个图层的默认属性
  */
-const DEFAULT_PROPS = {
+const DEFAULT_LAYER = {
     TextureURL: "",
     OffsetX: 0,
     OffsetY: 0,
@@ -24,7 +17,25 @@ const DEFAULT_PROPS = {
 };
 
 /**
- * 道具定义 - 使用对象格式（与 echo-clothing-ext 一致）
+ * 道具的默认属性
+ */
+const DEFAULT_PROPS = {
+    Layers: []  // 图层数组
+};
+
+// UI 状态
+let currentEditLayer = -1;  // 当前编辑的图层索引，-1 表示主界面
+let tempLayerData = null;    // 临时存储编辑中的数据
+
+// 输入框 ID
+const INPUT_URL = "CustomTextureURLInput";
+const INPUT_OFFSET_X = "CustomTextureOffsetXInput";
+const INPUT_OFFSET_Y = "CustomTextureOffsetYInput";
+const INPUT_SCALE = "CustomTextureScaleInput";
+const INPUT_ROTATION = "CustomTextureRotationInput";
+
+/**
+ * 道具定义
  * @type {CustomAssetDefinition}
  */
 const asset = {
@@ -39,8 +50,8 @@ const asset = {
     DrawImages: false,
     AllowColorize: false,
     Extended: true,
-    Prerequisite: [],  // 空数组 = 无需特殊条件
-    ParentGroup: {},   // 有父组
+    Prerequisite: [],
+    ParentGroup: {},
     PoseMapping: { BaseUpper: "BaseUpper" },
     Block: [],
     Layer: [
@@ -48,66 +59,37 @@ const asset = {
     ]
 };
 
-/**
- * 翻译
- */
 const translation = {
     CN: "自定义贴图",
     EN: "Custom Texture"
 };
 
-/**
- * 图层名称
- */
 const layerNames = {
     CN: { Main: "主体" },
     EN: { Main: "Main" }
 };
 
 /**
- * 创建滑块输入
+ * 绘制游戏风格的按钮
  */
-function createSliderInput(id, value, min, max, step, label, y) {
-    const container = document.createElement("div");
-    container.style.cssText = "display: flex; align-items: center; margin: 5px 0;";
+function drawButton(Text, X, Y, W, H, Color, HoverColor, Disabled = false) {
+    const Hover = MouseIn(X, Y, W, H);
+    const BgColor = Disabled ? "#666" : (Hover ? HoverColor : Color);
     
-    const labelEl = document.createElement("label");
-    labelEl.textContent = label;
-    labelEl.style.cssText = "width: 80px; color: white;";
+    DrawRect(X, Y, W, H, BgColor);
+    DrawTextFit(Text, X + W / 2, Y + H / 2, W - 10, "White", "Black");
     
-    const input = document.createElement("input");
-    input.type = "range";
-    input.id = id;
-    input.min = min;
-    input.max = max;
-    input.step = step;
-    input.value = value;
-    input.style.cssText = "width: 300px;";
-    
-    const valueDisplay = document.createElement("span");
-    valueDisplay.textContent = value;
-    valueDisplay.style.cssText = "width: 50px; color: white; text-align: right;";
-    
-    input.addEventListener("input", () => {
-        valueDisplay.textContent = input.value;
-    });
-    
-    container.appendChild(labelEl);
-    container.appendChild(input);
-    container.appendChild(valueDisplay);
-    
-    return { container, input, valueDisplay };
+    return Hover && !Disabled;
 }
 
 /**
  * 扩展配置
- * @type {ExtendedItemConfig}
  */
 const extended = {
     Archetype: "noarch",
     DrawImages: false,
     ScriptHooks: {
-        // ===== 加载时创建输入界面 =====
+        // ===== 加载 =====
         Load: (data, originalFunction) => {
             originalFunction();
             const item = DialogFocusItem;
@@ -115,77 +97,18 @@ const extended = {
 
             // 确保 Property 存在
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+            if (!item.Property.Layers) item.Property.Layers = [];
             
-            // 获取当前值
-            const props = {
-                TextureURL: item.Property.TextureURL || "",
-                OffsetX: item.Property.OffsetX || 0,
-                OffsetY: item.Property.OffsetY || 0,
-                Scale: item.Property.Scale || 100,
-                Rotation: item.Property.Rotation || 0
-            };
-
-            // 创建 URL 输入框
-            const urlInput = ElementCreateInput(INPUT_URL, "text", props.TextureURL, "500");
-            if (urlInput) {
-                urlInput.setAttribute("placeholder", "输入图片 URL (https://...)");
-                urlInput.style.width = "400px";
-                urlInput.style.marginBottom = "10px";
-            }
-
-            // 创建滑块容器
-            const sliderContainer = document.createElement("div");
-            sliderContainer.id = "CustomTextureSliders";
-            sliderContainer.style.cssText = "position: absolute; left: 1200px; top: 520px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px;";
+            // 重置 UI 状态
+            currentEditLayer = -1;
+            tempLayerData = null;
             
-            // X 偏移
-            const xSlider = createSliderInput(INPUT_X, props.OffsetX, -500, 500, 1, "X 偏移:");
-            // Y 偏移
-            const ySlider = createSliderInput(INPUT_Y, props.OffsetY, -500, 500, 1, "Y 偏移:");
-            // 缩放
-            const scaleSlider = createSliderInput(INPUT_SCALE, props.Scale, 10, 200, 1, "缩放 %:");
-            // 旋转
-            const rotSlider = createSliderInput(INPUT_ROTATION, props.Rotation, -180, 180, 1, "旋转 °:");
-            
-            sliderContainer.appendChild(xSlider.container);
-            sliderContainer.appendChild(ySlider.container);
-            sliderContainer.appendChild(scaleSlider.container);
-            sliderContainer.appendChild(rotSlider.container);
-            
-            // 添加确认按钮
-            const confirmBtn = document.createElement("button");
-            confirmBtn.textContent = "确认保存";
-            confirmBtn.style.cssText = "margin-top: 15px; padding: 8px 20px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 4px; font-size: 14px;";
-            confirmBtn.addEventListener("click", () => {
-                const C = CharacterGetCurrent();
-                if (C && item) {
-                    // 触发同步
-                    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
-                    // 强制刷新角色画布
-                    CharacterRefresh(C, false);
-                    Logger.info("贴图设置已保存并同步");
-                }
-            });
-            sliderContainer.appendChild(confirmBtn);
-            
-            document.body.appendChild(sliderContainer);
-
-            // 本地更新 Property（不触发同步）
-            const updatePropertyLocal = () => {
-                const url = document.getElementById(INPUT_URL)?.value?.trim() || "";
-                item.Property.TextureURL = isValidImageUrl(url) ? url : "";
-                item.Property.OffsetX = parseInt(document.getElementById(INPUT_X)?.value) || 0;
-                item.Property.OffsetY = parseInt(document.getElementById(INPUT_Y)?.value) || 0;
-                item.Property.Scale = parseInt(document.getElementById(INPUT_SCALE)?.value) || 100;
-                item.Property.Rotation = parseInt(document.getElementById(INPUT_ROTATION)?.value) || 0;
-            };
-
-            // 添加监听器（仅本地更新）
-            urlInput?.addEventListener("input", updatePropertyLocal);
-            xSlider.input.addEventListener("input", updatePropertyLocal);
-            ySlider.input.addEventListener("input", updatePropertyLocal);
-            scaleSlider.input.addEventListener("input", updatePropertyLocal);
-            rotSlider.input.addEventListener("input", updatePropertyLocal);
+            // 清理可能存在的输入框
+            ElementRemove(INPUT_URL);
+            ElementRemove(INPUT_OFFSET_X);
+            ElementRemove(INPUT_OFFSET_Y);
+            ElementRemove(INPUT_SCALE);
+            ElementRemove(INPUT_ROTATION);
         },
 
         // ===== 绘制界面 =====
@@ -194,128 +117,379 @@ const extended = {
             const item = DialogFocusItem;
             if (!item) return;
 
-            // 绘制标签
-            DrawText("贴图 URL:", 1200, 450, "White", "Gray");
-            DrawText("（调整后点击确认保存）", 1200, 480, "Yellow", "Gray");
-            
-            // 显示输入框
-            ElementPosition(INPUT_URL, 1500, 450, 400, 40);
-
-            // 显示预览
-            const url = item.Property?.TextureURL;
-            if (url && isValidImageUrl(url)) {
-                DrawText("预览:", 1200, 700, "White", "Gray");
-                
-                try {
-                    const img = DrawGetImage(url);
-                    if (img.complete && img.naturalWidth > 0) {
-                        DrawImageEx(url, MainCanvas, 1200, 720, {
-                            Width: 200,
-                            Height: 150
-                        });
-                    }
-                } catch (e) {
-                    // 忽略
-                }
+            if (currentEditLayer === -1) {
+                // === 主界面：图层列表 ===
+                drawLayerListMain(item);
+            } else {
+                // === 图层编辑界面 ===
+                drawLayerEditPanel(item, currentEditLayer, data);
             }
         },
 
-        // ===== 退出时清理 =====
+        // ===== 点击处理 =====
+        Click: (data, originalFunction) => {
+            originalFunction();
+            const item = DialogFocusItem;
+            if (!item) return;
+
+            if (currentEditLayer === -1) {
+                // 主界面点击
+                handleLayerListClick(item, data);
+            } else {
+                // 编辑界面点击
+                handleLayerEditClick(item, currentEditLayer, data);
+            }
+        },
+
+        // ===== 退出清理 =====
         Exit: (data) => {
+            currentEditLayer = -1;
+            tempLayerData = null;
+            // 清理输入框
             ElementRemove(INPUT_URL);
-            const sliderContainer = document.getElementById("CustomTextureSliders");
-            if (sliderContainer) sliderContainer.remove();
+            ElementRemove(INPUT_OFFSET_X);
+            ElementRemove(INPUT_OFFSET_Y);
+            ElementRemove(INPUT_SCALE);
+            ElementRemove(INPUT_ROTATION);
         },
 
         // ===== 绘制到角色身上 =====
         AfterDraw: (data, originalFunction, drawData) => {
             const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
             
-            // 只处理 Main 图层
             if (L !== "Main") return;
             
-            // CA 是当前物品，从中获取 Property
             const item = CA;
-            const url = item?.Property?.TextureURL;
-            
-            // 调试：检测 URL 变化
-            const lastUrl = data.PersistentData?._lastUrl;
-            if (url !== lastUrl && C?.IsPlayer()) {
-                Logger.info(`URL 变化: ${lastUrl} -> ${url}`);
-                data.PersistentData = data.PersistentData || {};
-                data.PersistentData._lastUrl = url;
-            }
-            
-            if (!url || !isValidImageUrl(url)) return;
+            const layers = item?.Property?.Layers;
+            if (!layers || layers.length === 0) return;
 
-            const props = item.Property;
-            const offsetX = props.OffsetX || 0;
-            const offsetY = props.OffsetY || 0;
-            const scale = (props.Scale || 100) / 100;
-            const rotation = props.Rotation || 0;
+            // 遍历所有图层并绘制
+            for (const layer of layers) {
+                const url = layer?.TextureURL;
+                if (!url || !isValidImageUrl(url)) continue;
 
-            // 获取图片（已缓存在 DrawGetImage 中）
-            const img = DrawGetImage(url);
-            if (!img.complete) {
-                // 图片正在加载，等待
-                return;
-            }
-            if (img.naturalWidth <= 0) {
-                Logger.warn(`图片加载失败: ${url}`);
-                return;
-            }
+                const offsetX = layer.OffsetX || 0;
+                const offsetY = layer.OffsetY || 0;
+                const scale = (layer.Scale || 100) / 100;
+                const rotation = layer.Rotation || 0;
 
-            const width = Math.round(img.naturalWidth * scale);
-            const height = Math.round(img.naturalHeight * scale);
-            
-            // 使用缓存键
-            const cacheKey = `${url}_${width}_${height}_${rotation}`;
-            let tempCanvas = data.PersistentData?.[cacheKey];
-            
-            if (!tempCanvas) {
-                Logger.info(`创建新缓存: ${cacheKey}`);
-                tempCanvas = AnimationGenerateTempCanvas(C, A, width, height);
-                const ctx = tempCanvas.getContext("2d");
-                ctx.clearRect(0, 0, width, height);
+                const img = DrawGetImage(url);
+                if (!img.complete || img.naturalWidth <= 0) continue;
+
+                const width = Math.round(img.naturalWidth * scale);
+                const height = Math.round(img.naturalHeight * scale);
                 
-                // 应用变换
-                ctx.save();
-                ctx.translate(width / 2, height / 2);
-                ctx.rotate(rotation * Math.PI / 180);
-                ctx.translate(-width / 2, -height / 2);
-                ctx.drawImage(img, 0, 0, width, height);
-                ctx.restore();
+                const cacheKey = `${url}_${width}_${height}_${rotation}`;
+                let tempCanvas = data.PersistentData?.[cacheKey];
                 
-                // 缓存
-                if (!data.PersistentData) data.PersistentData = {};
-                data.PersistentData[cacheKey] = tempCanvas;
+                if (!tempCanvas) {
+                    tempCanvas = AnimationGenerateTempCanvas(C, A, width, height);
+                    const ctx = tempCanvas.getContext("2d");
+                    ctx.clearRect(0, 0, width, height);
+                    ctx.save();
+                    ctx.translate(width / 2, height / 2);
+                    ctx.rotate(rotation * Math.PI / 180);
+                    ctx.translate(-width / 2, -height / 2);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    ctx.restore();
+                    
+                    if (!data.PersistentData) data.PersistentData = {};
+                    data.PersistentData[cacheKey] = tempCanvas;
+                }
+                
+                const drawX = X + offsetX;
+                const drawY = Y + offsetY;
+                drawCanvas(tempCanvas, drawX, drawY);
+                drawCanvasBlink(tempCanvas, drawX, drawY);
             }
-            
-            // 绘制到角色身上
-            const drawX = X + offsetX;
-            const drawY = Y + offsetY;
-            drawCanvas(tempCanvas, drawX, drawY);
-            drawCanvasBlink(tempCanvas, drawX, drawY);
         }
     }
 };
 
 /**
- * 对话文本
+ * 绘制主界面：图层列表
  */
-const assetStrings = {
-    CN: {
-        SelectBase: "设置自定义贴图"
-    },
-    EN: {
-        SelectBase: "Set Custom Texture"
+function drawLayerListMain(item) {
+    const layers = item.Property?.Layers || [];
+    
+    // 标题
+    DrawText("图层管理", 1200, 350, "White", "Gray");
+    DrawText(`共 ${layers.length} 个图层`, 1200, 380, "Yellow", "Gray");
+    
+    // 绘制图层列表
+    const startY = 420;
+    const itemHeight = 50;
+    
+    for (let i = 0; i < layers.length; i++) {
+        const y = startY + i * itemHeight;
+        const layer = layers[i];
+        
+        // 图层背景
+        DrawRect(1150, y, 400, itemHeight - 5, "rgba(0,0,0,0.5)");
+        
+        // 图层名称/URL 预览（限制长度）
+        const urlPreview = layer?.TextureURL 
+            ? (layer.TextureURL.length > 20 ? layer.TextureURL.substring(0, 20) + "..." : layer.TextureURL)
+            : "(空)";
+        DrawText(`图层 ${i + 1}: ${urlPreview}`, 1160, y + 25, "White", "Black");
+        
+        // 编辑按钮
+        DrawButton(1480, y + 5, 60, 35, "编辑", "White", null, false);
     }
-};
+    
+    // 底部按钮
+    const btnY = startY + Math.max(layers.length, 1) * itemHeight + 20;
+    DrawButton(1150, btnY, 195, 40, "添加新图层", "#4CAF50", "#66BB6A", false);
+    DrawButton(1355, btnY, 195, 40, "确认保存", "#2196F3", "#42A5F5", false);
+    
+    // 说明
+    DrawText("点击图层右侧的「编辑」按钮调整参数", 1200, btnY + 60, "Gray", "Black");
+}
 
 /**
- * 注册函数 - 使用正确的参数格式
- * @param {import("@sugarch/bc-asset-manager").AssetManager} AssetManager
+ * 处理主界面点击
  */
+function handleLayerListClick(item, data) {
+    const layers = item.Property?.Layers || [];
+    const startY = 420;
+    const itemHeight = 50;
+    
+    // 检查图层编辑按钮
+    for (let i = 0; i < layers.length; i++) {
+        const y = startY + i * itemHeight;
+        if (MouseIn(1480, y + 5, 60, 35)) {
+            currentEditLayer = i;
+            tempLayerData = { ...layers[i] };
+            // 保存原始数据以便取消时恢复
+            if (!data.PersistentData) data.PersistentData = {};
+            data.PersistentData._originalLayer = { ...layers[i] };
+            // 创建输入框
+            createEditInputs(layers[i]);
+            return;
+        }
+    }
+    
+    // 检查添加按钮
+    const btnY = startY + Math.max(layers.length, 1) * itemHeight + 20;
+    if (MouseIn(1150, btnY, 195, 40)) {
+        const newLayer = { ...DEFAULT_LAYER };
+        item.Property.Layers.push(newLayer);
+        currentEditLayer = layers.length - 1;
+        tempLayerData = { ...newLayer };
+        // 保存原始数据
+        if (!data.PersistentData) data.PersistentData = {};
+        data.PersistentData._originalLayer = { ...newLayer };
+        // 创建输入框
+        createEditInputs(newLayer);
+        return;
+    }
+    
+    // 检查确认保存按钮
+    if (MouseIn(1355, btnY, 195, 40)) {
+        const C = CharacterGetCurrent();
+        if (C && item) {
+            ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+            CharacterRefresh(C, false);
+            Logger.info("贴图设置已保存并同步");
+        }
+    }
+}
+
+/**
+ * 创建编辑输入框
+ */
+function createEditInputs(layer) {
+    // URL 输入框
+    let input = ElementCreateInput(INPUT_URL, "text", layer.TextureURL || "", "1000");
+    if (input) {
+        input.setAttribute("placeholder", "https://...");
+        input.style.width = "350px";
+    }
+    
+    // X 偏移
+    input = ElementCreateInput(INPUT_OFFSET_X, "number", String(layer.OffsetX || 0), "10");
+    if (input) input.style.width = "80px";
+    
+    // Y 偏移
+    input = ElementCreateInput(INPUT_OFFSET_Y, "number", String(layer.OffsetY || 0), "10");
+    if (input) input.style.width = "80px";
+    
+    // 缩放
+    input = ElementCreateInput(INPUT_SCALE, "number", String(layer.Scale || 100), "10");
+    if (input) input.style.width = "80px";
+    
+    // 旋转
+    input = ElementCreateInput(INPUT_ROTATION, "number", String(layer.Rotation || 0), "10");
+    if (input) input.style.width = "80px";
+}
+
+/**
+ * 绘制图层编辑面板
+ */
+function drawLayerEditPanel(item, layerIndex, data) {
+    // 从输入框获取最新值
+    const urlInput = document.getElementById(INPUT_URL);
+    const offsetXInput = document.getElementById(INPUT_OFFSET_X);
+    const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
+    const scaleInput = document.getElementById(INPUT_SCALE);
+    const rotationInput = document.getElementById(INPUT_ROTATION);
+    
+    // 更新临时数据
+    if (tempLayerData) {
+        const newUrl = urlInput?.value?.trim() || "";
+        const newOffsetX = parseInt(offsetXInput?.value) || 0;
+        const newOffsetY = parseInt(offsetYInput?.value) || 0;
+        const newScale = parseInt(scaleInput?.value) || 100;
+        const newRotation = parseInt(rotationInput?.value) || 0;
+        
+        // 检查是否有变化
+        if (tempLayerData.TextureURL !== newUrl ||
+            tempLayerData.OffsetX !== newOffsetX ||
+            tempLayerData.OffsetY !== newOffsetY ||
+            tempLayerData.Scale !== newScale ||
+            tempLayerData.Rotation !== newRotation) {
+            
+            tempLayerData.TextureURL = newUrl;
+            tempLayerData.OffsetX = newOffsetX;
+            tempLayerData.OffsetY = newOffsetY;
+            tempLayerData.Scale = newScale;
+            tempLayerData.Rotation = newRotation;
+            
+            // 实时应用到图层并刷新角色
+            const layers = item.Property?.Layers || [];
+            layers[layerIndex] = { ...tempLayerData };
+            
+            const C = CharacterGetCurrent();
+            if (C) {
+                CharacterRefresh(C, false);
+            }
+            
+            // 预加载图片
+            if (isValidImageUrl(newUrl)) {
+                DrawGetImage(newUrl);
+            }
+        }
+    }
+    
+    // 标题
+    DrawText(`编辑图层 ${layerIndex + 1}`, 1200, 350, "White", "Gray");
+    
+    let y = 400;
+    const lineHeight = 45;
+    
+    // URL 输入
+    DrawText("贴图 URL:", 1150, y, "White", "Gray");
+    ElementPosition(INPUT_URL, 1300, y - 5, 350, 35);
+    y += lineHeight;
+    
+    // X 偏移
+    DrawText("X 偏移:", 1150, y, "White", "Gray");
+    ElementPosition(INPUT_OFFSET_X, 1300, y - 5, 100, 30);
+    y += lineHeight;
+    
+    // Y 偏移
+    DrawText("Y 偏移:", 1150, y, "White", "Gray");
+    ElementPosition(INPUT_OFFSET_Y, 1300, y - 5, 100, 30);
+    y += lineHeight;
+    
+    // 缩放
+    DrawText("缩放 %:", 1150, y, "White", "Gray");
+    ElementPosition(INPUT_SCALE, 1300, y - 5, 100, 30);
+    y += lineHeight;
+    
+    // 旋转
+    DrawText("旋转 °:", 1150, y, "White", "Gray");
+    ElementPosition(INPUT_ROTATION, 1300, y - 5, 100, 30);
+    y += lineHeight + 20;
+    
+    // 提示
+    DrawText("修改后自动预览，点击「确认」返回列表", 1300, y, "Yellow", "Black");
+    y += 30;
+    
+    // 删除图层按钮
+    DrawButton(1150, y, 150, 35, "删除此图层", "#F44336", "#E57373", false);
+    // 确认按钮
+    DrawButton(1310, y, 120, 35, "确认", "#4CAF50", "#66BB6A", false);
+    // 取消按钮
+    DrawButton(1440, y, 120, 35, "取消", "#9E9E9E", "#BDBDBD", false);
+}
+
+/**
+ * 处理编辑界面点击
+ */
+function handleLayerEditClick(item, layerIndex, data) {
+    // 计算 y 位置
+    let y = 400;
+    const lineHeight = 45;
+    y += lineHeight * 5 + 20 + 30;  // 5个输入行 + 额外间距 + 提示行
+    
+    // 删除图层
+    if (MouseIn(1150, y, 150, 35)) {
+        const layers = item.Property?.Layers || [];
+        layers.splice(layerIndex, 1);
+        currentEditLayer = -1;
+        tempLayerData = null;
+        // 清理输入框
+        ElementRemove(INPUT_URL);
+        ElementRemove(INPUT_OFFSET_X);
+        ElementRemove(INPUT_OFFSET_Y);
+        ElementRemove(INPUT_SCALE);
+        ElementRemove(INPUT_ROTATION);
+        // 刷新角色
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false);
+        return;
+    }
+    
+    // 确认按钮
+    if (MouseIn(1310, y, 120, 35)) {
+        // 将临时数据应用到图层
+        if (tempLayerData) {
+            const layers = item.Property?.Layers || [];
+            layers[layerIndex] = { ...tempLayerData };
+        }
+        currentEditLayer = -1;
+        tempLayerData = null;
+        // 清理输入框
+        ElementRemove(INPUT_URL);
+        ElementRemove(INPUT_OFFSET_X);
+        ElementRemove(INPUT_OFFSET_Y);
+        ElementRemove(INPUT_SCALE);
+        ElementRemove(INPUT_ROTATION);
+        return;
+    }
+    
+    // 取消按钮
+    if (MouseIn(1440, y, 120, 35)) {
+        // 恢复原数据
+        const layers = item.Property?.Layers || [];
+        if (tempLayerData) {
+            // 恢复到编辑前的状态
+            const originalLayer = data.PersistentData?._originalLayer;
+            if (originalLayer) {
+                layers[layerIndex] = { ...originalLayer };
+            }
+        }
+        currentEditLayer = -1;
+        tempLayerData = null;
+        // 清理输入框
+        ElementRemove(INPUT_URL);
+        ElementRemove(INPUT_OFFSET_X);
+        ElementRemove(INPUT_OFFSET_Y);
+        ElementRemove(INPUT_SCALE);
+        ElementRemove(INPUT_ROTATION);
+        // 刷新角色
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false);
+        return;
+    }
+}
+
+const assetStrings = {
+    CN: { SelectBase: "图层管理" },
+    EN: { SelectBase: "Layer Manager" }
+};
+
 export default function register(AssetManager) {
     AssetManager.addAssetWithConfig("ItemHands", asset, {
         layerNames,
