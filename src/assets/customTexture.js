@@ -22,12 +22,59 @@ const DEFAULT_TEXTURE = {
  * 道具的默认属性
  */
 const DEFAULT_PROPS = {
-    Textures: []  // 贴图数组
+    Textures: [],          // 贴图数组
+    HideBody: false,       // 隐藏玩家身体（非道具）模型
+    HideOtherItems: false  // 隐藏其他道具模型
 };
 
 // UI 状态
 let currentEditTexture = -1;
 let tempTextureData = null;
+
+/**
+ * 身体/外观组（非 Item 开头的组）
+ * 用于 HideBody 开关：打开后这些组全部不渲染
+ */
+const BODY_GROUPS = [
+    "BodyUpper", "BodyLower", "Head", "Mouth", "Eyes", "Eyes2", "Eyebrows",
+    "Blush", "HairFront", "HairBack", "HairAccessory1", "Hat", "Glasses",
+    "Mask", "Necklace", "Bra", "Panties", "Pussy", "Nipples", "Suit",
+    "SuitLower", "Cloth", "ClothLower", "ClothOuter", "ClothAccessory",
+    "Corset", "Garters", "Socks", "SocksLeft", "SocksRight", "Shoes",
+    "Gloves", "Bracelet", "AnkletLeft", "AnkletRight", "HandsLeft",
+    "HandsRight", "HandAccessoryLeft", "HandAccessoryRight", "TailStraps",
+    "Wings", "Jewelry", "BodyMarkings", "FaceMarkings", "FacialHair",
+    "EyeShadow", "Fluids", "Decals", "Activity", "Emoticon"
+];
+
+/**
+ * 根据 HideBody / HideOtherItems 开关，重新计算 Property.Hide 数组
+ * Property.Hide 是 BC 原生支持的隐藏机制：数组中列出的组名对应的图层都不渲染
+ * 注意：必须排除当前道具自己所在的组，否则会把自己也隐藏掉
+ * @param {Item} item - 当前道具
+ */
+function updateHideArray(item) {
+    if (!item || !item.Property) return;
+    const hideBody = item.Property.HideBody === true;
+    const hideOtherItems = item.Property.HideOtherItems === true;
+
+    /** @type {string[]} */
+    const hide = [];
+    if (hideBody) hide.push(...BODY_GROUPS);
+    if (hideOtherItems) {
+        const currentGroup = item.Asset?.Group?.Name;
+        ALL_ITEM_GROUPS.forEach(g => {
+            if (g !== currentGroup) hide.push(g);
+        });
+    }
+
+    if (hide.length > 0) {
+        item.Property.Hide = hide;
+    } else {
+        // 清理空数组，避免持久化时产生冗余数据
+        delete item.Property.Hide;
+    }
+}
 
 // 输入框 ID
 const INPUT_URL = "CustomTextureURLInput";
@@ -97,7 +144,10 @@ const extended = {
     // 声明自定义属性的字段及默认值类型
     // BC 的 Crafting 系统会根据 baselineProperty 的键来决定保存哪些属性
     BaselineProperty: {
-        Textures: []  // 贴图数组，每个元素包含 TextureURL/OffsetX/OffsetY/Scale/Rotation
+        Textures: [],          // 贴图数组，每个元素包含 TextureURL/OffsetX/OffsetY/Scale/Rotation
+        HideBody: false,       // 隐藏玩家身体模型开关
+        HideOtherItems: false, // 隐藏其他道具模型开关
+        Hide: []               // 隐藏组数组（由 HideBody/HideOtherItems 派生，需同步保存）
     },
     ScriptHooks: {
         Load: (data, originalFunction) => {
@@ -107,10 +157,15 @@ const extended = {
 
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             if (!item.Property.Textures) item.Property.Textures = [];
-            
+            // 兼容旧数据：补齐新开关字段
+            if (item.Property.HideBody === undefined) item.Property.HideBody = false;
+            if (item.Property.HideOtherItems === undefined) item.Property.HideOtherItems = false;
+            // 根据开关刷新 Hide 数组，确保生效
+            updateHideArray(item);
+
             currentEditTexture = -1;
             tempTextureData = null;
-            
+
             // 清理输入框
             [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         },
@@ -208,7 +263,32 @@ function drawTextureListMain(item) {
     DrawText("贴图管理", 1200, 350, "White", "Gray");
     DrawText(`已添加 ${textures.length} 个贴图（最多 16 个）`, 1200, 380, "Yellow", "Gray");
     
-    const startY = 420;
+    // 模型隐藏开关区（位于副标题下方，列表上方）
+    const hideBody = item.Property?.HideBody === true;
+    const hideOtherItems = item.Property?.HideOtherItems === true;
+    const HIDE_BTN_Y = 405;
+    DrawText("隐藏身体模型:", 1150, HIDE_BTN_Y + 22, "White", "Gray");
+    DrawButton(1500, HIDE_BTN_Y, 70, 35, hideBody ? "开" : "关",
+        hideBody ? "#F44336" : "#666666",
+        hideBody ? "#E57373" : "#999999", false);
+    if (hideBody) {
+        DrawText("(已屏蔽所有身体/服装组)", 1580, HIDE_BTN_Y + 22, "#FFB74D", "Black");
+    }
+    
+    const HIDE_OTHER_Y = 445;
+    DrawText("隐藏其他道具:", 1150, HIDE_OTHER_Y + 22, "White", "Gray");
+    DrawButton(1500, HIDE_OTHER_Y, 70, 35, hideOtherItems ? "开" : "关",
+        hideOtherItems ? "#F44336" : "#666666",
+        hideOtherItems ? "#E57373" : "#999999", false);
+    if (hideOtherItems) {
+        DrawText("(仅保留本道具所在组)", 1580, HIDE_OTHER_Y + 22, "#FFB74D", "Black");
+    }
+    
+    if (hideBody && hideOtherItems) {
+        DrawText("⚠ 双开模式：仅渲染当前自定义贴图图层", 1200, 495, "#FF5252", "Black");
+    }
+    
+    const startY = 530;
     const itemHeight = 50;
     
     for (let i = 0; i < textures.length; i++) {
@@ -251,7 +331,30 @@ function drawTextureListMain(item) {
  */
 function handleTextureListClick(item, data) {
     const textures = item.Property?.Textures || [];
-    const startY = 420;
+
+    // 隐藏身体模型开关
+    if (MouseIn(1500, 405, 70, 35)) {
+        if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+        item.Property.HideBody = !(item.Property.HideBody === true);
+        updateHideArray(item);
+        Logger.info(`HideBody 切换为: ${item.Property.HideBody}, Hide 数组长度: ${item.Property.Hide?.length || 0}`);
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false);
+        return;
+    }
+
+    // 隐藏其他道具开关
+    if (MouseIn(1500, 445, 70, 35)) {
+        if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+        item.Property.HideOtherItems = !(item.Property.HideOtherItems === true);
+        updateHideArray(item);
+        Logger.info(`HideOtherItems 切换为: ${item.Property.HideOtherItems}, Hide 数组长度: ${item.Property.Hide?.length || 0}`);
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false);
+        return;
+    }
+
+    const startY = 530;
     const itemHeight = 50;
     
     for (let i = 0; i < textures.length; i++) {
@@ -292,8 +395,11 @@ function handleTextureListClick(item, data) {
         if (C && item) {
             if (!item.Property) item.Property = { Textures: [] };
             if (!item.Property.Textures) item.Property.Textures = [];
+            // 保存前确保 Hide 数组与开关一致
+            updateHideArray(item);
             
             Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
+            Logger.info(`隐藏开关 - HideBody: ${item.Property.HideBody}, HideOtherItems: ${item.Property.HideOtherItems}`);
             
             ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
             CharacterRefresh(C, false);
@@ -325,8 +431,10 @@ function exportConfig(item) {
     const textures = item.Property?.Textures || [];
     const config = {
         type: "ShuangCustomAssets",
-        version: 1,
-        textures: textures
+        version: 2,
+        textures: textures,
+        hideBody: item.Property?.HideBody === true,
+        hideOtherItems: item.Property?.HideOtherItems === true
     };
     const json = JSON.stringify(config, null, 2);
     
@@ -378,10 +486,14 @@ function importConfig(item) {
                 Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100))
             }));
             
-            if (!item.Property) item.Property = { Textures: [] };
+            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             item.Property.Textures = validTextures;
+            // 同步导入隐藏开关（兼容 v1 旧配置：无该字段时默认 false）
+            item.Property.HideBody = config.hideBody === true;
+            item.Property.HideOtherItems = config.hideOtherItems === true;
+            updateHideArray(item);
             
-            Logger.info("配置导入成功:", validTextures.length, "个图层");
+            Logger.info("配置导入成功:", validTextures.length, "个图层", `HideBody=${item.Property.HideBody}, HideOtherItems=${item.Property.HideOtherItems}`);
             
             if (typeof ChatRoomSendLocal !== "undefined") {
                 ChatRoomSendLocal(`[ShuangAssets] 配置导入成功，共 ${validTextures.length} 个图层`);
