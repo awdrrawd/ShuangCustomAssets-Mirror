@@ -27,7 +27,7 @@ const isSupportedDomain = supportedDomains.some(domain =>
 );
 
 // 生产环境 CDN 地址（需要部署后修改）
-const CDN_URL = 'https://your-cdn.pages.dev/shuang-assets.js';
+const CDN_URL = 'https://shuang-custom-assets.pages.dev/shuang-assets.js';
 
 async function loadAssets() {
     const timestamp = Date.now();
