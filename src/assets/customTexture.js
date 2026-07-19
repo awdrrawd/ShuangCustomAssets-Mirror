@@ -161,6 +161,8 @@ const extended = {
                 if (C && item) {
                     // 触发同步
                     ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+                    // 强制刷新角色画布
+                    CharacterRefresh(C, false);
                     Logger.info("贴图设置已保存并同步");
                 }
             });
@@ -229,26 +231,22 @@ const extended = {
         AfterDraw: (data, originalFunction, drawData) => {
             const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
             
-            // CA 是当前物品，从中获取 Property
-            const item = CA;
-            if (!item) {
-                Logger.info("CA 不存在");
-                return;
-            }
-            
-            // 调试：打印绘制参数
-            if (C?.IsPlayer()) {
-                Logger.info(`AfterDraw: L=${L}, X=${X}, Y=${Y}, Item=${item?.Asset?.Name}, Property=${JSON.stringify(item?.Property)}`);
-            }
-            
             // 只处理 Main 图层
             if (L !== "Main") return;
             
+            // CA 是当前物品，从中获取 Property
+            const item = CA;
             const url = item?.Property?.TextureURL;
-            if (!url || !isValidImageUrl(url)) {
-                Logger.info(`无 URL: Property=${JSON.stringify(item?.Property)}`);
-                return;
+            
+            // 调试：检测 URL 变化
+            const lastUrl = data.PersistentData?._lastUrl;
+            if (url !== lastUrl && C?.IsPlayer()) {
+                Logger.info(`URL 变化: ${lastUrl} -> ${url}`);
+                data.PersistentData = data.PersistentData || {};
+                data.PersistentData._lastUrl = url;
             }
+            
+            if (!url || !isValidImageUrl(url)) return;
 
             const props = item.Property;
             const offsetX = props.OffsetX || 0;
@@ -256,28 +254,27 @@ const extended = {
             const scale = (props.Scale || 100) / 100;
             const rotation = props.Rotation || 0;
 
-            Logger.info(`绘制贴图: URL=${url.substring(0, 30)}...`);
+            // 获取图片（已缓存在 DrawGetImage 中）
+            const img = DrawGetImage(url);
+            if (!img.complete) {
+                // 图片正在加载，等待
+                return;
+            }
+            if (img.naturalWidth <= 0) {
+                Logger.warn(`图片加载失败: ${url}`);
+                return;
+            }
 
-            try {
-                const img = DrawGetImage(url);
-                if (!img.complete || img.naturalWidth <= 0) {
-                    Logger.info("图片未加载完成");
-                    return;
-                }
-
-                Logger.info(`图片尺寸: ${img.naturalWidth}x${img.naturalHeight}`);
-
-                // 创建临时 canvas
-                const width = Math.round(img.naturalWidth * scale);
-                const height = Math.round(img.naturalHeight * scale);
-                
-                let tempCanvas = data.PersistentData?.TempCanvas;
-                if (!tempCanvas || tempCanvas.width !== width || tempCanvas.height !== height) {
-                    tempCanvas = AnimationGenerateTempCanvas(C, A, width, height);
-                    if (!data.PersistentData) data.PersistentData = {};
-                    data.PersistentData.TempCanvas = tempCanvas;
-                }
-
+            const width = Math.round(img.naturalWidth * scale);
+            const height = Math.round(img.naturalHeight * scale);
+            
+            // 使用缓存键
+            const cacheKey = `${url}_${width}_${height}_${rotation}`;
+            let tempCanvas = data.PersistentData?.[cacheKey];
+            
+            if (!tempCanvas) {
+                Logger.info(`创建新缓存: ${cacheKey}`);
+                tempCanvas = AnimationGenerateTempCanvas(C, A, width, height);
                 const ctx = tempCanvas.getContext("2d");
                 ctx.clearRect(0, 0, width, height);
                 
@@ -289,18 +286,16 @@ const extended = {
                 ctx.drawImage(img, 0, 0, width, height);
                 ctx.restore();
                 
-                // 计算绘制位置（角色基础位置 + 偏移）
-                const drawX = X + offsetX;
-                const drawY = Y + offsetY;
-                
-                Logger.info(`绘制位置: (${drawX}, ${drawY}), 尺寸: ${width}x${height}`);
-                
-                // 绘制到角色身上
-                drawCanvas(tempCanvas, drawX, drawY);
-                drawCanvasBlink(tempCanvas, drawX, drawY);
-            } catch (e) {
-                Logger.error("绘制失败:", e);
+                // 缓存
+                if (!data.PersistentData) data.PersistentData = {};
+                data.PersistentData[cacheKey] = tempCanvas;
             }
+            
+            // 绘制到角色身上
+            const drawX = X + offsetX;
+            const drawY = Y + offsetY;
+            drawCanvas(tempCanvas, drawX, drawY);
+            drawCanvasBlink(tempCanvas, drawX, drawY);
         }
     }
 };
