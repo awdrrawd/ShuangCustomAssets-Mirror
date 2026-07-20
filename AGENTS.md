@@ -68,3 +68,4 @@
 [2026-07-20 02:50] 自定义贴图：新增 HideEchoExt 开关，兼容 echo 服装扩展新增部位（ECHO_EXT_GROUPS: BodyMarkings2_Luzi/新前发_Luzi/新后发_Luzi/动物身体_Luzi/额外头发_Luzi/长袖子_Luzi）；配置版本升级到 v3；BaselineProperty/Load/UI/Click/导入导出均同步更新 - src/assets/customTexture.js
 [2026-07-20 03:00] 自定义贴图：完善 ECHO_EXT_GROUPS 列表，从 AssetManager.addGroup 源码提取完整 12 个新增组（左眼_Luzi/右眼_Luzi/新前发_Luzi/新后发_Luzi/额外头发_Luzi/Liquid2_Luzi/身体痕迹_Luzi/动物身体_Luzi/额外身高_Luzi/长袖子_Luzi/外观工具/BodyMarkings2_Luzi）- src/assets/customTexture.js
 [2026-07-20 03:10] 自定义贴图：通过游戏内 AssetGroup.map(g => g.Name) 获取完整 35 个 echo 扩展新增组，包含 _Luzi / _笨笨蛋Luzi / _笨笨笨蛋Luzi2 / Luzi_ 前缀等各类命名规则，覆盖衣服/下装/胸罩/内裤/套装/饰品/帽子/鞋子/手套/面具/翅膀/发型等所有扩展槽位 - src/assets/customTexture.js
+[2026-07-20 03:20] 自定义贴图：修复编辑面板实时预览问题 - 编辑时只刷新本地画布不同步服务器；URL 变化时预加载图片并在加载完成后再次刷新；确认按钮点击时才同步到服务器；移除防抖同步逻辑 - src/assets/customTexture.js

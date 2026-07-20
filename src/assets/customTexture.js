@@ -623,6 +623,17 @@ function createEditInputs(texture) {
 }
 
 /**
+ * 同步道具属性到服务器（仅用于确认保存时）
+ */
+function syncItemToServer(item) {
+    const C = CharacterGetCurrent();
+    if (C && typeof ChatRoomCharacterItemUpdate === "function") {
+        ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+        Logger.log(`[ShuangAssets] 已同步道具到服务器`);
+    }
+}
+
+/**
  * 绘制编辑面板
  */
 function drawTextureEditPanel(item, textureIndex, data) {
@@ -648,6 +659,8 @@ function drawTextureEditPanel(item, textureIndex, data) {
             tempTextureData.Rotation !== newRotation ||
             tempTextureData.Opacity !== newOpacity) {
             
+            const urlChanged = tempTextureData.TextureURL !== newUrl;
+            
             tempTextureData.TextureURL = newUrl;
             tempTextureData.OffsetX = newOffsetX;
             tempTextureData.OffsetY = newOffsetY;
@@ -655,13 +668,24 @@ function drawTextureEditPanel(item, textureIndex, data) {
             tempTextureData.Rotation = newRotation;
             tempTextureData.Opacity = newOpacity;
             
-            const textures = item.Property?.Textures || [];
-            textures[textureIndex] = { ...tempTextureData };
+            if (!item.Property) item.Property = { Textures: [] };
+            if (!item.Property.Textures) item.Property.Textures = [];
+            item.Property.Textures[textureIndex] = { ...tempTextureData };
             
+            // 刷新本地画布（实时预览）
             const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false);
             
-            if (isValidImageUrl(newUrl)) DrawGetImage(newUrl);
+            // URL 变化时预加载图片，加载完成后再次刷新
+            if (urlChanged && isValidImageUrl(newUrl)) {
+                const img = DrawGetImage(newUrl);
+                if (!img.complete) {
+                    img.onload = () => {
+                        Logger.log(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
+                        if (C) CharacterRefresh(C, false);
+                    };
+                }
+            }
         }
     }
     
@@ -749,6 +773,9 @@ function handleTextureEditClick(item, textureIndex, data) {
         }
         
         item.Property.Textures[textureIndex] = finalTexture;
+        
+        // 立即同步到服务器
+        syncItemToServer(item);
         
         currentEditTexture = -1;
         tempTextureData = null;
