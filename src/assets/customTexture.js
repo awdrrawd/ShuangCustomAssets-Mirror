@@ -645,7 +645,7 @@ function syncItemToServer(item) {
     const C = CharacterGetCurrent();
     if (C && typeof ChatRoomCharacterItemUpdate === "function") {
         ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
-        Logger.log(`[ShuangAssets] 已同步道具到服务器`);
+        Logger.info(`[ShuangAssets] 已同步道具到服务器`);
     }
 }
 
@@ -697,7 +697,7 @@ function drawTextureEditPanel(item, textureIndex, data) {
                 const img = DrawGetImage(newUrl);
                 if (!img.complete) {
                     img.onload = () => {
-                        Logger.log(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
+                        Logger.info(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
                         if (C) CharacterRefresh(C, false);
                     };
                 }
@@ -789,21 +789,26 @@ function handleTextureEditClick(item, textureIndex, data) {
         }
         
         item.Property.Textures[textureIndex] = finalTexture;
-        
+
         // 立即同步到服务器
         syncItemToServer(item);
-        
+
         currentEditTexture = -1;
         tempTextureData = null;
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false);
         return;
     }
-    
+
     if (MouseIn(1440, y, 120, 35)) {
         const originalTexture = data.PersistentData?._originalTexture;
         if (originalTexture) {
             item.Property.Textures[textureIndex] = { ...originalTexture };
         }
+        // 恢复设置后同步到服务器
+        syncItemToServer(item);
+
         currentEditTexture = -1;
         tempTextureData = null;
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
