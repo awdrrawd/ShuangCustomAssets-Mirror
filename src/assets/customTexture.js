@@ -24,7 +24,8 @@ const DEFAULT_TEXTURE = {
 const DEFAULT_PROPS = {
     Textures: [],          // 贴图数组
     HideBody: false,       // 隐藏玩家身体（非道具）模型
-    HideOtherItems: false  // 隐藏其他道具模型
+    HideOtherItems: false, // 隐藏其他道具模型
+    HideEchoExt: false     // 隐藏 echo 服装扩展新增的部位
 };
 
 // UI 状态
@@ -48,7 +49,54 @@ const BODY_GROUPS = [
 ];
 
 /**
- * 根据 HideBody / HideOtherItems 开关，重新计算 Property.Hide 数组
+ * echo 服装扩展新增的 AssetGroup 名称（共 35 个）
+ * 来源：游戏中运行 AssetGroup.map(g => g.Name) 获取
+ * 命名规则：_Luzi / _笨笨蛋Luzi / _笨笨笨蛋Luzi2 / Luzi_ 前缀等
+ */
+const ECHO_EXT_GROUPS = [
+    // 基础扩展组（_Luzi 后缀）
+    "左眼_Luzi",
+    "右眼_Luzi",
+    "新前发_Luzi",
+    "新后发_Luzi",
+    "额外头发_Luzi",
+    "Liquid2_Luzi",
+    "身体痕迹_Luzi",
+    "动物身体_Luzi",
+    "额外身高_Luzi",
+    "长袖子_Luzi",
+    "外观工具",
+    // 叠加层
+    "新前发_Luzi_stack",
+    "新后发_Luzi_stack",
+    "BodyMarkings2_Luzi",
+    // 衣服变体（_笨笨蛋Luzi / _笨笨笨蛋Luzi2 后缀）
+    "Cloth_笨笨蛋Luzi",
+    "Cloth_笨笨笨蛋Luzi2",
+    "ClothLower_笨笨蛋Luzi",
+    "ClothLower_笨笨笨蛋Luzi2",
+    "Bra_笨笨蛋Luzi",
+    "Panties_笨笨蛋Luzi",
+    "Suit_笨笨蛋Luzi",
+    "SuitLower_笨笨蛋Luzi",
+    "ClothAccessory_笨笨蛋Luzi",
+    "ClothAccessory_笨笨笨蛋Luzi2",
+    "Necklace_笨笨蛋Luzi",
+    "Shoes_笨笨蛋Luzi",
+    "Hat_笨笨蛋Luzi",
+    "Gloves_笨笨蛋Luzi",
+    "Mask_笨笨蛋Luzi",
+    "Wings_笨笨蛋Luzi",
+    "HairAccessory3_笨笨蛋Luzi",
+    // Luzi_ 前缀组
+    "Luzi_Jewelry_0",
+    "Luzi_HairAccessory3_1",
+    "Luzi_HairAccessory3_2",
+    "Luzi_TailStraps_0"
+];
+
+/**
+ * 根据 HideBody / HideOtherItems / HideEchoExt 开关，重新计算 Property.Hide 数组
  * Property.Hide 是 BC 原生支持的隐藏机制：数组中列出的组名对应的图层都不渲染
  * 注意：必须排除当前道具自己所在的组，否则会把自己也隐藏掉
  * @param {Item} item - 当前道具
@@ -57,6 +105,7 @@ function updateHideArray(item) {
     if (!item || !item.Property) return;
     const hideBody = item.Property.HideBody === true;
     const hideOtherItems = item.Property.HideOtherItems === true;
+    const hideEchoExt = item.Property.HideEchoExt === true;
 
     /** @type {string[]} */
     const hide = [];
@@ -67,6 +116,7 @@ function updateHideArray(item) {
             if (g !== currentGroup) hide.push(g);
         });
     }
+    if (hideEchoExt) hide.push(...ECHO_EXT_GROUPS);
 
     if (hide.length > 0) {
         item.Property.Hide = hide;
@@ -147,7 +197,8 @@ const extended = {
         Textures: [],          // 贴图数组，每个元素包含 TextureURL/OffsetX/OffsetY/Scale/Rotation
         HideBody: false,       // 隐藏玩家身体模型开关
         HideOtherItems: false, // 隐藏其他道具模型开关
-        Hide: []               // 隐藏组数组（由 HideBody/HideOtherItems 派生，需同步保存）
+        HideEchoExt: false,    // 隐藏 echo 服装扩展新增部位开关
+        Hide: []               // 隐藏组数组（由上述开关派生，需同步保存）
     },
     ScriptHooks: {
         Load: (data, originalFunction) => {
@@ -160,6 +211,7 @@ const extended = {
             // 兼容旧数据：补齐新开关字段
             if (item.Property.HideBody === undefined) item.Property.HideBody = false;
             if (item.Property.HideOtherItems === undefined) item.Property.HideOtherItems = false;
+            if (item.Property.HideEchoExt === undefined) item.Property.HideEchoExt = false;
             // 根据开关刷新 Hide 数组，确保生效
             updateHideArray(item);
 
@@ -266,6 +318,8 @@ function drawTextureListMain(item) {
     // 模型隐藏开关区（位于副标题下方，列表上方）
     const hideBody = item.Property?.HideBody === true;
     const hideOtherItems = item.Property?.HideOtherItems === true;
+    const hideEchoExt = item.Property?.HideEchoExt === true;
+    
     const HIDE_BTN_Y = 405;
     DrawText("隐藏身体模型:", 1150, HIDE_BTN_Y + 22, "White", "Gray");
     DrawButton(1500, HIDE_BTN_Y, 70, 35, hideBody ? "开" : "关",
@@ -284,11 +338,20 @@ function drawTextureListMain(item) {
         DrawText("(仅保留本道具所在组)", 1580, HIDE_OTHER_Y + 22, "#FFB74D", "Black");
     }
     
-    if (hideBody && hideOtherItems) {
-        DrawText("⚠ 双开模式：仅渲染当前自定义贴图图层", 1200, 495, "#FF5252", "Black");
+    const HIDE_ECHO_Y = 485;
+    DrawText("隐藏echo扩展:", 1150, HIDE_ECHO_Y + 22, "White", "Gray");
+    DrawButton(1500, HIDE_ECHO_Y, 70, 35, hideEchoExt ? "开" : "关",
+        hideEchoExt ? "#F44336" : "#666666",
+        hideEchoExt ? "#E57373" : "#999999", false);
+    if (hideEchoExt) {
+        DrawText("(屏蔽echo新增部位)", 1580, HIDE_ECHO_Y + 22, "#FFB74D", "Black");
     }
     
-    const startY = 530;
+    if (hideBody && hideOtherItems) {
+        DrawText("⚠ 双开模式：仅渲染当前自定义贴图图层", 1200, 535, "#FF5252", "Black");
+    }
+    
+    const startY = 570;
     const itemHeight = 50;
     
     for (let i = 0; i < textures.length; i++) {
@@ -354,7 +417,18 @@ function handleTextureListClick(item, data) {
         return;
     }
 
-    const startY = 530;
+    // 隐藏 echo 扩展部位开关
+    if (MouseIn(1500, 485, 70, 35)) {
+        if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+        item.Property.HideEchoExt = !(item.Property.HideEchoExt === true);
+        updateHideArray(item);
+        Logger.info(`HideEchoExt 切换为: ${item.Property.HideEchoExt}, Hide 数组长度: ${item.Property.Hide?.length || 0}`);
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false);
+        return;
+    }
+
+    const startY = 570;
     const itemHeight = 50;
     
     for (let i = 0; i < textures.length; i++) {
@@ -431,10 +505,11 @@ function exportConfig(item) {
     const textures = item.Property?.Textures || [];
     const config = {
         type: "ShuangCustomAssets",
-        version: 2,
+        version: 3,
         textures: textures,
         hideBody: item.Property?.HideBody === true,
-        hideOtherItems: item.Property?.HideOtherItems === true
+        hideOtherItems: item.Property?.HideOtherItems === true,
+        hideEchoExt: item.Property?.HideEchoExt === true
     };
     const json = JSON.stringify(config, null, 2);
     
@@ -488,12 +563,13 @@ function importConfig(item) {
             
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             item.Property.Textures = validTextures;
-            // 同步导入隐藏开关（兼容 v1 旧配置：无该字段时默认 false）
+            // 同步导入隐藏开关（兼容旧版配置：无该字段时默认 false）
             item.Property.HideBody = config.hideBody === true;
             item.Property.HideOtherItems = config.hideOtherItems === true;
+            item.Property.HideEchoExt = config.hideEchoExt === true;
             updateHideArray(item);
             
-            Logger.info("配置导入成功:", validTextures.length, "个图层", `HideBody=${item.Property.HideBody}, HideOtherItems=${item.Property.HideOtherItems}`);
+            Logger.info("配置导入成功:", validTextures.length, "个图层", `HideBody=${item.Property.HideBody}, HideOtherItems=${item.Property.HideOtherItems}, HideEchoExt=${item.Property.HideEchoExt}`);
             
             if (typeof ChatRoomSendLocal !== "undefined") {
                 ChatRoomSendLocal(`[ShuangAssets] 配置导入成功，共 ${validTextures.length} 个图层`);

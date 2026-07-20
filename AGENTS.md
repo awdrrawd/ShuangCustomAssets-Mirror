@@ -65,3 +65,6 @@
 ## 修改记录
 [2026-07-20] 初始化 AGENTS.md - AGENTS.md
 [2026-07-20 02:30] 自定义贴图：新增 HideBody/HideOtherItems 两个开关，通过 Property.Hide 数组实现隐藏玩家身体模型和其他道具模型；开关持久化到 BaselineProperty 支持 Crafting 保存；Load 钩子、保存、导入导出均同步刷新 Hide 数组；UI 主界面在副标题下方新增两个开关按钮 - src/assets/customTexture.js
+[2026-07-20 02:50] 自定义贴图：新增 HideEchoExt 开关，兼容 echo 服装扩展新增部位（ECHO_EXT_GROUPS: BodyMarkings2_Luzi/新前发_Luzi/新后发_Luzi/动物身体_Luzi/额外头发_Luzi/长袖子_Luzi）；配置版本升级到 v3；BaselineProperty/Load/UI/Click/导入导出均同步更新 - src/assets/customTexture.js
+[2026-07-20 03:00] 自定义贴图：完善 ECHO_EXT_GROUPS 列表，从 AssetManager.addGroup 源码提取完整 12 个新增组（左眼_Luzi/右眼_Luzi/新前发_Luzi/新后发_Luzi/额外头发_Luzi/Liquid2_Luzi/身体痕迹_Luzi/动物身体_Luzi/额外身高_Luzi/长袖子_Luzi/外观工具/BodyMarkings2_Luzi）- src/assets/customTexture.js
+[2026-07-20 03:10] 自定义贴图：通过游戏内 AssetGroup.map(g => g.Name) 获取完整 35 个 echo 扩展新增组，包含 _Luzi / _笨笨蛋Luzi / _笨笨笨蛋Luzi2 / Luzi_ 前缀等各类命名规则，覆盖衣服/下装/胸罩/内裤/套装/饰品/帽子/鞋子/手套/面具/翅膀/发型等所有扩展槽位 - src/assets/customTexture.js
