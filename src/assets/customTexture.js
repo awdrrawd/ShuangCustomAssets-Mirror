@@ -116,9 +116,10 @@ const ECHO_EXT_GROUPS = [
  * Property.Hide 是 BC 原生支持的隐藏机制：数组中列出的组名对应的图层都不渲染
  * 注意：必须排除当前道具自己所在的组，否则会把自己也隐藏掉
  * @param {Item} item - 当前道具
+ * @returns {boolean} 是否需要刷新角色
  */
 function updateHideArray(item) {
-    if (!item || !item.Property) return;
+    if (!item || !item.Property) return false;
     const hideBody = item.Property.HideBody === true;
     const hideOtherItems = item.Property.HideOtherItems === true;
     const hideEchoExt = item.Property.HideEchoExt === true;
@@ -134,12 +135,19 @@ function updateHideArray(item) {
     }
     if (hideEchoExt) hide.push(...ECHO_EXT_GROUPS);
 
+    // 比较新旧数组内容是否一致
+    const oldHide = item.Property.Hide || [];
+    const newHideStr = [...hide].sort().join(",");
+    const oldHideStr = [...oldHide].sort().join(",");
+    const needsRefresh = newHideStr !== oldHideStr;
+
     if (hide.length > 0) {
         item.Property.Hide = hide;
     } else {
-        // 清理空数组，避免持久化时产生冗余数据
         delete item.Property.Hide;
     }
+
+    return needsRefresh;
 }
 
 // 输入框 ID
@@ -271,11 +279,19 @@ const extended = {
         // 绘制每个图层
         AfterDraw: (data, originalFunction, drawData) => {
             const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
-            
-            const layerIndex = LAYER_NAMES.indexOf(L);
-            if (layerIndex === -1) return;
-            
+
             const item = CA;
+            const layerIndex = LAYER_NAMES.indexOf(L);
+
+            // 在第一层渲染时检查并更新 Hide 数组（确保其他玩家也能正确应用隐藏效果）
+            // 注意：不在此处调用 CharacterRefresh，避免 AfterDraw -> CharacterRefresh -> AfterDraw 无限循环
+            // BC 在接收 ChatRoomCharacterItemUpdate 时会自动刷新角色，Hide 数组会在下次渲染时生效
+            if (layerIndex === 0 && item?.Property) {
+                updateHideArray(item);
+            }
+
+            if (layerIndex === -1) return;
+
             const textures = item?.Property?.Textures;
             if (!textures || layerIndex >= textures.length) return;
             
@@ -417,6 +433,7 @@ function handleTextureListClick(item, data) {
         item.Property.HideBody = !(item.Property.HideBody === true);
         updateHideArray(item);
         Logger.info(`HideBody 切换为: ${item.Property.HideBody}, Hide 数组长度: ${item.Property.Hide?.length || 0}`);
+        syncItemToServer(item);
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
         return;
@@ -428,6 +445,7 @@ function handleTextureListClick(item, data) {
         item.Property.HideOtherItems = !(item.Property.HideOtherItems === true);
         updateHideArray(item);
         Logger.info(`HideOtherItems 切换为: ${item.Property.HideOtherItems}, Hide 数组长度: ${item.Property.Hide?.length || 0}`);
+        syncItemToServer(item);
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
         return;
@@ -439,6 +457,7 @@ function handleTextureListClick(item, data) {
         item.Property.HideEchoExt = !(item.Property.HideEchoExt === true);
         updateHideArray(item);
         Logger.info(`HideEchoExt 切换为: ${item.Property.HideEchoExt}, Hide 数组长度: ${item.Property.Hide?.length || 0}`);
+        syncItemToServer(item);
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
         return;
@@ -452,6 +471,8 @@ function handleTextureListClick(item, data) {
         // 可见开关
         if (MouseIn(1390, y + 5, 70, 35)) {
             textures[i].Visible = textures[i].Visible === false ? true : false;
+            // 切换可见性后立即同步到服务器
+            syncItemToServer(item);
             const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false);
             return;
@@ -830,5 +851,18 @@ export default function register(AssetManager) {
         extended,
         translation,
         assetStrings
+    });
+
+    // 在资源加载完成后，手动设置 AllowHide
+    // BC 的 Validation 会检查 Property.Hide 中的组名是否在 Asset.AllowHide 中
+    // SDK 的 addAssetWithConfig 不会传递 AllowHide，需要手动设置
+    const allAllowHide = [...BODY_GROUPS, ...ALL_ITEM_GROUPS, ...ECHO_EXT_GROUPS];
+    AssetManager.afterLoad(() => {
+        for (const group of ALL_ITEM_GROUPS) {
+            const assetObj = AssetGet("Female3DCG", group, asset.Name);
+            if (assetObj) {
+                assetObj.AllowHide = allAllowHide;
+            }
+        }
     });
 }
