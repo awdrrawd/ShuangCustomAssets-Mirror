@@ -124,6 +124,26 @@ npm run build
 npm run serve
 ```
 
+### 部署到 Cloudflare Pages
+
+使用 wrangler 部署到 CF Pages：
+
+```bash
+# 安装 wrangler（如果还没安装）
+npm install -g wrangler
+
+# 登录 Cloudflare
+wrangler login
+
+# 部署到 Cloudflare Pages（项目名：shuang-custom-assets）
+wrangler pages deploy dist --project-name=shuang-custom-assets
+```
+
+部署后会得到类似这样的 URL：
+- `https://shuang-custom-assets.pages.dev/shuang-assets.js`
+
+更新 `loader.user.js` 中的 `SCRIPT_URL` 指向新地址即可。
+
 ### 添加新道具
 
 1. 在 `src/assets/` 目录下创建新文件，例如 `myAsset.js`
