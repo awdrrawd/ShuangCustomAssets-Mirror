@@ -2,7 +2,6 @@ const path = require("path");
 const resolve = require("@rollup/plugin-node-resolve");
 const commonjs = require("@rollup/plugin-commonjs");
 const alias = require("@rollup/plugin-alias");
-const terser = require("@rollup/plugin-terser");
 const cleanup = require("rollup-plugin-cleanup");
 
 const pkg = require("./package.json");
@@ -28,9 +27,9 @@ module.exports = {
     input: pkg.modConfig.entry,
     output: {
         file: path.join("dist", pkg.modConfig.output),
-        format: "esm",  // ES 模块格式，支持 import() 加载
+        format: "iife",  // 立即执行函数格式，避免变量名冲突
         sourcemap: !isProd,
-        compact: isProd
+        compact: false
     },
     plugins: [
         alias({
@@ -44,8 +43,7 @@ module.exports = {
         cleanup({
             comments: "some",
             sourcemap: !isProd
-        }),
-        isProd && terser()
+        })
     ].filter(Boolean),
     external: []
 };

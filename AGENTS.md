@@ -69,3 +69,7 @@
 [2026-07-20 03:00] 自定义贴图：完善 ECHO_EXT_GROUPS 列表，从 AssetManager.addGroup 源码提取完整 12 个新增组（左眼_Luzi/右眼_Luzi/新前发_Luzi/新后发_Luzi/额外头发_Luzi/Liquid2_Luzi/身体痕迹_Luzi/动物身体_Luzi/额外身高_Luzi/长袖子_Luzi/外观工具/BodyMarkings2_Luzi）- src/assets/customTexture.js
 [2026-07-20 03:10] 自定义贴图：通过游戏内 AssetGroup.map(g => g.Name) 获取完整 35 个 echo 扩展新增组，包含 _Luzi / _笨笨蛋Luzi / _笨笨笨蛋Luzi2 / Luzi_ 前缀等各类命名规则，覆盖衣服/下装/胸罩/内裤/套装/饰品/帽子/鞋子/手套/面具/翅膀/发型等所有扩展槽位 - src/assets/customTexture.js
 [2026-07-20 03:20] 自定义贴图：修复编辑面板实时预览问题 - 编辑时只刷新本地画布不同步服务器；URL 变化时预加载图片并在加载完成后再次刷新；确认按钮点击时才同步到服务器；移除防抖同步逻辑 - src/assets/customTexture.js
+[2026-07-20 03:40] 自定义贴图：完善 BODY_GROUPS 列表，新增遗漏的 ArmsLeft/ArmsRight（手臂）、HairAccessory2/HairAccessory3（发饰2/3）、Height/BodyStyle/Pronouns（身高/样式/代词）、ItemEars（耳朵道具），按类别分组整理注释 - src/assets/customTexture.js
+[2026-07-20 03:50] 自定义贴图：入口文件添加详细诊断日志 - 脚本加载立即输出确认、once 执行开始、SDK 加载进度、模组注册、HookManager 初始化、AssetManager.init 调用等各阶段日志，方便通过 Toolbox 加载时排查问题 - src/main.js
+[2026-07-20 04:00] 修复构建报错"Identifier 'be' has already been declared" - 禁用 terser 压缩和 compact 输出，避免 rollup 压缩时变量名冲突 - rollup.config.js
+[2026-07-20 04:10] 修复 Toolbox 加载报错"Identifier 'i' has already been declared" - 输出格式从 esm 改为 iife（立即执行函数），每次加载创建独立作用域，避免与 Toolbox 或其他插件变量冲突 - rollup.config.js

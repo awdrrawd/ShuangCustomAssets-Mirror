@@ -11,6 +11,9 @@ import { registerAssets, initAssets } from "./lib/assetManager.js";
 import { Logger } from "./lib/utils.js";
 import assets from "./assets/index.js";
 
+// 立即输出日志，确认脚本已执行
+console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
+
 /**
  * 初始化插件
  */
@@ -36,23 +39,34 @@ function setup() {
 
 // 使用 once 确保只初始化一次
 once(ModInfo.name, async () => {
-    // 加载 SDK
-    await import("https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0");
+    console.log(`[ShuangAssets] once 函数开始执行...`);
     
-    // 注册模组
-    const mod = /** @type {any} */ (globalThis).bcModSdk.registerMod({
-        name: ModInfo.name,
-        fullName: ModInfo.fullName,
-        version: ModInfo.version,
-        repository: ModInfo.repository
-    });
-    
-    // 初始化 HookManager
-    HookManager.initWithMod(mod);
-    
-    // 设置 AssetManager 日志
-    AssetManager.setLogger(Logger);
-    
-    // ⚠️ 关键：调用 AssetManager.init 并传入 setup 函数
-    AssetManager.init(setup);
+    try {
+        // 加载 SDK
+        console.log(`[ShuangAssets] 正在加载 SDK...`);
+        await import("https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0");
+        console.log(`[ShuangAssets] SDK 加载完成`);
+        
+        // 注册模组
+        const mod = /** @type {any} */ (globalThis).bcModSdk.registerMod({
+            name: ModInfo.name,
+            fullName: ModInfo.fullName,
+            version: ModInfo.version,
+            repository: ModInfo.repository
+        });
+        console.log(`[ShuangAssets] 模组已注册: ${mod.name}`);
+        
+        // 初始化 HookManager
+        HookManager.initWithMod(mod);
+        console.log(`[ShuangAssets] HookManager 已初始化`);
+        
+        // 设置 AssetManager 日志
+        AssetManager.setLogger(Logger);
+        
+        // ⚠️ 关键：调用 AssetManager.init 并传入 setup 函数
+        AssetManager.init(setup);
+        console.log(`[ShuangAssets] AssetManager.init 已调用`);
+    } catch (error) {
+        console.error(`[ShuangAssets] 初始化失败:`, error);
+    }
 });

@@ -33,19 +33,35 @@ let currentEditTexture = -1;
 let tempTextureData = null;
 
 /**
- * 身体/外观组（非 Item 开头的组）
- * 用于 HideBody 开关：打开后这些组全部不渲染
+ * 需要隐藏的身体/服装组（非 Item 道具组）
+ * 来源：游戏中 AssetGroup.filter(g => !g.Name.startsWith('Item'))
  */
 const BODY_GROUPS = [
+    // 身体基础
     "BodyUpper", "BodyLower", "Head", "Mouth", "Eyes", "Eyes2", "Eyebrows",
-    "Blush", "HairFront", "HairBack", "HairAccessory1", "Hat", "Glasses",
-    "Mask", "Necklace", "Bra", "Panties", "Pussy", "Nipples", "Suit",
-    "SuitLower", "Cloth", "ClothLower", "ClothOuter", "ClothAccessory",
-    "Corset", "Garters", "Socks", "SocksLeft", "SocksRight", "Shoes",
-    "Gloves", "Bracelet", "AnkletLeft", "AnkletRight", "HandsLeft",
-    "HandsRight", "HandAccessoryLeft", "HandAccessoryRight", "TailStraps",
-    "Wings", "Jewelry", "BodyMarkings", "FaceMarkings", "FacialHair",
-    "EyeShadow", "Fluids", "Decals", "Activity", "Emoticon"
+    "Blush", "EyeShadow", "FacialHair", "Nipples", "Pussy", "Fluids",
+    "Height", "BodyStyle", "Pronouns", "Emoticon",
+    // 手臂和手
+    "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight",
+    // 头发
+    "HairFront", "HairBack", "HairAccessory1", "HairAccessory2", "HairAccessory3",
+    // 面部配饰
+    "Glasses", "Mask",
+    // 身体标记
+    "BodyMarkings", "FaceMarkings", "Decals",
+    // 服装
+    "Cloth", "ClothLower", "ClothOuter", "ClothAccessory",
+    "Suit", "SuitLower", "Corset", "Bra", "Panties",
+    // 配饰
+    "Necklace", "Garters", "Bracelet", "Jewelry",
+    // 腿脚
+    "Socks", "SocksLeft", "SocksRight", "Shoes", "AnkletLeft", "AnkletRight",
+    // 手部配饰
+    "Gloves", "HandAccessoryLeft", "HandAccessoryRight",
+    // 其他
+    "Hat", "TailStraps", "Wings",
+    // 道具类（用户可能也想隐藏）
+    "ItemEars"
 ];
 
 /**
