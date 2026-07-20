@@ -512,7 +512,7 @@ function handleTextureListClick(item, data) {
             Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
             Logger.info(`隐藏开关 - HideBody: ${item.Property.HideBody}, HideOtherItems: ${item.Property.HideOtherItems}`);
             
-            ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+            syncItemToServer(item);
             CharacterRefresh(C, false);
             Logger.info("贴图设置已保存并同步");
         }
@@ -660,14 +660,30 @@ function createEditInputs(texture) {
 }
 
 /**
- * 同步道具属性到服务器（仅用于确认保存时）
+ * 同步道具属性到服务器
+ * ChatRoomCharacterItemUpdate: 实时同步给房间内在线玩家（不更新服务器端 ChatRoomData）
+ * ChatRoomCharacterUpdate: 更新服务器端 ChatRoomData，确保新进入房间的玩家能获取最新配置
+ * ServerPlayerAppearanceSync: 持久化到 Player 账号数据，确保玩家重新登录时能恢复配置
  */
 function syncItemToServer(item) {
     const C = CharacterGetCurrent();
-    if (C && typeof ChatRoomCharacterItemUpdate === "function") {
-        ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
-        Logger.info(`[ShuangAssets] 已同步道具到服务器`);
+    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
+
+    // 实时同步给房间内在线玩家
+    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+
+    // 如果是玩家自己的道具，更新服务器端 ChatRoomData 和账号数据
+    // 确保离线玩家上线后进入房间时能从 ChatRoomData 获取最新配置
+    if (C.IsPlayer()) {
+        if (typeof ChatRoomCharacterUpdate === "function") {
+            ChatRoomCharacterUpdate(C);
+        }
+        if (typeof ServerPlayerAppearanceSync === "function") {
+            ServerPlayerAppearanceSync();
+        }
     }
+
+    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
 }
 
 /**
