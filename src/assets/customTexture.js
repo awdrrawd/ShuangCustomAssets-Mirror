@@ -158,16 +158,14 @@ const INPUT_SCALE = "CustomTextureScaleInput";
 const INPUT_ROTATION = "CustomTextureRotationInput";
 const INPUT_OPACITY = "CustomTextureOpacityInput";
 
+// 最大贴图数量
+const MAX_TEXTURE_COUNT = 16;
+
 // 可见开关按钮 ID 前缀
 const VISIBLE_BTN_PREFIX = "CustomTextureVisibleBtn_";
 
-// 预定义的图层名称（16 个图层）
-const LAYER_NAMES = [
-    "Layer1", "Layer2", "Layer3", "Layer4",
-    "Layer5", "Layer6", "Layer7", "Layer8",
-    "Layer9", "Layer10", "Layer11", "Layer12",
-    "Layer13", "Layer14", "Layer15", "Layer16"
-];
+// 预定义的图层名称
+const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
 
 // 所有物品部位组（覆盖游戏所有 Item 分类）
 const ALL_ITEM_GROUPS = [
@@ -345,7 +343,7 @@ function drawTextureListMain(item) {
     const textures = item.Property?.Textures || [];
     
     DrawText("贴图管理", 1200, 350, "White", "Gray");
-    DrawText(`已添加 ${textures.length} 个贴图（最多 16 个）`, 1200, 380, "Yellow", "Gray");
+    DrawText(`已添加 ${textures.length} 个贴图（最多 ${MAX_TEXTURE_COUNT} 个）`, 1200, 380, "Yellow", "Gray");
     
     // 模型隐藏开关区（位于副标题下方，列表上方）
     const hideBody = item.Property?.HideBody === true;
@@ -409,16 +407,17 @@ function drawTextureListMain(item) {
     
     const btnY = startY + Math.max(textures.length, 1) * itemHeight + 20;
     
-    // 添加按钮（最多 16 个）
-    if (textures.length < 16) {
+    // 添加按钮
+    if (textures.length < MAX_TEXTURE_COUNT) {
         DrawButton(1150, btnY, 195, 40, "添加新贴图", "#4CAF50", "#66BB6A", false);
     }
     DrawButton(1355, btnY, 195, 40, "确认保存", "#2196F3", "#42A5F5", false);
     
     // 导入导出按钮
     const ioBtnY = btnY + 50;
-    DrawButton(1150, ioBtnY, 195, 40, "导出配置", "#FF9800", "#FFB74D", false);
-    DrawButton(1355, ioBtnY, 195, 40, "导入配置", "#9C27B0", "#BA68C8", false);
+    DrawButton(1150, ioBtnY, 130, 40, "导出配置", "#FF9800", "#FFB74D", false);
+    DrawButton(1285, ioBtnY, 130, 40, "覆盖导入", "#9C27B0", "#BA68C8", false);
+    DrawButton(1420, ioBtnY, 130, 40, "追加导入", "#7B1FA2", "#9C27B0", false);
 }
 
 /**
@@ -490,7 +489,7 @@ function handleTextureListClick(item, data) {
     
     const btnY = startY + Math.max(textures.length, 1) * itemHeight + 20;
     
-    if (textures.length < 16 && MouseIn(1150, btnY, 195, 40)) {
+    if (textures.length < MAX_TEXTURE_COUNT && MouseIn(1150, btnY, 195, 40)) {
         const newTexture = { ...DEFAULT_TEXTURE };
         item.Property.Textures.push(newTexture);
         currentEditTexture = textures.length - 1;
@@ -523,14 +522,27 @@ function handleTextureListClick(item, data) {
     const ioBtnY = btnY + 50;
     
     // 导出配置
-    if (MouseIn(1150, ioBtnY, 195, 40)) {
+    if (MouseIn(1150, ioBtnY, 130, 40)) {
         exportConfig(item);
         return;
     }
     
-    // 导入配置
-    if (MouseIn(1355, ioBtnY, 195, 40)) {
-        importConfig(item);
+    // 覆盖导入
+    if (MouseIn(1285, ioBtnY, 130, 40)) {
+        importConfig(item, "overwrite");
+        return;
+    }
+    
+    // 追加导入
+    if (MouseIn(1420, ioBtnY, 130, 40)) {
+        // 预检查：当前图层已达上限，无法追加
+        if ((item.Property?.Textures || []).length >= MAX_TEXTURE_COUNT) {
+            if (typeof ChatRoomSendLocal !== "undefined") {
+                ChatRoomSendLocal(`[ShuangAssets] 超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`);
+            }
+            return;
+        }
+        importConfig(item, "append");
         return;
     }
 }
@@ -572,8 +584,10 @@ function exportConfig(item) {
 
 /**
  * 从剪贴板导入配置
+ * @param {Object} item - 道具对象
+ * @param {"overwrite"|"append"} mode - 导入模式：overwrite=覆盖导入，append=追加导入
  */
-function importConfig(item) {
+function importConfig(item, mode) {
     navigator.clipboard.readText().then(text => {
         try {
             const config = JSON.parse(text);
@@ -582,9 +596,6 @@ function importConfig(item) {
             }
             if (!Array.isArray(config.textures)) {
                 throw new Error("配置格式错误");
-            }
-            if (config.textures.length > 16) {
-                throw new Error(`图层数量超过限制（最多 16 个，当前 ${config.textures.length} 个）`);
             }
             
             // 验证并清理数据
@@ -599,17 +610,36 @@ function importConfig(item) {
             }));
             
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
-            item.Property.Textures = validTextures;
-            // 同步导入隐藏开关（兼容旧版配置：无该字段时默认 false）
-            item.Property.HideBody = config.hideBody === true;
-            item.Property.HideOtherItems = config.hideOtherItems === true;
-            item.Property.HideEchoExt = config.hideEchoExt === true;
+            if (!item.Property.Textures) item.Property.Textures = [];
+            
+            if (mode === "append") {
+                // 追加导入：将剪贴板图层追加到现有图层后
+                const currentCount = item.Property.Textures.length;
+                const totalCount = currentCount + validTextures.length;
+                if (totalCount > MAX_TEXTURE_COUNT) {
+                    throw new Error(`超过贴图数量上限（当前 ${currentCount} + 导入 ${validTextures.length} = ${totalCount}，最多 ${MAX_TEXTURE_COUNT}）`);
+                }
+                item.Property.Textures = [...item.Property.Textures, ...validTextures];
+                // 追加模式不修改隐藏开关
+            } else {
+                // 覆盖导入：用剪贴板内容完全替换
+                if (validTextures.length > MAX_TEXTURE_COUNT) {
+                    throw new Error(`超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个，当前 ${validTextures.length} 个）`);
+                }
+                item.Property.Textures = validTextures;
+                // 覆盖模式同步导入隐藏开关（兼容旧版配置：无该字段时默认 false）
+                item.Property.HideBody = config.hideBody === true;
+                item.Property.HideOtherItems = config.hideOtherItems === true;
+                item.Property.HideEchoExt = config.hideEchoExt === true;
+            }
+            
             updateHideArray(item);
             
-            Logger.info("配置导入成功:", validTextures.length, "个图层", `HideBody=${item.Property.HideBody}, HideOtherItems=${item.Property.HideOtherItems}, HideEchoExt=${item.Property.HideEchoExt}`);
+            const modeText = mode === "append" ? "追加" : "覆盖";
+            Logger.info(`${modeText}导入成功:`, item.Property.Textures.length, "个图层");
             
             if (typeof ChatRoomSendLocal !== "undefined") {
-                ChatRoomSendLocal(`[ShuangAssets] 配置导入成功，共 ${validTextures.length} 个图层`);
+                ChatRoomSendLocal(`[ShuangAssets] ${modeText}导入成功，共 ${item.Property.Textures.length} 个图层`);
             }
             
             // 刷新角色
