@@ -642,7 +642,8 @@ function importConfig(item, mode) {
                 ChatRoomSendLocal(`[ShuangAssets] ${modeText}导入成功，共 ${item.Property.Textures.length} 个图层`);
             }
             
-            // 刷新角色
+            // 同步到服务器并刷新角色
+            syncItemToServer(item);
             const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false);
         } catch (err) {
@@ -822,6 +823,7 @@ function handleTextureEditClick(item, textureIndex, data) {
         currentEditTexture = -1;
         tempTextureData = null;
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+        syncItemToServer(item);
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
         return;
