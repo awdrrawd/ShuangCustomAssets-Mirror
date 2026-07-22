@@ -10,6 +10,7 @@ import ModInfo from "./modInfo.js";
 import { registerAssets, initAssets } from "./lib/assetManager.js";
 import { Logger } from "./lib/utils.js";
 import assets from "./assets/index.js";
+import { setupLoginBadge } from "./assets/customTexture.js";
 
 // 立即输出日志，确认脚本已执行
 console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
@@ -26,6 +27,8 @@ function init() {
     // 初始化道具（在 AssetManager.afterLoad 中执行）
     AssetManager.afterLoad(() => {
         initAssets();
+        // 设置登录页面加载标识
+        setupLoginBadge(HookManager);
         Logger.info("所有道具初始化完成");
     });
 }

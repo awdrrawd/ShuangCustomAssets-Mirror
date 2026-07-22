@@ -901,6 +901,15 @@ export default function register(AssetManager) {
         assetStrings
     });
 
+    // 将道具预览图标映射到远程图片
+    // BC 默认从 Assets/Female3DCG/<Group>/Preview/<AssetName>.png 加载图标
+    // 由于道具注册到所有 ItemXxx 组，需要为每个组添加映射
+    const previewMappings = {};
+    for (const group of ALL_ITEM_GROUPS) {
+        previewMappings[`Assets/Female3DCG/${group}/Preview/${asset.Name}.png`] = BADGE_IMAGE_URL;
+    }
+    AssetManager.addImageMapping(previewMappings);
+
     // 在资源加载完成后，手动设置 AllowHide
     // BC 的 Validation 会检查 Property.Hide 中的组名是否在 Asset.AllowHide 中
     // SDK 的 addAssetWithConfig 不会传递 AllowHide，需要手动设置
@@ -913,4 +922,58 @@ export default function register(AssetManager) {
             }
         }
     });
+}
+
+/**
+ * 登录页面加载标识贴图配置
+ * 参考 echo 服装扩展的汉堡标识，在 LoginCharacter 身体部位放上自定义贴图
+ */
+const BADGE_IMAGE_URL = "https://cloudflare-imgbed-7fq.pages.dev/file/1784733563047_6a60ddb7fe2052203caea65b__1_.png";
+
+const LOGIN_BADGE_TEXTURE = {
+    TextureURL: BADGE_IMAGE_URL,
+    OffsetX: 153,
+    OffsetY: -200,
+    Scale: 21,
+    Rotation: 0,
+    Opacity: 100,
+    Visible: true
+};
+
+const LOGIN_BADGE_ASSET_NAME = "自定义贴图";
+const LOGIN_BADGE_GROUP = "ItemTorso";
+
+/**
+ * 在登录页面给 LoginCharacter 穿上自定义贴图作为插件加载标识
+ * 需要通过 HookManager 挂载到 LoginDoNextThankYou
+ * @param {HookManager} HookManager - SDK 的 HookManager
+ */
+export function setupLoginBadge(HookManager) {
+    HookManager.progressiveHook("LoginDoNextThankYou")
+        .next()
+        .inject((args, next) => {
+            if (CurrentScreen !== "Login") return next(args);
+            if (typeof LoginCharacter === "undefined" || !LoginCharacter) return next(args);
+
+            // 检查是否已穿戴自定义贴图
+            const existing = LoginCharacter.Appearance.find(
+                a => a.Asset.Group.Name === LOGIN_BADGE_GROUP && a.Asset.Name === LOGIN_BADGE_ASSET_NAME
+            );
+            if (!existing) {
+                InventoryWear(LoginCharacter, LOGIN_BADGE_ASSET_NAME, LOGIN_BADGE_GROUP);
+                const item = LoginCharacter.Appearance.find(
+                    a => a.Asset.Group.Name === LOGIN_BADGE_GROUP && a.Asset.Name === LOGIN_BADGE_ASSET_NAME
+                );
+                if (item) {
+                    if (!item.Property) item.Property = {};
+                    item.Property.Textures = [{ ...LOGIN_BADGE_TEXTURE }];
+                    item.Property.HideBody = false;
+                    item.Property.HideOtherItems = false;
+                    item.Property.HideEchoExt = false;
+                    item.Property.Hide = [];
+                }
+                CharacterRefresh(LoginCharacter);
+            }
+            next(args);
+        });
 }
