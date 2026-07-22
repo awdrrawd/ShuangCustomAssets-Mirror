@@ -31,6 +31,10 @@ const DEFAULT_PROPS = {
 // UI 状态
 let currentEditTexture = -1;
 let tempTextureData = null;
+let currentListPage = 0;
+
+// 每页显示的贴图数量
+const TEXTURES_PER_PAGE = 6;
 
 /**
  * 需要隐藏的身体/服装组（非 Item 道具组）
@@ -239,8 +243,7 @@ const extended = {
 
             currentEditTexture = -1;
             tempTextureData = null;
-
-            // 清理输入框
+            currentListPage = 0;
             [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         },
 
@@ -310,18 +313,27 @@ const extended = {
             const width = Math.round(img.naturalWidth * scale);
             const height = Math.round(img.naturalHeight * scale);
             
+            // 计算旋转后的包围盒，避免旋转后图像被裁剪
+            const rad = rotation * Math.PI / 180;
+            const cos = Math.abs(Math.cos(rad));
+            const sin = Math.abs(Math.sin(rad));
+            const bboxWidth = Math.round(width * cos + height * sin);
+            const bboxHeight = Math.round(width * sin + height * cos);
+            
             // 缓存键包含透明度，透明度变化时重新生成 canvas
             const cacheKey = `${texture.TextureURL}_${width}_${height}_${rotation}_${opacity}_${layerIndex}`;
             let tempCanvas = data.PersistentData?.[cacheKey];
             
             if (!tempCanvas) {
-                tempCanvas = AnimationGenerateTempCanvas(C, A, width, height);
+                // canvas 使用包围盒大小，确保旋转后的图像不被裁剪
+                tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
                 const ctx = tempCanvas.getContext("2d");
-                ctx.clearRect(0, 0, width, height);
+                ctx.clearRect(0, 0, bboxWidth, bboxHeight);
                 ctx.save();
                 ctx.globalAlpha = opacity;
-                ctx.translate(width / 2, height / 2);
-                ctx.rotate(rotation * Math.PI / 180);
+                // 以包围盒中心为旋转锚点
+                ctx.translate(bboxWidth / 2, bboxHeight / 2);
+                ctx.rotate(rad);
                 ctx.translate(-width / 2, -height / 2);
                 ctx.drawImage(img, 0, 0, width, height);
                 ctx.restore();
@@ -330,8 +342,11 @@ const extended = {
                 data.PersistentData[cacheKey] = tempCanvas;
             }
             
-            drawCanvas(tempCanvas, X + offsetX, Y + offsetY);
-            drawCanvasBlink(tempCanvas, X + offsetX, Y + offsetY);
+            // 用包围盒尺寸偏移，保持图像中心对齐到 offsetX/offsetY
+            const drawX = X + offsetX - (bboxWidth - width) / 2;
+            const drawY = Y + offsetY - (bboxHeight - height) / 2;
+            drawCanvas(tempCanvas, drawX, drawY);
+            drawCanvasBlink(tempCanvas, drawX, drawY);
         }
     }
 };
@@ -383,9 +398,16 @@ function drawTextureListMain(item) {
     
     const startY = 570;
     const itemHeight = 50;
-    
-    for (let i = 0; i < textures.length; i++) {
-        const y = startY + i * itemHeight;
+
+    // 分页计算
+    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+    if (currentListPage >= totalPages) currentListPage = totalPages - 1;
+    if (currentListPage < 0) currentListPage = 0;
+    const pageStart = currentListPage * TEXTURES_PER_PAGE;
+    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
+
+    for (let i = pageStart; i < pageEnd; i++) {
+        const y = startY + (i - pageStart) * itemHeight;
         const texture = textures[i];
         
         DrawRect(1150, y, 400, itemHeight - 5, "rgba(0,0,0,0.5)");
@@ -405,13 +427,22 @@ function drawTextureListMain(item) {
         DrawButton(1480, y + 5, 60, 35, "编辑", "White", null, false);
     }
     
-    const btnY = startY + Math.max(textures.length, 1) * itemHeight + 20;
+    // 按钮位置固定基于每页最大行数，避免分页时按钮跳动
+    const btnY = startY + TEXTURES_PER_PAGE * itemHeight + 20;
+    
+    // 翻页按钮（始终绘制，仅 1 页时禁用）
+    const hasPages = totalPages > 1;
+    DrawButton(1150, btnY, 80, 35, "上一页", "#555555", "#777777", !hasPages);
+    DrawButton(1240, btnY, 80, 35, "下一页", "#555555", "#777777", !hasPages);
+    if (hasPages) {
+        DrawText(`${currentListPage + 1}/${totalPages}`, 1320, btnY + 17, "Cyan", "Gray");
+    }
     
     // 添加按钮
     if (textures.length < MAX_TEXTURE_COUNT) {
-        DrawButton(1150, btnY, 195, 40, "添加新贴图", "#4CAF50", "#66BB6A", false);
+        DrawButton(1355, btnY, 95, 40, "添加新贴图", "#4CAF50", "#66BB6A", false);
     }
-    DrawButton(1355, btnY, 195, 40, "确认保存", "#2196F3", "#42A5F5", false);
+    DrawButton(1460, btnY, 90, 40, "确认保存", "#2196F3", "#42A5F5", false);
     
     // 导入导出按钮
     const ioBtnY = btnY + 50;
@@ -465,8 +496,15 @@ function handleTextureListClick(item, data) {
     const startY = 570;
     const itemHeight = 50;
     
-    for (let i = 0; i < textures.length; i++) {
-        const y = startY + i * itemHeight;
+    // 分页计算
+    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+    if (currentListPage >= totalPages) currentListPage = totalPages - 1;
+    if (currentListPage < 0) currentListPage = 0;
+    const pageStart = currentListPage * TEXTURES_PER_PAGE;
+    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
+    
+    for (let i = pageStart; i < pageEnd; i++) {
+        const y = startY + (i - pageStart) * itemHeight;
         // 可见开关
         if (MouseIn(1390, y + 5, 70, 35)) {
             textures[i].Visible = textures[i].Visible === false ? true : false;
@@ -487,9 +525,21 @@ function handleTextureListClick(item, data) {
         }
     }
     
-    const btnY = startY + Math.max(textures.length, 1) * itemHeight + 20;
+    // 按钮位置固定基于每页最大行数
+    const btnY = startY + TEXTURES_PER_PAGE * itemHeight + 20;
+    const hasPages = totalPages > 1;
     
-    if (textures.length < MAX_TEXTURE_COUNT && MouseIn(1150, btnY, 195, 40)) {
+    // 翻页按钮（循环式）
+    if (hasPages && MouseIn(1150, btnY, 80, 35)) {
+        currentListPage = (currentListPage - 1 + totalPages) % totalPages;
+        return;
+    }
+    if (hasPages && MouseIn(1240, btnY, 80, 35)) {
+        currentListPage = (currentListPage + 1) % totalPages;
+        return;
+    }
+    
+    if (textures.length < MAX_TEXTURE_COUNT && MouseIn(1355, btnY, 95, 40)) {
         const newTexture = { ...DEFAULT_TEXTURE };
         item.Property.Textures.push(newTexture);
         currentEditTexture = textures.length - 1;
@@ -500,7 +550,7 @@ function handleTextureListClick(item, data) {
         return;
     }
     
-    if (MouseIn(1355, btnY, 195, 40)) {
+    if (MouseIn(1460, btnY, 90, 40)) {
         const C = CharacterGetCurrent();
         if (C && item) {
             if (!item.Property) item.Property = { Textures: [] };
@@ -822,6 +872,7 @@ function handleTextureEditClick(item, textureIndex, data) {
         item.Property.Textures.splice(textureIndex, 1);
         currentEditTexture = -1;
         tempTextureData = null;
+        currentListPage = 0;
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         syncItemToServer(item);
         const C = CharacterGetCurrent();
@@ -864,6 +915,7 @@ function handleTextureEditClick(item, textureIndex, data) {
 
         currentEditTexture = -1;
         tempTextureData = null;
+        currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
@@ -880,6 +932,7 @@ function handleTextureEditClick(item, textureIndex, data) {
 
         currentEditTexture = -1;
         tempTextureData = null;
+        currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false);
