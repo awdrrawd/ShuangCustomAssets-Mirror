@@ -73,3 +73,4 @@
 [2026-07-20 03:50] 自定义贴图：入口文件添加详细诊断日志 - 脚本加载立即输出确认、once 执行开始、SDK 加载进度、模组注册、HookManager 初始化、AssetManager.init 调用等各阶段日志，方便通过 Toolbox 加载时排查问题 - src/main.js
 [2026-07-20 04:00] 修复构建报错"Identifier 'be' has already been declared" - 禁用 terser 压缩和 compact 输出，避免 rollup 压缩时变量名冲突 - rollup.config.js
 [2026-07-20 04:10] 修复 Toolbox 加载报错"Identifier 'i' has already been declared" - 输出格式从 esm 改为 iife（立即执行函数），每次加载创建独立作用域，避免与 Toolbox 或其他插件变量冲突 - rollup.config.js
+[2026-07-24 15:30] 自定义贴图：将旧3开关隐藏系统(HideBody/HideOtherItems/HideEchoExt)替换为5分类隐藏系统(HideCosplay/HideFacial/HideBody/HideClothing/HideItems)，新增独立隐藏设置页面(currentView状态)，配置版本升级到v4，兼容旧数据导入 - src/assets/customTexture.js
