@@ -399,7 +399,7 @@ function handleHideSettingsClick(item) {
             Logger.info(`${cat.label} 切换为: ${item.Property[cat.key]}`);
             syncItemToServer(item);
             const C = CharacterGetCurrent();
-            if (C) CharacterRefresh(C, false);
+            if (C) CharacterRefresh(C, false, false);
             return;
         }
     }
@@ -509,7 +509,7 @@ function handleTextureListClick(item, data) {
             // 切换可见性后立即同步到服务器
             syncItemToServer(item);
             const C = CharacterGetCurrent();
-            if (C) CharacterRefresh(C, false);
+            if (C) CharacterRefresh(C, false, false);
             return;
         }
         // 编辑按钮
@@ -560,7 +560,7 @@ function handleTextureListClick(item, data) {
             Logger.info(`隐藏分类 - ${HIDE_CATEGORIES.map(c => `${c.label}: ${item.Property[c.key]}`).join(', ')}`);
             
             syncItemToServer(item);
-            CharacterRefresh(C, false);
+            CharacterRefresh(C, false, false);
             Logger.info("贴图设置已保存并同步");
         }
         return;
@@ -695,7 +695,7 @@ function importConfig(item, mode) {
             // 同步到服务器并刷新角色
             syncItemToServer(item);
             const C = CharacterGetCurrent();
-            if (C) CharacterRefresh(C, false);
+            if (C) CharacterRefresh(C, false, false);
         } catch (err) {
             Logger.error("导入失败:", err.message);
             if (typeof ChatRoomSendLocal !== "undefined") {
@@ -747,6 +747,9 @@ function createEditInputs(texture) {
  * ServerPlayerAppearanceSync: 持久化到 Player 账号数据，确保玩家重新登录时能恢复配置
  */
 function syncItemToServer(item) {
+    // 在制作(Crafting)页面中不同步到服务器，制作页面有自己的保存机制
+    if (CurrentScreen === "Crafting") return;
+
     const C = CharacterGetCurrent();
     if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
 
@@ -808,15 +811,15 @@ function drawTextureEditPanel(item, textureIndex, data) {
             
             // 刷新本地画布（实时预览）
             const C = CharacterGetCurrent();
-            if (C) CharacterRefresh(C, false);
-            
+            if (C) CharacterRefresh(C, false, false);
+
             // URL 变化时预加载图片，加载完成后再次刷新
             if (urlChanged && isValidImageUrl(newUrl)) {
                 const img = DrawGetImage(newUrl);
                 if (!img.complete) {
                     img.onload = () => {
                         Logger.info(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
-                        if (C) CharacterRefresh(C, false);
+                        if (C) CharacterRefresh(C, false, false);
                     };
                 }
             }
@@ -876,10 +879,10 @@ function handleTextureEditClick(item, textureIndex, data) {
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         syncItemToServer(item);
         const C = CharacterGetCurrent();
-        if (C) CharacterRefresh(C, false);
+        if (C) CharacterRefresh(C, false, false);
         return;
     }
-    
+
     if (MouseIn(1310, y, 120, 35)) {
         const urlInput = document.getElementById(INPUT_URL);
         const offsetXInput = document.getElementById(INPUT_OFFSET_X);
@@ -918,7 +921,7 @@ function handleTextureEditClick(item, textureIndex, data) {
         currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
-        if (C) CharacterRefresh(C, false);
+        if (C) CharacterRefresh(C, false, false);
         return;
     }
 
@@ -935,7 +938,7 @@ function handleTextureEditClick(item, textureIndex, data) {
         currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
-        if (C) CharacterRefresh(C, false);
+        if (C) CharacterRefresh(C, false, false);
         return;
     }
 }
