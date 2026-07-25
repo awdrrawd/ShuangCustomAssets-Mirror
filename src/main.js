@@ -62,6 +62,23 @@ once(ModInfo.name, async () => {
         // 初始化 HookManager
         HookManager.initWithMod(mod);
         console.log(`[ShuangAssets] HookManager 已初始化`);
+
+        // Hook CraftingDeserialize：修复空名称的自制道具被丢弃的问题
+        // BC 的 CraftingDeserialize 在 Name 为空时返回 null，导致无名称的自制道具在重新登录后丢失
+        // 这里在反序列化前将空名称替换为默认值
+        HookManager.hookFunction("CraftingDeserialize", 0, (args, next) => {
+            const craftString = args[0];
+            if (typeof craftString === "string" && craftString.length > 0) {
+                const sep = typeof CraftingSerializeItemSep === "string" ? CraftingSerializeItemSep : ",";
+                const parts = craftString.split(sep);
+                // parts[0] = Item(道具名), parts[3] = Name(自制名称)
+                if (parts[0] && (!parts[3] || parts[3] === "")) {
+                    parts[3] = "Crafted Item";
+                    args[0] = parts.join(sep);
+                }
+            }
+            return next(args);
+        });
         
         // 设置 AssetManager 日志
         AssetManager.setLogger(Logger);
