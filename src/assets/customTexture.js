@@ -4,7 +4,7 @@
  */
 
 import { isValidImageUrl, Logger } from "@lib/utils.js";
-import { isUrlAllowed } from "./settings.js";
+import { isUrlAllowed, isDomainInWhitelist, extractDomain, addDomainToWhitelist } from "./settings.js";
 
 /**
  * 单个贴图的默认属性
@@ -35,7 +35,8 @@ const DEFAULT_PROPS = {
 let currentEditTexture = -1;
 let tempTextureData = null;
 let currentListPage = 0;
-let currentView = "list"; // "list" | "hide"
+let currentView = "list"; // "list" | "hide" | "addDomainConfirm"
+let pendingDomainToAdd = null; // 待确认添加的域名
 
 // 每页显示的贴图数量
 const TEXTURES_PER_PAGE = 6;
@@ -250,7 +251,9 @@ const extended = {
             const item = DialogFocusItem;
             if (!item) return;
 
-            if (currentEditTexture >= 0) {
+            if (currentView === "addDomainConfirm") {
+                drawAddDomainConfirm();
+            } else if (currentEditTexture >= 0) {
                 drawTextureEditPanel(item, currentEditTexture, data);
             } else if (currentView === "hide") {
                 drawHideSettings(item);
@@ -264,7 +267,9 @@ const extended = {
             const item = DialogFocusItem;
             if (!item) return;
 
-            if (currentEditTexture >= 0) {
+            if (currentView === "addDomainConfirm") {
+                handleAddDomainConfirmClick(item, data);
+            } else if (currentEditTexture >= 0) {
                 handleTextureEditClick(item, currentEditTexture, data);
             } else if (currentView === "hide") {
                 handleHideSettingsClick(item);
@@ -354,6 +359,69 @@ const extended = {
         }
     }
 };
+
+/**
+ * 绘制添加可信域名确认页面
+ */
+function drawAddDomainConfirm() {
+    DrawText("⚠ 添加可信域名确认 ⚠", 1200, 350, "Red", "Gray");
+
+    let y = 420;
+    const lines = [
+        `即将添加域名到白名单: ${pendingDomainToAdd}`,
+        "",
+        "添加后，来自该域名的贴图 URL 将被允许加载",
+        "",
+        "请注意以下风险：",
+        "1. 请确认您信任该域名提供者",
+        "2. 该域名的所有 URL 都将被加载",
+        "3. 恶意域名可能用于追踪您的 IP 地址",
+        "4. 恶意域名可能导致隐私信息泄露",
+        "",
+        "确定要添加此域名到可信列表吗？",
+    ];
+
+    for (const line of lines) {
+        const color = line.startsWith("即将") ? "Cyan" : (line.startsWith("确定") ? "Red" : "White");
+        DrawText(line, 1200, y, color, "Black");
+        y += 35;
+    }
+
+    y += 10;
+    DrawButton(1050, y, 200, 50, "确认添加", "#4CAF50", "#66BB6A", false);
+    DrawButton(1300, y, 200, 50, "取消", "#9E9E9E", "#BDBDBD", false);
+}
+
+/**
+ * 处理添加可信域名确认页面点击
+ */
+function handleAddDomainConfirmClick(item, data) {
+    const baseY = 420 + 35 * 11 + 10;
+    // 确认添加
+    if (MouseIn(1050, baseY, 200, 50)) {
+        if (pendingDomainToAdd) {
+            const success = addDomainToWhitelist(pendingDomainToAdd);
+            if (success) {
+                Logger.info(`已添加可信域名: ${pendingDomainToAdd}`);
+                if (typeof ChatRoomSendLocal !== "undefined") {
+                    ChatRoomSendLocal(`[ShuangAssets] 已添加可信域名: ${pendingDomainToAdd}`);
+                }
+            }
+        }
+        pendingDomainToAdd = null;
+        currentView = "list";
+        // 刷新预览
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false, false);
+        return;
+    }
+    // 取消
+    if (MouseIn(1300, baseY, 200, 50)) {
+        pendingDomainToAdd = null;
+        currentView = "list";
+        return;
+    }
+}
 
 /**
  * 绘制隐藏设置页面
@@ -454,6 +522,11 @@ function drawTextureListMain(item) {
             isVisible ? "#66BB6A" : "#999999", false);
         
         DrawButton(1480, y + 5, 60, 35, "编辑", "White", null, false);
+        
+        // 可信域名快捷按钮：白名单模式下，URL 域名不在白名单时显示
+        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL)) {
+            DrawButton(1545, y + 5, 55, 35, "+可信", "#FF9800", "#FFB74D", false);
+        }
     }
     
     // 按钮位置固定基于每页最大行数，避免分页时按钮跳动
@@ -504,6 +577,7 @@ function handleTextureListClick(item, data) {
     
     for (let i = pageStart; i < pageEnd; i++) {
         const y = startY + (i - pageStart) * itemHeight;
+        const texture = textures[i];
         // 可见开关
         if (MouseIn(1390, y + 5, 70, 35)) {
             textures[i].Visible = textures[i].Visible === false ? true : false;
@@ -520,6 +594,15 @@ function handleTextureListClick(item, data) {
             if (!data.PersistentData) data.PersistentData = {};
             data.PersistentData._originalTexture = { ...textures[i] };
             createEditInputs(textures[i]);
+            return;
+        }
+        // +可信 按钮
+        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1545, y + 5, 55, 35)) {
+            const domain = extractDomain(texture.TextureURL);
+            if (domain) {
+                pendingDomainToAdd = domain;
+                currentView = "addDomainConfirm";
+            }
             return;
         }
     }
@@ -859,6 +942,16 @@ function drawTextureEditPanel(item, textureIndex, data) {
     DrawText("修改后自动预览，点击「确认」返回列表", 1300, y, "Yellow", "Black");
     y += 30;
     
+    // 可信域名快捷按钮：白名单模式下，URL 域名不在白名单时显示
+    const currentUrl = urlInput?.value?.trim() || "";
+    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
+        const domain = extractDomain(currentUrl);
+        if (domain) {
+            DrawButton(1150, y, 200, 35, `+可信域名: ${domain.length > 15 ? domain.substring(0, 15) + "..." : domain}`, "#FF9800", "#FFB74D", false);
+        }
+        y += 40;
+    }
+    
     DrawButton(1150, y, 150, 35, "删除此贴图", "#F44336", "#E57373", false);
     DrawButton(1310, y, 120, 35, "确认", "#4CAF50", "#66BB6A", false);
     DrawButton(1440, y, 120, 35, "取消", "#9E9E9E", "#BDBDBD", false);
@@ -871,6 +964,19 @@ function handleTextureEditClick(item, textureIndex, data) {
     let y = 400;
     const lineHeight = 45;
     y += lineHeight * 6 + 20 + 30;  // 6个输入行 + 提示行
+
+    // 可信域名按钮（如果显示的话）
+    const urlInput = document.getElementById(INPUT_URL);
+    const currentUrl = urlInput?.value?.trim() || "";
+    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
+        const domain = extractDomain(currentUrl);
+        if (domain && MouseIn(1150, y, 200, 35)) {
+            pendingDomainToAdd = domain;
+            currentView = "addDomainConfirm";
+            return;
+        }
+        y += 40;
+    }
     
     if (MouseIn(1150, y, 150, 35)) {
         item.Property.Textures.splice(textureIndex, 1);

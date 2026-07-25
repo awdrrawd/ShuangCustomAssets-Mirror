@@ -20,6 +20,7 @@ const DEFAULT_ALLOWED_DOMAINS = [
 
 // 设置页面状态
 let settingsPage = "main"; // "main" | "modeSelect" | "whitelist" | "unrestrictedConfirm"
+let whitelistPage = 0; // 白名单管理页面当前页码（0-indexed）
 
 // === 设置存储 ===
 
@@ -54,7 +55,7 @@ export function saveSettings() {
  * @param {string} url
  * @returns {string|null}
  */
-function extractDomain(url) {
+export function extractDomain(url) {
     try {
         const u = new URL(url);
         return u.hostname;
@@ -91,6 +92,37 @@ export function isUrlAllowed(url) {
     });
 }
 
+/**
+ * 检查 URL 的域名是否在白名单中
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isDomainInWhitelist(url) {
+    const settings = getSettings();
+    if (settings.urlLoadMode !== "whitelist") return true;
+    const domain = extractDomain(url);
+    if (!domain) return false;
+    const allowed = settings.allowedDomains || [];
+    return allowed.some(a => domain === a || domain.endsWith("." + a));
+}
+
+/**
+ * 添加域名到白名单
+ * @param {string} domain
+ * @returns {boolean} 是否添加成功
+ */
+export function addDomainToWhitelist(domain) {
+    if (!domain) return false;
+    domain = domain.toLowerCase().trim();
+    if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(domain)) return false;
+    const settings = getSettings();
+    if (!settings.allowedDomains) settings.allowedDomains = [];
+    if (settings.allowedDomains.includes(domain)) return false;
+    settings.allowedDomains.push(domain);
+    saveSettings();
+    return true;
+}
+
 // === 设置页面 UI ===
 
 /**
@@ -109,6 +141,7 @@ export function registerExtensionSetting() {
         Image: "Icons/Texture.png",
         load: () => {
             settingsPage = "main";
+            whitelistPage = 0;
             _createDomainInput();
         },
         run: () => {
@@ -139,11 +172,13 @@ export function registerExtensionSetting() {
         exit: () => {
             _removeDomainInput();
             settingsPage = "main";
+            whitelistPage = 0;
             return true;
         },
         unload: () => {
             _removeDomainInput();
             settingsPage = "main";
+            whitelistPage = 0;
         },
     });
 
@@ -210,10 +245,7 @@ function _drawWhitelistPage() {
     const settings = getSettings();
     const domains = settings.allowedDomains || [];
 
-    DrawText("域名白名单管理", 1000, 100, "Black", "Gray");
-    DrawText("仅来自这些域名的贴图 URL 会被加载", 1000, 140, "Gray", "White");
-
-    // 域名列表 - 左对齐文字 + 右侧删除按钮
+    // 域名列表布局常量
     const listStartY = 190;
     const lineH = 45;
     const maxShow = 8;
@@ -221,23 +253,47 @@ function _drawWhitelistPage() {
     const deleteBtnX = 1300;    // 删除按钮左边缘
     const deleteBtnW = 120;
 
-    for (let i = 0; i < Math.min(domains.length, maxShow); i++) {
-        const y = listStartY + i * lineH;
+    // 计算翻页
+    const totalPages = Math.max(1, Math.ceil(domains.length / maxShow));
+    if (whitelistPage >= totalPages) whitelistPage = totalPages - 1;
+    if (whitelistPage < 0) whitelistPage = 0;
+    const pageStart = whitelistPage * maxShow;
+    const pageEnd = Math.min(pageStart + maxShow, domains.length);
+    const hasPrev = whitelistPage > 0;
+    const hasNext = whitelistPage < totalPages - 1;
+
+    DrawText("域名白名单管理", 1000, 100, "Black", "Gray");
+    DrawText("仅来自这些域名的贴图 URL 会被加载", 1000, 140, "Gray", "White");
+
+    // 域名列表 - 左对齐文字 + 右侧删除按钮
+    // 显示当前页的域名
+    for (let i = pageStart; i < pageEnd; i++) {
+        const displayIdx = i - pageStart;
+        const y = listStartY + displayIdx * lineH;
         _drawTextLeft(`${i + 1}. ${domains[i]}`, domainTextX, y, "Black", "White");
         DrawButton(deleteBtnX, y - 17, deleteBtnW, 35, "删除", "#FFD4D4");
     }
 
-    if (domains.length > maxShow) {
-        DrawText(`... 共 ${domains.length} 个域名，仅显示前 ${maxShow} 个`, 1000, listStartY + maxShow * lineH, "Gray", "White");
-    }
+    // 翻页控制和页面信息
+    const paginationY = listStartY + maxShow * lineH + 10;
+    DrawText(`第 ${whitelistPage + 1}/${totalPages} 页  (共 ${domains.length} 个域名)`, 1000, paginationY, "Gray", "White");
+
+    DrawButton(1180, paginationY - 17, 80, 35, "上一页", "#555555", "#777777", !hasPrev);
+    DrawButton(1270, paginationY - 17, 80, 35, "下一页", "#555555", "#777777", !hasNext);
 
     // 添加域名区域
-    const inputY = listStartY + maxShow * lineH + 40;
+    const inputY = paginationY + 40;
     _drawTextLeft("添加域名:", domainTextX, inputY, "Black", "White");
 
     // 输入框在文字右侧
     DrawButton(900, inputY - 17, 100, 35, "添加", "#D4FFD4");
-    DrawButton(1050, inputY - 17, 120, 35, "清空全部", "#FFD4D4");
+    DrawButton(1010, inputY - 17, 100, 35, "清空全部", "#FFD4D4");
+    DrawButton(1120, inputY - 17, 120, 35, "添加推荐域名", "#B3E5FC");
+
+    // 导入导出
+    const ieY = inputY + 50;
+    DrawButton(900, ieY - 17, 120, 35, "导出配置", "#FF9800", "#FFB74D", false);
+    DrawButton(1030, ieY - 17, 120, 35, "导入配置", "#2196F3", "#42A5F5", false);
 
     // 返回按钮
     DrawButton(800, 720, 400, 60, "返回", "White");
@@ -340,26 +396,49 @@ function _clickWhitelistPage() {
         return;
     }
 
+    // 域名列表布局常量（必须与 _drawWhitelistPage 一致）
     const listStartY = 190;
     const lineH = 45;
     const maxShow = 8;
     const deleteBtnX = 1300;
     const deleteBtnW = 120;
 
-    // 删除按钮
-    for (let i = 0; i < Math.min(domains.length, maxShow); i++) {
+    const totalPages = Math.max(1, Math.ceil(domains.length / maxShow));
+
+    // 删除按钮 - 使用翻页偏移
+    for (let i = 0; i < maxShow; i++) {
+        const idx = whitelistPage * maxShow + i;
+        if (idx >= domains.length) break;
         const y = listStartY + i * lineH;
         if (MouseIn(deleteBtnX, y - 17, deleteBtnW, 35)) {
-            const removed = domains.splice(i, 1)[0];
+            const removed = domains.splice(idx, 1)[0];
             settings.allowedDomains = domains;
             saveSettings();
+            // 如果删除后当前页为空且不是第一页，回退一页
+            if (domains.length > 0 && whitelistPage >= Math.ceil(domains.length / maxShow)) {
+                whitelistPage = Math.max(0, Math.ceil(domains.length / maxShow) - 1);
+            }
             Logger.info(`删除域名: ${removed}`);
             return;
         }
     }
 
+    // 翻页控制
+    const paginationY = listStartY + maxShow * lineH + 10;
+    const hasPrev = whitelistPage > 0;
+    const hasNext = whitelistPage < totalPages - 1;
+
+    if (hasPrev && MouseIn(1180, paginationY - 17, 80, 35)) {
+        whitelistPage--;
+        return;
+    }
+    if (hasNext && MouseIn(1270, paginationY - 17, 80, 35)) {
+        whitelistPage++;
+        return;
+    }
+
     // 添加域名
-    const inputY = listStartY + maxShow * lineH + 40;
+    const inputY = paginationY + 40;
     if (MouseIn(900, inputY - 17, 100, 35)) {
         const input = document.getElementById("ShuangTextureDomainInput");
         const domain = input?.value?.trim()?.toLowerCase();
@@ -369,6 +448,8 @@ function _clickWhitelistPage() {
                 settings.allowedDomains = domains;
                 saveSettings();
                 input.value = "";
+                // 跳转到最后一页显示新添加的域名
+                whitelistPage = Math.max(0, Math.ceil(domains.length / maxShow) - 1);
                 Logger.info(`添加域名: ${domain}`);
             }
         }
@@ -376,10 +457,84 @@ function _clickWhitelistPage() {
     }
 
     // 清空全部
-    if (MouseIn(1050, inputY - 17, 120, 35)) {
-        settings.allowedDomains = [];
-        saveSettings();
-        Logger.info("清空所有域名");
+    if (MouseIn(1010, inputY - 17, 100, 35)) {
+        if (confirm("确定要清空所有可信域名吗？")) {
+            settings.allowedDomains = [];
+            saveSettings();
+            whitelistPage = 0;
+            Logger.info("清空所有域名");
+        }
+        return;
+    }
+
+    // 添加推荐域名
+    if (MouseIn(1120, inputY - 17, 120, 35)) {
+        const existing = new Set(settings.allowedDomains || []);
+        let added = 0;
+        for (const d of DEFAULT_ALLOWED_DOMAINS) {
+            if (!existing.has(d)) {
+                settings.allowedDomains.push(d);
+                existing.add(d);
+                added++;
+            }
+        }
+        if (added > 0) {
+            saveSettings();
+            // 跳转到最后一页
+            whitelistPage = Math.max(0, Math.ceil(settings.allowedDomains.length / maxShow) - 1);
+            Logger.info(`添加了 ${added} 个推荐域名`);
+        }
+        return;
+    }
+
+    // 导出配置
+    const ieY = inputY + 50;
+    if (MouseIn(900, ieY - 17, 120, 35)) {
+        const json = JSON.stringify(settings.allowedDomains || [], null, 2);
+        navigator.clipboard.writeText(json).then(() => {
+            Logger.info("域名白名单已复制到剪贴板");
+        }).catch(() => {
+            // 降级：通过临时 textarea 复制
+            const ta = document.createElement("textarea");
+            ta.value = json;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            Logger.info("域名白名单已复制到剪贴板");
+        });
+        return;
+    }
+
+    // 导入配置
+    if (MouseIn(1030, ieY - 17, 120, 35)) {
+        const jsonStr = prompt("请粘贴域名白名单 JSON 配置：\n格式如: [\"domain1.com\", \"domain2.com\"]");
+        if (jsonStr) {
+            try {
+                const imported = JSON.parse(jsonStr);
+                if (!Array.isArray(imported)) throw new Error("不是数组格式");
+                const existing = new Set(settings.allowedDomains || []);
+                let added = 0;
+                for (const d of imported) {
+                    const domain = String(d).toLowerCase().trim();
+                    if (domain && !existing.has(domain) && /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(domain)) {
+                        settings.allowedDomains.push(domain);
+                        existing.add(domain);
+                        added++;
+                    }
+                }
+                if (added > 0) {
+                    saveSettings();
+                    whitelistPage = Math.max(0, Math.ceil(settings.allowedDomains.length / maxShow) - 1);
+                    Logger.info(`导入了 ${added} 个域名`);
+                } else {
+                    Logger.info("导入完成，无新增域名");
+                }
+            } catch (e) {
+                Logger.error("导入域名配置失败:", e);
+                alert("导入失败：JSON 格式错误，请检查后重试");
+            }
+        }
         return;
     }
 
@@ -426,7 +581,7 @@ function _updateInputPosition() {
     if (input && settingsPage === "whitelist") {
         // 输入框在"添加域名:"文字右侧，"添加"按钮左侧
         // 文字在 X=400，按钮在 X=900，输入框居中于 X=720
-        const inputY = 190 + 8 * 45 + 40;
+        const inputY = 190 + 8 * 45 + 10 + 40; // listStartY + maxShow * lineH + 10 + 40
         ElementPosition("ShuangTextureDomainInput", 720, inputY, 350, 40);
     } else if (input) {
         // 非白名单页面时隐藏输入框
