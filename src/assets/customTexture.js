@@ -4,7 +4,7 @@
  */
 
 import { isValidImageUrl, Logger } from "@lib/utils.js";
-import { isUrlAllowed, isDomainInWhitelist, extractDomain, addDomainToWhitelist, getDomainWarningEnabled, getDomainWarningOpacity } from "./settings.js";
+import { isUrlAllowed, isDomainInWhitelist, extractDomain, addDomainToWhitelist, getDomainWarningEnabled } from "./settings.js";
 
 /**
  * 单个贴图的默认属性
@@ -312,7 +312,6 @@ const extended = {
 
             // 域名警告处理
             const warnEnabled = getDomainWarningEnabled();
-            const warnOpacity = getDomainWarningOpacity();
 
             let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity;
 
@@ -323,7 +322,7 @@ const extended = {
                 offsetY = -256;
                 scale = 16 / 100;
                 rotation = 0;
-                displayOpacity = warnOpacity / 100;
+                displayOpacity = 1.0;
             } else if (!isUrlAllowed(texture.TextureURL)) {
                 // 域不可信提示关闭（或不限制模式）：跳过渲染
                 return;
