@@ -973,6 +973,10 @@ function handleTextureEditClick(item, textureIndex, data) {
         if (domain && MouseIn(1150, y, 200, 35)) {
             pendingDomainToAdd = domain;
             currentView = "addDomainConfirm";
+            // 移除编辑页面的输入框，避免遮挡确认对话框
+            currentEditTexture = -1;
+            tempTextureData = null;
+            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
             return;
         }
         y += 40;
