@@ -4,6 +4,7 @@
  */
 
 import { isValidImageUrl, Logger } from "@lib/utils.js";
+import { isUrlAllowed } from "./settings.js";
 
 /**
  * 单个贴图的默认属性
@@ -300,7 +301,7 @@ const extended = {
             if (!textures || layerIndex >= textures.length) return;
             
             const texture = textures[layerIndex];
-            if (!texture || !texture.TextureURL || !isValidImageUrl(texture.TextureURL)) return;
+            if (!texture || !texture.TextureURL || !isUrlAllowed(texture.TextureURL)) return;
             // 不可见则跳过
             if (texture.Visible === false) return;
 
@@ -814,7 +815,7 @@ function drawTextureEditPanel(item, textureIndex, data) {
             if (C) CharacterRefresh(C, false, false);
 
             // URL 变化时预加载图片，加载完成后再次刷新
-            if (urlChanged && isValidImageUrl(newUrl)) {
+            if (urlChanged && isUrlAllowed(newUrl)) {
                 const img = DrawGetImage(newUrl);
                 if (!img.complete) {
                     img.onload = () => {
@@ -993,7 +994,7 @@ export default function register(AssetManager) {
  * 登录页面加载标识贴图配置
  * 参考 echo 服装扩展的汉堡标识，在 LoginCharacter 身体部位放上自定义贴图
  */
-const BADGE_IMAGE_URL = "https://cloudflare-imgbed-7fq.pages.dev/file/1784733563047_6a60ddb7fe2052203caea65b__1_.png";
+const BADGE_IMAGE_URL = "https://shuang-custom-assets.pages.dev/SCA_logo.png";
 
 const LOGIN_BADGE_TEXTURE = {
     TextureURL: BADGE_IMAGE_URL,

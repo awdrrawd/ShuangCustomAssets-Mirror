@@ -11,6 +11,7 @@ import { registerAssets, initAssets } from "./lib/assetManager.js";
 import { Logger } from "./lib/utils.js";
 import assets from "./assets/index.js";
 import { setupLoginBadge } from "./assets/customTexture.js";
+import { registerExtensionSetting } from "./assets/settings.js";
 
 // 立即输出日志，确认脚本已执行
 console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
@@ -29,6 +30,10 @@ function init() {
         initAssets();
         // 设置登录页面加载标识
         setupLoginBadge(HookManager);
+        // 注册扩展设置页面（玩家登录后可用）
+        HookManager.afterPlayerLogin(() => {
+            registerExtensionSetting();
+        });
         Logger.info("所有道具初始化完成");
     });
 }

@@ -12,7 +12,8 @@ export function createVirtualPath(id) {
 }
 
 /**
- * 验证图片 URL 格式
+ * 验证图片 URL 格式（基本格式检查）
+ * 注意：域名白名单检查由 settings.js 的 isUrlAllowed 处理
  * @param {string} url
  * @returns {boolean}
  */
@@ -20,7 +21,6 @@ export function isValidImageUrl(url) {
     if (!url || typeof url !== "string") return false;
     if (!url.startsWith("https://")) return false;
     if (url.length > 1000) return false;
-    // 可选：添加域名白名单检查
     return true;
 }
 
