@@ -7,6 +7,15 @@ import { Logger } from "@lib/utils.js";
 
 // === 常量 ===
 const EXTENSION_ID = "ShuangCustomAssets";
+
+/**
+ * 插件自身服务域名，始终允许（不依赖玩家设置）
+ * 用于登录页面加载标识等场景
+ */
+const ALWAYS_ALLOWED_DOMAINS = [
+    "shuang-custom-assets.pages.dev"
+];
+
 const DEFAULT_ALLOWED_DOMAINS = [
     "github.io",
     "gitlab.io",
@@ -15,7 +24,8 @@ const DEFAULT_ALLOWED_DOMAINS = [
     "imgchest.com",
     "imgur.com",
     "postimg.cc",
-    "hd-r.icu"
+    "hd-r.icu",
+    ...ALWAYS_ALLOWED_DOMAINS
 ];
 
 // 设置页面状态
@@ -73,6 +83,13 @@ export function isUrlAllowed(url) {
     if (!url || typeof url !== "string") return false;
     if (!url.startsWith("https://")) return false;
 
+    // 插件自身服务域名始终允许（如登录页面标识）
+    const domain = extractDomain(url);
+    if (domain && ALWAYS_ALLOWED_DOMAINS.some(d => domain === d || domain.endsWith("." + d))) {
+        return true;
+    }
+    if (!domain) return false;
+
     const settings = getSettings();
 
     // 不限制模式：允许所有 HTTPS URL
@@ -81,9 +98,6 @@ export function isUrlAllowed(url) {
     }
 
     // 白名单模式：检查域名
-    const domain = extractDomain(url);
-    if (!domain) return false;
-
     const allowed = settings.allowedDomains || [];
     return allowed.some(allowed => {
         if (domain === allowed) return true;

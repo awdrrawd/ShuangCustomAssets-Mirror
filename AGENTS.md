@@ -76,3 +76,4 @@
 [2026-07-24 15:30] 自定义贴图：将旧3开关隐藏系统(HideBody/HideOtherItems/HideEchoExt)替换为5分类隐藏系统(HideCosplay/HideFacial/HideBody/HideClothing/HideItems)，新增独立隐藏设置页面(currentView状态)，配置版本升级到v4，兼容旧数据导入 - src/assets/customTexture.js
 [2026-07-25 23:50] 安全设置：域名白名单管理页面添加翻页功能(每页8条，支持上下翻页)；添加导入导出功能(导出JSON到剪贴板，导入JSON格式配置) - src/assets/settings.js
 [2026-07-25 23:55] 修复：编辑图层页面点击"+可信"后，原编辑输入框遮挡确认对话框的问题 - 切换视图时移除编辑页面的 DOM 输入元素 - src/assets/customTexture.js
+[2026-07-26 00:10] 修复：登录页面加载标识被 URL 白名单机制屏蔽 - 添加 ALWAYS_ALLOWED_DOMAINS 常量，插件自身服务域名始终允许不依赖玩家设置 - src/assets/settings.js
