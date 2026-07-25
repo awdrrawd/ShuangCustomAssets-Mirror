@@ -137,6 +137,7 @@ wrangler login
 
 # 部署到 Cloudflare Pages（项目名：shuang-custom-assets）
 wrangler pages deploy dist --project-name=shuang-custom-assets
+netlify deploy --prod
 ```
 
 部署后会得到类似这样的 URL：

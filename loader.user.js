@@ -26,25 +26,40 @@ const isSupportedDomain = supportedDomains.some(domain =>
     window.location.hostname.includes(domain)
 );
 
-// 生产环境 CDN 地址（需要部署后修改）
-const CDN_URL = 'https://shuang-custom-assets.pages.dev/shuang-assets.js';
-
-async function loadAssets() {
-    const timestamp = Date.now();
-    const url = `${CDN_URL}?t=${timestamp}`;
-    console.log('[ShuangCustomAssets] 正在加载:', url);
-
-    try {
-        await import(url);
-        console.log('[ShuangCustomAssets] 加载成功');
-    } catch (error) {
-        console.error('[ShuangCustomAssets] 加载失败:', error);
+const MIRROR_SOURCES = [
+    {
+        name: 'Cloudflare Pages',
+        getUrl: (timestamp) => `https://shuang-custom-assets.pages.dev/shuang-assets.js?t=${timestamp}`
+    },
+    {
+        name: 'Netlify',
+        getUrl: (timestamp) => `https://shuang-custom-assets.netlify.app/shuang-assets.js?t=${timestamp}`
     }
+];
+
+async function loadWithFallback() {
+    const timestamp = Date.now();
+
+    for (const source of MIRROR_SOURCES) {
+        const url = source.getUrl(timestamp);
+        console.log(`[ShuangCustomAssets] 尝试从 ${source.name} 加载: ${url}`);
+
+        try {
+            await import(url);
+            console.log(`[ShuangCustomAssets] 成功从 ${source.name} 加载`);
+            return true;
+        } catch (error) {
+            console.warn(`[ShuangCustomAssets] ${source.name} 加载失败:`, error.message);
+        }
+    }
+
+    console.error('[ShuangCustomAssets] 所有镜像源均加载失败，请检查网络连接或联系开发者');
+    return false;
 }
 
 if (isSupportedDomain) {
     console.log('[ShuangCustomAssets] 正在加载...');
-    loadAssets();
+    loadWithFallback();
 } else {
     console.warn('[ShuangCustomAssets] 当前页面不在支持的游戏域名内，跳过加载');
 }
