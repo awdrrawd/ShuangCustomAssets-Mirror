@@ -78,3 +78,4 @@
 [2026-07-25 23:55] 修复：编辑图层页面点击"+可信"后，原编辑输入框遮挡确认对话框的问题 - 切换视图时移除编辑页面的 DOM 输入元素 - src/assets/customTexture.js
 [2026-07-26 00:10] 修复：登录页面加载标识被 URL 白名单机制屏蔽 - 添加 ALWAYS_ALLOWED_DOMAINS 常量，插件自身服务域名始终允许不依赖玩家设置 - src/assets/settings.js
 [2026-07-25] 新增不可信域名提示功能 - 配置页面添加开关(开/关)，开启时替换为警告图(固定参数167,-256,16%,旋转0,透明度100%)，关闭时跳过不可信域名不加载不渲染 - src/assets/customTexture.js, src/assets/settings.js
+[2026-07-25] 修复 Crafting JSON 解析报错 - CraftingDeserialize hook 错误使用 CraftingSerializeItemSep("§") 作为分隔符，导致 split 不分割数据再 join 追加 "§§§Crafted Item" 到末尾。改为 CraftingSerializeFieldSep("¶") 正确分割字段 - src/main.js

@@ -71,10 +71,14 @@ once(ModInfo.name, async () => {
         // Hook CraftingDeserialize：修复空名称的自制道具被丢弃的问题
         // BC 的 CraftingDeserialize 在 Name 为空时返回 null，导致无名称的自制道具在重新登录后丢失
         // 这里在反序列化前将空名称替换为默认值
+        // 注意：必须使用 CraftingSerializeFieldSep ("¶") 作为分隔符，
+        // CraftingDeserialize 内部用 "¶" 分隔各个字段，Item/Property/Lock/Name/.../Description/.../Effects
+        // 如果错误使用 CraftingSerializeItemSep ("§")，单个道具字符串中不含 "§"，
+        // split 会返回整个字符串作为单个元素，再 join 会追加 "§§§Crafted Item" 到末尾破坏数据
         HookManager.hookFunction("CraftingDeserialize", 0, (args, next) => {
             const craftString = args[0];
             if (typeof craftString === "string" && craftString.length > 0) {
-                const sep = typeof CraftingSerializeItemSep === "string" ? CraftingSerializeItemSep : ",";
+                const sep = typeof CraftingSerializeFieldSep !== "undefined" ? CraftingSerializeFieldSep : ",";
                 const parts = craftString.split(sep);
                 // parts[0] = Item(道具名), parts[3] = Name(自制名称)
                 if (parts[0] && (!parts[3] || parts[3] === "")) {
