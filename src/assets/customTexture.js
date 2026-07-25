@@ -4,7 +4,7 @@
  */
 
 import { isValidImageUrl, Logger } from "@lib/utils.js";
-import { isUrlAllowed, isDomainInWhitelist, extractDomain, addDomainToWhitelist } from "./settings.js";
+import { isUrlAllowed, isDomainInWhitelist, extractDomain, addDomainToWhitelist, getDomainWarningEnabled, getDomainWarningOpacity } from "./settings.js";
 
 /**
  * 单个贴图的默认属性
@@ -31,7 +31,7 @@ const DEFAULT_PROPS = {
     HideItems: false       // 隐藏拘束道具
 };
 
-// UI 状态
+// === UI 状态 ===
 let currentEditTexture = -1;
 let tempTextureData = null;
 let currentListPage = 0;
@@ -306,17 +306,38 @@ const extended = {
             if (!textures || layerIndex >= textures.length) return;
             
             const texture = textures[layerIndex];
-            if (!texture || !texture.TextureURL || !isUrlAllowed(texture.TextureURL)) return;
+            if (!texture || !texture.TextureURL) return;
             // 不可见则跳过
             if (texture.Visible === false) return;
 
-            const offsetX = texture.OffsetX || 0;
-            const offsetY = texture.OffsetY || 0;
-            const scale = (texture.Scale || 100) / 100;
-            const rotation = texture.Rotation || 0;
-            const opacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
+            // 域名警告处理
+            const warnEnabled = getDomainWarningEnabled();
+            const warnOpacity = getDomainWarningOpacity();
 
-            const img = DrawGetImage(texture.TextureURL);
+            let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity;
+
+            if (warnEnabled && !isDomainInWhitelist(texture.TextureURL)) {
+                // 不可信域名：使用固定参数显示警告图片
+                imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
+                offsetX = 167;
+                offsetY = -256;
+                scale = 16 / 100;
+                rotation = 0;
+                displayOpacity = warnOpacity / 100;
+            } else if (!isUrlAllowed(texture.TextureURL)) {
+                // 域不可信提示关闭（或不限制模式）：跳过渲染
+                return;
+            } else {
+                // 正常显示
+                imageUrl = texture.TextureURL;
+                offsetX = texture.OffsetX || 0;
+                offsetY = texture.OffsetY || 0;
+                scale = (texture.Scale || 100) / 100;
+                rotation = texture.Rotation || 0;
+                displayOpacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
+            }
+
+            const img = DrawGetImage(imageUrl);
             if (!img.complete || img.naturalWidth <= 0) return;
 
             const width = Math.round(img.naturalWidth * scale);
@@ -330,7 +351,7 @@ const extended = {
             const bboxHeight = Math.round(width * sin + height * cos);
             
             // 缓存键包含透明度，透明度变化时重新生成 canvas
-            const cacheKey = `${texture.TextureURL}_${width}_${height}_${rotation}_${opacity}_${layerIndex}`;
+            const cacheKey = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}_${layerIndex}`;
             let tempCanvas = data.PersistentData?.[cacheKey];
             
             if (!tempCanvas) {
@@ -339,7 +360,7 @@ const extended = {
                 const ctx = tempCanvas.getContext("2d");
                 ctx.clearRect(0, 0, bboxWidth, bboxHeight);
                 ctx.save();
-                ctx.globalAlpha = opacity;
+                ctx.globalAlpha = displayOpacity;
                 // 以包围盒中心为旋转锚点
                 ctx.translate(bboxWidth / 2, bboxHeight / 2);
                 ctx.rotate(rad);

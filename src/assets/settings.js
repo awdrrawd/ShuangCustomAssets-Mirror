@@ -44,6 +44,8 @@ export function getSettings() {
         Player.ExtensionSettings[EXTENSION_ID] = {
             urlLoadMode: "whitelist",
             allowedDomains: [...DEFAULT_ALLOWED_DOMAINS],
+            domainWarningEnabled: true,
+            domainWarningOpacity: 100,
         };
     }
     return Player.ExtensionSettings[EXTENSION_ID];
@@ -56,6 +58,24 @@ export function saveSettings() {
     if (typeof ServerPlayerExtensionSettingsSync === "function") {
         ServerPlayerExtensionSettingsSync(EXTENSION_ID);
     }
+}
+
+/**
+ * 获取域名提示开关状态
+ * @returns {boolean}
+ */
+export function getDomainWarningEnabled() {
+    const settings = getSettings();
+    return settings.domainWarningEnabled !== false; // 默认开启
+}
+
+/**
+ * 获取域名提示透明度
+ * @returns {number}
+ */
+export function getDomainWarningOpacity() {
+    const settings = getSettings();
+    return settings.domainWarningOpacity ?? 100; // 默认 100%
 }
 
 // === URL 检查 ===
@@ -231,6 +251,23 @@ function _drawMainPage() {
         DrawText(`已配置 ${settings.allowedDomains?.length || 0} 个可信域名`, 1000, 440, "Gray", "White");
     }
 
+    // 域名提示设置（始终显示）
+    const warnY = settings.urlLoadMode === "whitelist" ? 500 : 360;
+    DrawText("不可信域名提示", 800, warnY + 22, "Black", "White");
+    const isWarnOn = settings.domainWarningEnabled !== false;
+    DrawButton(1150, warnY - 5, 80, 35, isWarnOn ? "开" : "关",
+        isWarnOn ? "#4CAF50" : "#666666",
+        isWarnOn ? "#66BB6A" : "#999999", false);
+
+    if (isWarnOn) {
+        const opY = warnY + 50;
+        DrawText("提示透明度", 800, opY + 22, "Black", "White");
+        const curOp = settings.domainWarningOpacity ?? 25;
+        DrawButton(1150, opY - 5, 40, 35, "-", "#555555", "#777777", false);
+        DrawText(`${curOp}%`, 1230, opY + 17, "Black", "White");
+        DrawButton(1260, opY - 5, 40, 35, "+", "#555555", "#777777", false);
+    }
+
     DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png");
 }
 
@@ -363,6 +400,29 @@ function _clickMainPage() {
     if (settings.urlLoadMode === "whitelist" && MouseIn(800, 360, 400, 60)) {
         settingsPage = "whitelist";
         return;
+    }
+
+    // 域名提示开关
+    const warnY = settings.urlLoadMode === "whitelist" ? 500 : 360;
+    if (MouseIn(1150, warnY - 5, 80, 35)) {
+        settings.domainWarningEnabled = !(settings.domainWarningEnabled !== false);
+        saveSettings();
+        return;
+    }
+
+    // 透明度增减
+    if (settings.domainWarningEnabled !== false) {
+        const opY = warnY + 50;
+        if (MouseIn(1150, opY - 5, 40, 35)) {
+            settings.domainWarningOpacity = Math.max(0, (settings.domainWarningOpacity ?? 25) - 5);
+            saveSettings();
+            return;
+        }
+        if (MouseIn(1260, opY - 5, 40, 35)) {
+            settings.domainWarningOpacity = Math.min(100, (settings.domainWarningOpacity ?? 25) + 5);
+            saveSettings();
+            return;
+        }
     }
 }
 
