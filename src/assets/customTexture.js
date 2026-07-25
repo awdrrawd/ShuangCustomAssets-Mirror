@@ -966,16 +966,25 @@ export default function register(AssetManager) {
     }
     AssetManager.addImageMapping(previewMappings);
 
-    // 在资源加载完成后，手动设置 AllowHide
+    // 在资源加载完成后，手动设置 AllowHide 和制作系统属性
     // BC 的 Validation 会检查 Property.Hide 中的组名是否在 Asset.AllowHide 中
     // SDK 的 addAssetWithConfig 不会传递 AllowHide，需要手动设置
+    // 同时需要设置 Wear/Enable 并重建 CraftingAssets，否则自制道具会丢失
     const allAllowHide = ALL_HIDEABLE_GROUPS;
     AssetManager.afterLoad(() => {
         for (const group of ALL_ITEM_GROUPS) {
             const assetObj = AssetGet("Female3DCG", group, asset.Name);
             if (assetObj) {
                 assetObj.AllowHide = allAllowHide;
+                // 确保道具可用于制作系统（CraftingAssetsPopulate 会过滤 Wear/Enable）
+                if (assetObj.Wear === undefined) assetObj.Wear = true;
+                if (assetObj.Enable === undefined) assetObj.Enable = true;
             }
+        }
+        // 重新构建 CraftingAssets，确保自定义道具被包含
+        // CraftingAssetsPopulate 在 AssetLoadAll 结束时调用，可能在自定义道具注册之前
+        if (typeof CraftingAssetsPopulate === "function") {
+            CraftingAssets = CraftingAssetsPopulate();
         }
     });
 }
