@@ -10,7 +10,7 @@ import ModInfo from "./modInfo.js";
 import { registerAssets, initAssets } from "./lib/assetManager.js";
 import { Logger } from "./lib/utils.js";
 import assets from "./assets/index.js";
-import { setupLoginBadge } from "./assets/customTexture.js";
+import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
 import { registerExtensionSetting } from "./assets/settings.js";
 
 // 立即输出日志，确认脚本已执行
@@ -30,6 +30,8 @@ function init() {
         initAssets();
         // 设置登录页面加载标识
         setupLoginBadge(HookManager);
+        // 注册对话框交互 hook（编辑退出返回列表、隐藏互动格线）
+        setupDialogHooks(HookManager);
         // 注册扩展设置页面（玩家登录后可用）
         HookManager.afterPlayerLogin(() => {
             registerExtensionSetting();
