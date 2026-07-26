@@ -90,7 +90,27 @@ once(ModInfo.name, async () => {
             }
             return next(args);
         });
-        
+
+        // Hook GLDraw2DCanvas：修复 BC WebGL 纹理泄漏
+        // BC 的 GLDraw2DCanvas 在替换纹理时仅调用 gl.textureCache.delete(name) 删除缓存条目，
+        // 但不调用 gl.deleteTexture() 释放 GPU 资源。每次 CharacterRefresh 都会泄露一个 WebGL 纹理，
+        // 累积到一定程度触发 WebGL Context Lost，导致所有贴图（包括游戏自带的）全部崩溃。
+        // 此 hook 在缓存条目被删除前先释放对应的 GPU 纹理，从源头修复泄漏。
+        HookManager.hookFunction("GLDraw2DCanvas", 0, (args, next) => {
+            const gl = args[0];
+            const Img = args[1];
+            if (gl?.textureCache) {
+                const name = Img?.getAttribute?.("name");
+                if (name) {
+                    const old = gl.textureCache.get(name);
+                    if (old?.texture) {
+                        gl.deleteTexture(old.texture);
+                    }
+                }
+            }
+            return next(args);
+        });
+
         // 设置 AssetManager 日志
         AssetManager.setLogger(Logger);
         

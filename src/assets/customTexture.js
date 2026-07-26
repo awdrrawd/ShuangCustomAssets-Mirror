@@ -40,6 +40,11 @@ let pendingDomainToAdd = null; // 待确认添加的域名
 // 进入编辑前的原始贴图数据（用于「退出=取消编辑并返回列表」时还原）
 let originalEditTexture = null;
 
+// === CharacterRefresh 节流（防止步进按钮长按时高频刷新导致 WebGL Context Lost） ===
+let _lastTextureRefresh = 0;       // 上次刷新时间戳
+let _pendingTextureRefresh = false; // 是否有待刷新
+const TEXTURE_REFRESH_INTERVAL = 200; // 最小刷新间隔（ms），5 次/秒
+
 // === 顶部状态提示（导入/导出等结果，显示在贴图管理页 1505,890） ===
 let statusMessage = null;      // { text: string, color: string }
 let statusMessageExpiry = 0;   // 时间戳，超过则不再显示
@@ -180,6 +185,36 @@ const INPUT_SCALE = "CustomTextureScaleInput";
 const INPUT_ROTATION = "CustomTextureRotationInput";
 const INPUT_OPACITY = "CustomTextureOpacityInput";
 
+// === 步进按钮（+/-）配置 ===
+// 在每个数值输入框两侧放置加减按钮，支持长按加速
+const STEPPER_BTN_W = 40;
+const STEPPER_BTN_H = 40;
+const STEPPER_MINUS_X = 1220;   // 减号按钮 X 坐标
+const STEPPER_PLUS_X = 1380;    // 加号按钮 X 坐标
+const STEPPER_INPUT_X = 1265;   // 输入框 X 坐标（位于两按钮之间）
+const STEPPER_INPUT_W = 110;    // 输入框容器宽度
+
+// 数值字段的步进配置（顺序对应 OffsetX/Y, Scale, Rotation, Opacity）
+const STEPPER_FIELDS = [
+    { id: INPUT_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX",  def: 1,   min: null, max: null },
+    { id: INPUT_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY",  def: 1,   min: null, max: null },
+    { id: INPUT_SCALE,    y: 585, labelCn: "缩放%",   labelEn: "Scale %",    labelY: 605, prop: "Scale",    def: 100, min: null, max: null },
+    { id: INPUT_ROTATION, y: 635, labelCn: "旋转%",   labelEn: "Rotation %",  labelY: 655, prop: "Rotation", def: 0,   min: null, max: null },
+    { id: INPUT_OPACITY,  y: 685, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 705, prop: "Opacity",  def: 100, min: 0,    max: 100 }
+];
+
+// 长按步进状态跟踪
+const stepperPress = {
+    fieldId: null,     // 当前按住的字段 ID
+    direction: 0,      // -1（减）或 +1（加）
+    startTime: 0,      // 按下开始时间戳（ms）
+    lastUpdate: 0      // 上次值变更时间戳（ms）
+};
+
+// 鼠标/触摸按下状态（由 document 事件监听器维护）
+let _pointerDown = false;
+let _stepperListenerReady = false;
+
 // 最大贴图数量
 const MAX_TEXTURE_COUNT = 16;
 
@@ -266,6 +301,7 @@ const extended = {
             originalEditTexture = null;
             currentListPage = 0;
             currentView = "list";
+            _pendingTextureRefresh = false;
             [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         },
 
@@ -335,6 +371,16 @@ const extended = {
             // BC 在接收 ChatRoomCharacterItemUpdate 时会自动刷新角色，Hide 数组会在下次渲染时生效
             if (layerIndex === 0 && item?.Property) {
                 updateHideArray(item);
+                // 一次性清理旧的按值缓存条目（url_width_height_rotation_opacity_layer 格式）
+                // 新策略改为每图层一个 canvas，旧缓存不再需要，不清理会持续占用内存
+                if (data.PersistentData && !data.PersistentData._cacheMigrated) {
+                    for (const key in data.PersistentData) {
+                        if (!key.startsWith("_")) {
+                            delete data.PersistentData[key];
+                        }
+                    }
+                    data.PersistentData._cacheMigrated = true;
+                }
             }
 
             if (layerIndex === -1) return;
@@ -390,26 +436,40 @@ const extended = {
             const bboxWidth = Math.round(width * cos + height * sin);
             const bboxHeight = Math.round(width * sin + height * cos);
             
-            // 缓存键包含透明度，透明度变化时重新生成 canvas
-            const cacheKey = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}_${layerIndex}`;
-            let tempCanvas = data.PersistentData?.[cacheKey];
-            
+            // 缓存策略：每个图层只保留一个 canvas，参数变化时重绘（而非创建新 canvas）
+            // 旧策略按 url_width_height_rotation_opacity 做 cacheKey，步进按钮每次调值都产生新 key，
+            // 旧 canvas 永远不释放，累积导致 GPU 内存耗尽 -> WebGL Context Lost
+            const layerCanvasKey = `_canvas_${layerIndex}`;
+            const layerParamsKey = `_params_${layerIndex}`;
+            const currentParams = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}`;
+
+            let tempCanvas = data.PersistentData?.[layerCanvasKey];
+
             if (!tempCanvas) {
-                // canvas 使用包围盒大小，确保旋转后的图像不被裁剪
+                // 首次创建 canvas
                 tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
+                if (!data.PersistentData) data.PersistentData = {};
+                data.PersistentData[layerCanvasKey] = tempCanvas;
+                data.PersistentData[layerParamsKey] = null; // 标记需要首次绘制
+            }
+
+            // 参数变化时重绘 canvas（复用同一个 canvas 元素，避免内存泄漏）
+            if (data.PersistentData[layerParamsKey] !== currentParams) {
+                // 包围盒尺寸变化时调整 canvas 大小（设置 width/height 会清空 canvas）
+                if (tempCanvas.width !== bboxWidth || tempCanvas.height !== bboxHeight) {
+                    tempCanvas.width = bboxWidth;
+                    tempCanvas.height = bboxHeight;
+                }
                 const ctx = tempCanvas.getContext("2d");
                 ctx.clearRect(0, 0, bboxWidth, bboxHeight);
                 ctx.save();
                 ctx.globalAlpha = displayOpacity;
-                // 以包围盒中心为旋转锚点
                 ctx.translate(bboxWidth / 2, bboxHeight / 2);
                 ctx.rotate(rad);
                 ctx.translate(-width / 2, -height / 2);
                 ctx.drawImage(img, 0, 0, width, height);
                 ctx.restore();
-                
-                if (!data.PersistentData) data.PersistentData = {};
-                data.PersistentData[cacheKey] = tempCanvas;
+                data.PersistentData[layerParamsKey] = currentParams;
             }
             
             // 用包围盒尺寸偏移，保持图像中心对齐到 offsetX/offsetY
@@ -894,8 +954,122 @@ function importConfig(item, mode) {
 }
 
 /**
- * 创建编辑输入框
+ * 步进按钮：初始化鼠标/触摸事件监听器（仅执行一次）
+ * 跟踪指针按下状态，供 drawTextureEditPanel 每帧检测长按
  */
+function setupStepperListeners() {
+    if (_stepperListenerReady) return;
+    _stepperListenerReady = true;
+    // 鼠标
+    document.addEventListener("mousedown", () => { _pointerDown = true; });
+    document.addEventListener("mouseup", () => {
+        _pointerDown = false;
+        stepperPress.fieldId = null;
+        // 释放后立即允许刷新（绕过节流，让预览马上更新）
+        _lastTextureRefresh = 0;
+    });
+    // 触摸（移动端）
+    document.addEventListener("touchstart", () => { _pointerDown = true; }, { passive: true });
+    document.addEventListener("touchend", () => {
+        _pointerDown = false;
+        stepperPress.fieldId = null;
+        _lastTextureRefresh = 0;
+    });
+    document.addEventListener("touchcancel", () => {
+        _pointerDown = false;
+        stepperPress.fieldId = null;
+        _lastTextureRefresh = 0;
+    });
+}
+
+/**
+ * 步进按钮：将变更应用到输入框
+ * @param {object} field - STEPPER_FIELDS 中的字段配置
+ * @param {number} delta - 变更量（正负整数）
+ */
+function applyStepperChange(field, delta) {
+    const input = document.getElementById(field.id);
+    if (!input) return;
+    let value = parseInt(input.value);
+    if (isNaN(value)) value = field.def;
+    value += delta;
+    if (field.min !== null) value = Math.max(field.min, value);
+    if (field.max !== null) value = Math.min(field.max, value);
+    input.value = String(value);
+}
+
+/**
+ * 步进按钮：每帧检测长按状态并应用加速变更
+ * 在 drawTextureEditPanel 中调用（每帧执行）
+ * 长按时间越长，步进间隔越短、步长越大
+ */
+function updateSteppers() {
+    if (!_pointerDown) {
+        stepperPress.fieldId = null;
+        return;
+    }
+
+    // 检测当前指针位于哪个步进按钮上
+    let activeField = null;
+    let activeDirection = 0;
+    for (const field of STEPPER_FIELDS) {
+        if (MouseIn(STEPPER_MINUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
+            activeField = field;
+            activeDirection = -1;
+            break;
+        }
+        if (MouseIn(STEPPER_PLUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
+            activeField = field;
+            activeDirection = 1;
+            break;
+        }
+    }
+
+    if (!activeField) {
+        // 指针移出按钮区域，停止步进
+        stepperPress.fieldId = null;
+        return;
+    }
+
+    const now = Date.now();
+
+    // 新按钮按下：立即应用一次变更
+    if (stepperPress.fieldId !== activeField.id || stepperPress.direction !== activeDirection) {
+        stepperPress.fieldId = activeField.id;
+        stepperPress.direction = activeDirection;
+        stepperPress.startTime = now;
+        stepperPress.lastUpdate = now;
+        applyStepperChange(activeField, activeDirection);
+        return;
+    }
+
+    // 持续按住：根据按住时长计算步进间隔和步长
+    const elapsed = now - stepperPress.startTime;
+    // 间隔从 150ms 递减到 40ms（约 3s 后达到最小值）
+    const interval = Math.max(40, 150 - elapsed * 0.035);
+    // 步长每 300ms 递增 1，上限 50（约 14.7s 达到最大步长）
+    const stepMultiplier = Math.min(50, 1 + Math.floor(elapsed / 300));
+
+    if (now - stepperPress.lastUpdate >= interval) {
+        applyStepperChange(activeField, activeDirection * stepMultiplier);
+        stepperPress.lastUpdate = now;
+    }
+}
+
+/**
+ * 绘制带缩放图标的步进按钮
+ * DrawButton 内部用 DrawImage（原始尺寸）画图标，大图标会溢出小按钮
+ * 这里先画空白按钮，再用 DrawImageResize 将图标缩放到按钮尺寸
+ * @param {number} x - 按钮 X 坐标
+ * @param {number} y - 按钮 Y 坐标
+ * @param {string} icon - 图标路径
+ * @param {string} tooltip - 悬停提示
+ */
+function drawStepperButton(x, y, icon, tooltip) {
+    DrawButton(x, y, STEPPER_BTN_W, STEPPER_BTN_H, "", "White", null, tooltip);
+    DrawImageResize(icon, x + 2, y + 2, STEPPER_BTN_W - 4, STEPPER_BTN_H - 4);
+}
+
 /**
  * 创建编辑输入框
  */
@@ -909,19 +1083,19 @@ function createEditInputs(texture) {
 
     input = ElementCreateInput(INPUT_OFFSET_X, "number", String(texture.OffsetX ?? 1), "10");
     if (input) input.style.width = "80px";
-    ElementPositionFixed(INPUT_OFFSET_X, 1220, 485, 200, 40);
+    ElementPositionFixed(INPUT_OFFSET_X, STEPPER_INPUT_X, 485, STEPPER_INPUT_W, 40);
 
     input = ElementCreateInput(INPUT_OFFSET_Y, "number", String(texture.OffsetY ?? 1), "10");
     if (input) input.style.width = "80px";
-    ElementPositionFixed(INPUT_OFFSET_Y, 1220, 535, 200, 40);
+    ElementPositionFixed(INPUT_OFFSET_Y, STEPPER_INPUT_X, 535, STEPPER_INPUT_W, 40);
 
     input = ElementCreateInput(INPUT_SCALE, "number", String(texture.Scale || 100), "10");
     if (input) input.style.width = "80px";
-    ElementPositionFixed(INPUT_SCALE, 1220, 585, 200, 40);
+    ElementPositionFixed(INPUT_SCALE, STEPPER_INPUT_X, 585, STEPPER_INPUT_W, 40);
 
     input = ElementCreateInput(INPUT_ROTATION, "number", String(texture.Rotation || 0), "10");
     if (input) input.style.width = "80px";
-    ElementPositionFixed(INPUT_ROTATION, 1220, 635, 200, 40);
+    ElementPositionFixed(INPUT_ROTATION, STEPPER_INPUT_X, 635, STEPPER_INPUT_W, 40);
 
     input = ElementCreateInput(INPUT_OPACITY, "number", String(texture.Opacity ?? 100), "10");
     if (input) {
@@ -929,7 +1103,7 @@ function createEditInputs(texture) {
         input.min = "0";
         input.max = "100";
     }
-    ElementPositionFixed(INPUT_OPACITY, 1220, 685, 200, 40);
+    ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
 }
 
 /**
@@ -966,6 +1140,11 @@ function syncItemToServer(item) {
  * 绘制编辑面板
  */
 function drawTextureEditPanel(item, textureIndex, data) {
+    // 初始化步进按钮事件监听（仅一次），并在每帧检测长按状态
+    // 放在最前面：先应用步进变更，再由下方的 tempTextureData 检测检测变更并刷新预览
+    setupStepperListeners();
+    updateSteppers();
+
     const urlInput = document.getElementById(INPUT_URL);
     const offsetXInput = document.getElementById(INPUT_OFFSET_X);
     const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
@@ -1001,19 +1180,31 @@ function drawTextureEditPanel(item, textureIndex, data) {
             if (!item.Property.Textures) item.Property.Textures = [];
             item.Property.Textures[textureIndex] = { ...tempTextureData };
             
-            // 刷新本地画布（实时预览）
-            const C = CharacterGetCurrent();
-            if (C) CharacterRefresh(C, false, false);
+            // 标记需要刷新（不直接调用 CharacterRefresh，由下方节流逻辑统一处理）
+            _pendingTextureRefresh = true;
 
-            // URL 变化时预加载图片（CORS 安全），加载完成后再次刷新
+            // URL 变化时预加载图片（CORS 安全），加载完成后触发一次刷新
             if (urlChanged && isUrlAllowed(newUrl)) {
                 const entry = getCorsImage(newUrl);
                 if (!entry.img.complete) {
+                    const C = CharacterGetCurrent();
                     entry.img.addEventListener("load", () => {
                         Logger.info(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
                         if (C) CharacterRefresh(C, false, false);
                     }, { once: true });
                 }
+            }
+        }
+
+        // 节流刷新：限制 CharacterRefresh 调用频率
+        // GLDraw2DCanvas hook 已修复 WebGL 纹理泄漏，可安全进行实时预览
+        if (_pendingTextureRefresh) {
+            const now = Date.now();
+            if (now - _lastTextureRefresh >= TEXTURE_REFRESH_INTERVAL) {
+                const C = CharacterGetCurrent();
+                if (C) CharacterRefresh(C, false, false);
+                _lastTextureRefresh = now;
+                _pendingTextureRefresh = false;
             }
         }
     }
@@ -1039,23 +1230,33 @@ function drawTextureEditPanel(item, textureIndex, data) {
 
     // X偏移：id3 标签 (1000,485,200,40) → 中心 (1100,505)；输入框 x=1220，Y 对齐标签高度 505
     DrawText(L("X偏移", "X Offset"), 1100, 505, "White", "Gray");
-    ElementPositionFixed(INPUT_OFFSET_X, 1220, 485, 200, 40);
+    ElementPositionFixed(INPUT_OFFSET_X, STEPPER_INPUT_X, 485, STEPPER_INPUT_W, 40);
+    drawStepperButton(STEPPER_MINUS_X, 485, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+    drawStepperButton(STEPPER_PLUS_X, 485, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 
     // Y偏移：id6 标签 (1000,535,200,40) → 中心 (1100,555)；输入框 Y 对齐 555
     DrawText(L("Y偏移", "Y Offset"), 1100, 555, "White", "Gray");
-    ElementPositionFixed(INPUT_OFFSET_Y, 1220, 535, 200, 40);
+    ElementPositionFixed(INPUT_OFFSET_Y, STEPPER_INPUT_X, 535, STEPPER_INPUT_W, 40);
+    drawStepperButton(STEPPER_MINUS_X, 535, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+    drawStepperButton(STEPPER_PLUS_X, 535, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 
     // 缩放%：id7 标签 (1000,585,200,40) → 中心 (1100,605)；输入框 Y 对齐 605
     DrawText(L("缩放%", "Scale %"), 1100, 605, "White", "Gray");
-    ElementPositionFixed(INPUT_SCALE, 1220, 585, 200, 40);
+    ElementPositionFixed(INPUT_SCALE, STEPPER_INPUT_X, 585, STEPPER_INPUT_W, 40);
+    drawStepperButton(STEPPER_MINUS_X, 585, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+    drawStepperButton(STEPPER_PLUS_X, 585, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 
     // 旋转%：id8 标签 (1000,635,200,40) → 中心 (1100,655)；输入框 Y 对齐 655
     DrawText(L("旋转%", "Rotation %"), 1100, 655, "White", "Gray");
-    ElementPositionFixed(INPUT_ROTATION, 1220, 635, 200, 40);
+    ElementPositionFixed(INPUT_ROTATION, STEPPER_INPUT_X, 635, STEPPER_INPUT_W, 40);
+    drawStepperButton(STEPPER_MINUS_X, 635, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+    drawStepperButton(STEPPER_PLUS_X, 635, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 
     // 透明度%：id12 标签 (1000,685,200,40) → 中心 (1100,705)；输入框 Y 对齐 705
     DrawText(L("透明度%", "Opacity %"), 1100, 705, "White", "Gray");
-    ElementPositionFixed(INPUT_OPACITY, 1220, 685, 200, 40);
+    ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
+    drawStepperButton(STEPPER_MINUS_X, 685, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+    drawStepperButton(STEPPER_PLUS_X, 685, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 
     // 确认保存：id13 (1885,135,90,90)
     DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
@@ -1080,6 +1281,7 @@ function handleTextureEditClick(item, textureIndex, data) {
             // 移除编辑页面的输入框，避免遮挡确认对话框
             currentEditTexture = -1;
             tempTextureData = null;
+            _pendingTextureRefresh = false;
             [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
             return;
         }
@@ -1090,6 +1292,7 @@ function handleTextureEditClick(item, textureIndex, data) {
         item.Property.Textures.splice(textureIndex, 1);
         currentEditTexture = -1;
         tempTextureData = null;
+        _pendingTextureRefresh = false;
         currentListPage = 0;
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         syncItemToServer(item);
@@ -1134,6 +1337,7 @@ function handleTextureEditClick(item, textureIndex, data) {
 
         currentEditTexture = -1;
         tempTextureData = null;
+        _pendingTextureRefresh = false;
         currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
         [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
