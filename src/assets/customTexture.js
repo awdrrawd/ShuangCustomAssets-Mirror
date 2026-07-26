@@ -40,6 +40,10 @@ let pendingDomainToAdd = null; // 待确认添加的域名
 // 进入编辑前的原始贴图数据（用于「退出=取消编辑并返回列表」时还原）
 let originalEditTexture = null;
 
+// 图层优先级（OverridePriority）的临时值和原始值（用于取消编辑时还原）
+let tempPriority = 50;
+let originalOverridePriority = undefined;
+
 // === CharacterRefresh 节流（防止步进按钮长按时高频刷新导致 WebGL Context Lost） ===
 let _lastTextureRefresh = 0;       // 上次刷新时间戳
 let _pendingTextureRefresh = false; // 是否有待刷新
@@ -184,6 +188,7 @@ const INPUT_OFFSET_Y = "CustomTextureOffsetYInput";
 const INPUT_SCALE = "CustomTextureScaleInput";
 const INPUT_ROTATION = "CustomTextureRotationInput";
 const INPUT_OPACITY = "CustomTextureOpacityInput";
+const INPUT_PRIORITY = "CustomTexturePriorityInput";
 
 // === 步进按钮（+/-）配置 ===
 // 在每个数值输入框两侧放置加减按钮，支持长按加速
@@ -200,7 +205,8 @@ const STEPPER_FIELDS = [
     { id: INPUT_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY",  def: 1,   min: null, max: null },
     { id: INPUT_SCALE,    y: 585, labelCn: "缩放%",   labelEn: "Scale %",    labelY: 605, prop: "Scale",    def: 100, min: null, max: null },
     { id: INPUT_ROTATION, y: 635, labelCn: "旋转%",   labelEn: "Rotation %",  labelY: 655, prop: "Rotation", def: 0,   min: null, max: null },
-    { id: INPUT_OPACITY,  y: 685, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 705, prop: "Opacity",  def: 100, min: 0,    max: 100 }
+    { id: INPUT_OPACITY,  y: 685, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 705, prop: "Opacity",  def: 100, min: 0,    max: 100 },
+    { id: INPUT_PRIORITY, y: 735, labelCn: "图层优先级",  labelEn: "Layer Priority",   labelY: 755, prop: null,      def: 50,  min: -99,  max: 99 }
 ];
 
 // 长按步进状态跟踪
@@ -299,10 +305,11 @@ const extended = {
             currentEditTexture = -1;
             tempTextureData = null;
             originalEditTexture = null;
+            originalOverridePriority = undefined;
             currentListPage = 0;
             currentView = "list";
             _pendingTextureRefresh = false;
-            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
         },
 
         Draw: (data, originalFunction) => {
@@ -346,6 +353,12 @@ const extended = {
                     if (!item.Property) item.Property = { Textures: [] };
                     if (!item.Property.Textures) item.Property.Textures = [];
                     item.Property.Textures[currentEditTexture] = { ...originalTexture };
+                    // 还原 OverridePriority（取消编辑时恢复原始图层优先级）
+                    if (originalOverridePriority !== undefined) {
+                        item.Property.OverridePriority = JSON.parse(JSON.stringify(originalOverridePriority));
+                    } else {
+                        delete item.Property.OverridePriority;
+                    }
                     syncItemToServer(item);
                     const C = CharacterGetCurrent();
                     if (C) CharacterRefresh(C, false, false);
@@ -354,9 +367,10 @@ const extended = {
             currentEditTexture = -1;
             tempTextureData = null;
             originalEditTexture = null;
+            originalOverridePriority = undefined;
             currentListPage = 0;
             currentView = "list";
-            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
         },
 
         // 绘制每个图层
@@ -1063,10 +1077,9 @@ function updateSteppers() {
  * @param {number} x - 按钮 X 坐标
  * @param {number} y - 按钮 Y 坐标
  * @param {string} icon - 图标路径
- * @param {string} tooltip - 悬停提示
  */
-function drawStepperButton(x, y, icon, tooltip) {
-    DrawButton(x, y, STEPPER_BTN_W, STEPPER_BTN_H, "", "White", null, tooltip);
+function drawStepperButton(x, y, icon) {
+    DrawButton(x, y, STEPPER_BTN_W, STEPPER_BTN_H, "", "White", null, null);
     DrawImageResize(icon, x + 2, y + 2, STEPPER_BTN_W - 4, STEPPER_BTN_H - 4);
 }
 
@@ -1104,6 +1117,27 @@ function createEditInputs(texture) {
         input.max = "100";
     }
     ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
+
+    // 图层优先级：读取 item.Property.OverridePriority，与 BC 原生 Layering 界面同步
+    const item = DialogFocusItem;
+    const layerName = LAYER_NAMES[currentEditTexture];
+    const op = item?.Property?.OverridePriority;
+    let priorityValue = 50;
+    if (typeof op === "number") {
+        priorityValue = op;
+    } else if (op && typeof op[layerName] === "number") {
+        priorityValue = op[layerName];
+    }
+    tempPriority = priorityValue;
+    originalOverridePriority = op ? JSON.parse(JSON.stringify(op)) : undefined;
+
+    input = ElementCreateInput(INPUT_PRIORITY, "number", String(priorityValue), "10");
+    if (input) {
+        input.style.width = "80px";
+        input.min = "-99";
+        input.max = "99";
+    }
+    ElementPositionFixed(INPUT_PRIORITY, STEPPER_INPUT_X, 735, STEPPER_INPUT_W, 40);
 }
 
 /**
@@ -1196,6 +1230,24 @@ function drawTextureEditPanel(item, textureIndex, data) {
             }
         }
 
+        // 优先级变更检测：写入 item.Property.OverridePriority，与 BC 原生 Layering 界面同步
+        const priorityInput = document.getElementById(INPUT_PRIORITY);
+        if (priorityInput) {
+            const parsedPriority = parseInt(priorityInput.value);
+            const newPriority = Math.max(-99, Math.min(99, isNaN(parsedPriority) ? 50 : parsedPriority));
+            if (newPriority !== tempPriority) {
+                tempPriority = newPriority;
+                if (!item.Property) item.Property = {};
+                const layerName = LAYER_NAMES[textureIndex];
+                // 将数字形式转为对象形式，支持逐层设置
+                if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
+                    item.Property.OverridePriority = {};
+                }
+                item.Property.OverridePriority[layerName] = newPriority;
+                _pendingTextureRefresh = true;
+            }
+        }
+
         // 节流刷新：限制 CharacterRefresh 调用频率
         // GLDraw2DCanvas hook 已修复 WebGL 纹理泄漏，可安全进行实时预览
         if (_pendingTextureRefresh) {
@@ -1231,32 +1283,38 @@ function drawTextureEditPanel(item, textureIndex, data) {
     // X偏移：id3 标签 (1000,485,200,40) → 中心 (1100,505)；输入框 x=1220，Y 对齐标签高度 505
     DrawText(L("X偏移", "X Offset"), 1100, 505, "White", "Gray");
     ElementPositionFixed(INPUT_OFFSET_X, STEPPER_INPUT_X, 485, STEPPER_INPUT_W, 40);
-    drawStepperButton(STEPPER_MINUS_X, 485, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
-    drawStepperButton(STEPPER_PLUS_X, 485, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
+    drawStepperButton(STEPPER_MINUS_X, 485, "Icons/Minus.png");
+    drawStepperButton(STEPPER_PLUS_X, 485, "Icons/Plus.png");
 
     // Y偏移：id6 标签 (1000,535,200,40) → 中心 (1100,555)；输入框 Y 对齐 555
     DrawText(L("Y偏移", "Y Offset"), 1100, 555, "White", "Gray");
     ElementPositionFixed(INPUT_OFFSET_Y, STEPPER_INPUT_X, 535, STEPPER_INPUT_W, 40);
-    drawStepperButton(STEPPER_MINUS_X, 535, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
-    drawStepperButton(STEPPER_PLUS_X, 535, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
+    drawStepperButton(STEPPER_MINUS_X, 535, "Icons/Minus.png");
+    drawStepperButton(STEPPER_PLUS_X, 535, "Icons/Plus.png");
 
     // 缩放%：id7 标签 (1000,585,200,40) → 中心 (1100,605)；输入框 Y 对齐 605
     DrawText(L("缩放%", "Scale %"), 1100, 605, "White", "Gray");
     ElementPositionFixed(INPUT_SCALE, STEPPER_INPUT_X, 585, STEPPER_INPUT_W, 40);
-    drawStepperButton(STEPPER_MINUS_X, 585, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
-    drawStepperButton(STEPPER_PLUS_X, 585, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
+    drawStepperButton(STEPPER_MINUS_X, 585, "Icons/Minus.png");
+    drawStepperButton(STEPPER_PLUS_X, 585, "Icons/Plus.png");
 
     // 旋转%：id8 标签 (1000,635,200,40) → 中心 (1100,655)；输入框 Y 对齐 655
     DrawText(L("旋转%", "Rotation %"), 1100, 655, "White", "Gray");
     ElementPositionFixed(INPUT_ROTATION, STEPPER_INPUT_X, 635, STEPPER_INPUT_W, 40);
-    drawStepperButton(STEPPER_MINUS_X, 635, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
-    drawStepperButton(STEPPER_PLUS_X, 635, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
+    drawStepperButton(STEPPER_MINUS_X, 635, "Icons/Minus.png");
+    drawStepperButton(STEPPER_PLUS_X, 635, "Icons/Plus.png");
 
     // 透明度%：id12 标签 (1000,685,200,40) → 中心 (1100,705)；输入框 Y 对齐 705
     DrawText(L("透明度%", "Opacity %"), 1100, 705, "White", "Gray");
     ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
-    drawStepperButton(STEPPER_MINUS_X, 685, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
-    drawStepperButton(STEPPER_PLUS_X, 685, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
+    drawStepperButton(STEPPER_MINUS_X, 685, "Icons/Minus.png");
+    drawStepperButton(STEPPER_PLUS_X, 685, "Icons/Plus.png");
+
+    // 优先级：与 BC 原生 Layering 界面同步，控制图层遮挡关系（-99~99，越大越上层）
+    DrawText(L("图层优先级", "Layer Priority"), 1100, 755, "White", "Gray");
+    ElementPositionFixed(INPUT_PRIORITY, STEPPER_INPUT_X, 735, STEPPER_INPUT_W, 40);
+    drawStepperButton(STEPPER_MINUS_X, 735, "Icons/Minus.png");
+    drawStepperButton(STEPPER_PLUS_X, 735, "Icons/Plus.png");
 
     // 确认保存：id13 (1885,135,90,90)
     DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
@@ -1281,8 +1339,9 @@ function handleTextureEditClick(item, textureIndex, data) {
             // 移除编辑页面的输入框，避免遮挡确认对话框
             currentEditTexture = -1;
             tempTextureData = null;
+            originalOverridePriority = undefined;
             _pendingTextureRefresh = false;
-            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
             return;
         }
     }
@@ -1292,9 +1351,10 @@ function handleTextureEditClick(item, textureIndex, data) {
         item.Property.Textures.splice(textureIndex, 1);
         currentEditTexture = -1;
         tempTextureData = null;
+        originalOverridePriority = undefined;
         _pendingTextureRefresh = false;
         currentListPage = 0;
-        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
         syncItemToServer(item);
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false, false);
@@ -1337,9 +1397,10 @@ function handleTextureEditClick(item, textureIndex, data) {
 
         currentEditTexture = -1;
         tempTextureData = null;
+        originalOverridePriority = undefined;
         _pendingTextureRefresh = false;
         currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
-        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false, false);
         return;
@@ -1471,9 +1532,10 @@ function returnToListFromSubview() {
     currentEditTexture = -1;
     tempTextureData = null;
     originalEditTexture = null;
+    originalOverridePriority = undefined;
     pendingDomainToAdd = null;
     currentView = "list";
-    [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+    [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
 }
 
 /**
