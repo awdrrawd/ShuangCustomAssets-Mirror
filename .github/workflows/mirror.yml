@@ -48,12 +48,15 @@ jobs:
         with:
           node-version: 20
 
+      # 注意：npm install 不能帶 NODE_ENV=production，否則會略過 devDependencies
+      # (rollup 及其外掛都在 devDependencies)，導致 "rollup: not found"
+      - name: Install dependencies
+        run: npm install
+
       - name: Build
         env:
           NODE_ENV: production
-        run: |
-          npm install
-          npm run build
+        run: npm run build
 
       - name: Deploy to GitHub Pages (gh-pages branch)
         uses: peaceiris/actions-gh-pages@v4
