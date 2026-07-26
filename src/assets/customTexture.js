@@ -1061,7 +1061,7 @@ function drawTextureEditPanel(item, textureIndex, data) {
     DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
         L("保存该图层并返回列表", "Save this layer & back to list"));
     // 删除此贴图：id14 (1885,245,90,90)，不染色，与其他图标按钮一致使用白底
-    DrawButton(1885, 245, 90, 90, "", "White", "Icons/Cancel.png",
+    DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
         L("删除此图层", "Delete this layer"), false);
 }
 
