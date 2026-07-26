@@ -1,0 +1,62 @@
+# .github/workflows/mirror.yml
+# 每 3 小時：從 GitLab 同步 src/ → build → 部署到 GitHub Pages
+name: Mirror, Build & Deploy
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'   # 每 3 小時執行一次 (UTC)
+  workflow_dispatch:         # 允許手動觸發
+  push:
+    branches: [master]       # 手動修改 master (例如 build 設定) 時也重新部署
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mirror-build-deploy
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      # 只把 GitLab 的 src/ 覆蓋過來，其他檔案 (package.json、rollup.config.js…) 不動
+      - name: Sync src/ from GitLab
+        run: |
+          git remote add gitlab https://gitgud.io/yeshuang26/shuangcustomassets.git
+          git fetch gitlab master
+          git checkout gitlab/master -- src/
+
+      - name: Commit synced src/ (if changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/
+          if git diff --cached --quiet; then
+            echo "No source changes from GitLab."
+          else
+            git commit -m "Sync src/ from GitLab"
+            git push origin master
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build
+        env:
+          NODE_ENV: production
+        run: |
+          npm install
+          npm run build
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
