@@ -1248,6 +1248,9 @@
 	let currentView = "list";
 	let pendingDomainToAdd = null;
 	let originalEditTexture = null;
+	let _lastTextureRefresh = 0;
+	let _pendingTextureRefresh = false;
+	const TEXTURE_REFRESH_INTERVAL = 200;
 	let statusMessage = null;
 	let statusMessageExpiry = 0;
 	function showStatus(text, color = "#4CAF50", durationMs = 5000) {
@@ -1352,6 +1355,27 @@
 	const INPUT_SCALE = "CustomTextureScaleInput";
 	const INPUT_ROTATION = "CustomTextureRotationInput";
 	const INPUT_OPACITY = "CustomTextureOpacityInput";
+	const STEPPER_BTN_W = 40;
+	const STEPPER_BTN_H = 40;
+	const STEPPER_MINUS_X = 1220;
+	const STEPPER_PLUS_X = 1380;
+	const STEPPER_INPUT_X = 1265;
+	const STEPPER_INPUT_W = 110;
+	const STEPPER_FIELDS = [
+	    { id: INPUT_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX",  def: 1,   min: null, max: null },
+	    { id: INPUT_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY",  def: 1,   min: null, max: null },
+	    { id: INPUT_SCALE,    y: 585, labelCn: "缩放%",   labelEn: "Scale %",    labelY: 605, prop: "Scale",    def: 100, min: null, max: null },
+	    { id: INPUT_ROTATION, y: 635, labelCn: "旋转%",   labelEn: "Rotation %",  labelY: 655, prop: "Rotation", def: 0,   min: null, max: null },
+	    { id: INPUT_OPACITY,  y: 685, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 705, prop: "Opacity",  def: 100, min: 0,    max: 100 }
+	];
+	const stepperPress = {
+	    fieldId: null,
+	    direction: 0,
+	    startTime: 0,
+	    lastUpdate: 0
+	};
+	let _pointerDown = false;
+	let _stepperListenerReady = false;
 	const MAX_TEXTURE_COUNT = 16;
 	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
 	const ALL_ITEM_GROUPS = [
@@ -1412,6 +1436,7 @@
 	            originalEditTexture = null;
 	            currentListPage = 0;
 	            currentView = "list";
+	            _pendingTextureRefresh = false;
 	            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
 	        },
 	        Draw: (data, originalFunction) => {
@@ -1468,6 +1493,14 @@
 	            const layerIndex = LAYER_NAMES.indexOf(L);
 	            if (layerIndex === 0 && item?.Property) {
 	                updateHideArray(item);
+	                if (data.PersistentData && !data.PersistentData._cacheMigrated) {
+	                    for (const key in data.PersistentData) {
+	                        if (!key.startsWith("_")) {
+	                            delete data.PersistentData[key];
+	                        }
+	                    }
+	                    data.PersistentData._cacheMigrated = true;
+	                }
 	            }
 	            if (layerIndex === -1) return;
 	            const textures = item?.Property?.Textures;
@@ -1505,10 +1538,21 @@
 	            const sin = Math.abs(Math.sin(rad));
 	            const bboxWidth = Math.round(width * cos + height * sin);
 	            const bboxHeight = Math.round(width * sin + height * cos);
-	            const cacheKey = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}_${layerIndex}`;
-	            let tempCanvas = data.PersistentData?.[cacheKey];
+	            const layerCanvasKey = `_canvas_${layerIndex}`;
+	            const layerParamsKey = `_params_${layerIndex}`;
+	            const currentParams = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}`;
+	            let tempCanvas = data.PersistentData?.[layerCanvasKey];
 	            if (!tempCanvas) {
 	                tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
+	                if (!data.PersistentData) data.PersistentData = {};
+	                data.PersistentData[layerCanvasKey] = tempCanvas;
+	                data.PersistentData[layerParamsKey] = null;
+	            }
+	            if (data.PersistentData[layerParamsKey] !== currentParams) {
+	                if (tempCanvas.width !== bboxWidth || tempCanvas.height !== bboxHeight) {
+	                    tempCanvas.width = bboxWidth;
+	                    tempCanvas.height = bboxHeight;
+	                }
 	                const ctx = tempCanvas.getContext("2d");
 	                ctx.clearRect(0, 0, bboxWidth, bboxHeight);
 	                ctx.save();
@@ -1518,8 +1562,7 @@
 	                ctx.translate(-width / 2, -height / 2);
 	                ctx.drawImage(img, 0, 0, width, height);
 	                ctx.restore();
-	                if (!data.PersistentData) data.PersistentData = {};
-	                data.PersistentData[cacheKey] = tempCanvas;
+	                data.PersistentData[layerParamsKey] = currentParams;
 	            }
 	            const drawX = X + offsetX - (bboxWidth - width) / 2;
 	            const drawY = Y + offsetY - (bboxHeight - height) / 2;
@@ -1875,6 +1918,81 @@
 	        showStatus(L("✘ 读取剪贴板失败，请确保已复制配置 JSON", "✘ Cannot read clipboard, make sure the config JSON is copied"), "#E53935");
 	    });
 	}
+	function setupStepperListeners() {
+	    if (_stepperListenerReady) return;
+	    _stepperListenerReady = true;
+	    document.addEventListener("mousedown", () => { _pointerDown = true; });
+	    document.addEventListener("mouseup", () => {
+	        _pointerDown = false;
+	        stepperPress.fieldId = null;
+	        _lastTextureRefresh = 0;
+	    });
+	    document.addEventListener("touchstart", () => { _pointerDown = true; }, { passive: true });
+	    document.addEventListener("touchend", () => {
+	        _pointerDown = false;
+	        stepperPress.fieldId = null;
+	        _lastTextureRefresh = 0;
+	    });
+	    document.addEventListener("touchcancel", () => {
+	        _pointerDown = false;
+	        stepperPress.fieldId = null;
+	        _lastTextureRefresh = 0;
+	    });
+	}
+	function applyStepperChange(field, delta) {
+	    const input = document.getElementById(field.id);
+	    if (!input) return;
+	    let value = parseInt(input.value);
+	    if (isNaN(value)) value = field.def;
+	    value += delta;
+	    if (field.min !== null) value = Math.max(field.min, value);
+	    if (field.max !== null) value = Math.min(field.max, value);
+	    input.value = String(value);
+	}
+	function updateSteppers() {
+	    if (!_pointerDown) {
+	        stepperPress.fieldId = null;
+	        return;
+	    }
+	    let activeField = null;
+	    let activeDirection = 0;
+	    for (const field of STEPPER_FIELDS) {
+	        if (MouseIn(STEPPER_MINUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
+	            activeField = field;
+	            activeDirection = -1;
+	            break;
+	        }
+	        if (MouseIn(STEPPER_PLUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
+	            activeField = field;
+	            activeDirection = 1;
+	            break;
+	        }
+	    }
+	    if (!activeField) {
+	        stepperPress.fieldId = null;
+	        return;
+	    }
+	    const now = Date.now();
+	    if (stepperPress.fieldId !== activeField.id || stepperPress.direction !== activeDirection) {
+	        stepperPress.fieldId = activeField.id;
+	        stepperPress.direction = activeDirection;
+	        stepperPress.startTime = now;
+	        stepperPress.lastUpdate = now;
+	        applyStepperChange(activeField, activeDirection);
+	        return;
+	    }
+	    const elapsed = now - stepperPress.startTime;
+	    const interval = Math.max(40, 150 - elapsed * 0.035);
+	    const stepMultiplier = Math.min(50, 1 + Math.floor(elapsed / 300));
+	    if (now - stepperPress.lastUpdate >= interval) {
+	        applyStepperChange(activeField, activeDirection * stepMultiplier);
+	        stepperPress.lastUpdate = now;
+	    }
+	}
+	function drawStepperButton(x, y, icon, tooltip) {
+	    DrawButton(x, y, STEPPER_BTN_W, STEPPER_BTN_H, "", "White", null, tooltip);
+	    DrawImageResize(icon, x + 2, y + 2, STEPPER_BTN_W - 4, STEPPER_BTN_H - 4);
+	}
 	function createEditInputs(texture) {
 	    let input = ElementCreateInput(INPUT_URL, "text", texture.TextureURL || "", "1000");
 	    if (input) {
@@ -1884,23 +2002,23 @@
 	    ElementPositionFixed(INPUT_URL, 1220, 435, 490, 40);
 	    input = ElementCreateInput(INPUT_OFFSET_X, "number", String(texture.OffsetX ?? 1), "10");
 	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_OFFSET_X, 1220, 485, 200, 40);
+	    ElementPositionFixed(INPUT_OFFSET_X, STEPPER_INPUT_X, 485, STEPPER_INPUT_W, 40);
 	    input = ElementCreateInput(INPUT_OFFSET_Y, "number", String(texture.OffsetY ?? 1), "10");
 	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_OFFSET_Y, 1220, 535, 200, 40);
+	    ElementPositionFixed(INPUT_OFFSET_Y, STEPPER_INPUT_X, 535, STEPPER_INPUT_W, 40);
 	    input = ElementCreateInput(INPUT_SCALE, "number", String(texture.Scale || 100), "10");
 	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_SCALE, 1220, 585, 200, 40);
+	    ElementPositionFixed(INPUT_SCALE, STEPPER_INPUT_X, 585, STEPPER_INPUT_W, 40);
 	    input = ElementCreateInput(INPUT_ROTATION, "number", String(texture.Rotation || 0), "10");
 	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_ROTATION, 1220, 635, 200, 40);
+	    ElementPositionFixed(INPUT_ROTATION, STEPPER_INPUT_X, 635, STEPPER_INPUT_W, 40);
 	    input = ElementCreateInput(INPUT_OPACITY, "number", String(texture.Opacity ?? 100), "10");
 	    if (input) {
 	        input.style.width = "80px";
 	        input.min = "0";
 	        input.max = "100";
 	    }
-	    ElementPositionFixed(INPUT_OPACITY, 1220, 685, 200, 40);
+	    ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
 	}
 	function syncItemToServer(item) {
 	    if (CurrentScreen === "Crafting") return;
@@ -1918,6 +2036,8 @@
 	    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
 	}
 	function drawTextureEditPanel(item, textureIndex, data) {
+	    setupStepperListeners();
+	    updateSteppers();
 	    const urlInput = document.getElementById(INPUT_URL);
 	    const offsetXInput = document.getElementById(INPUT_OFFSET_X);
 	    const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
@@ -1947,16 +2067,25 @@
 	            if (!item.Property) item.Property = { Textures: [] };
 	            if (!item.Property.Textures) item.Property.Textures = [];
 	            item.Property.Textures[textureIndex] = { ...tempTextureData };
-	            const C = CharacterGetCurrent();
-	            if (C) CharacterRefresh(C, false, false);
+	            _pendingTextureRefresh = true;
 	            if (urlChanged && isUrlAllowed(newUrl)) {
 	                const entry = getCorsImage(newUrl);
 	                if (!entry.img.complete) {
+	                    const C = CharacterGetCurrent();
 	                    entry.img.addEventListener("load", () => {
 	                        Logger.info(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
 	                        if (C) CharacterRefresh(C, false, false);
 	                    }, { once: true });
 	                }
+	            }
+	        }
+	        if (_pendingTextureRefresh) {
+	            const now = Date.now();
+	            if (now - _lastTextureRefresh >= TEXTURE_REFRESH_INTERVAL) {
+	                const C = CharacterGetCurrent();
+	                if (C) CharacterRefresh(C, false, false);
+	                _lastTextureRefresh = now;
+	                _pendingTextureRefresh = false;
 	            }
 	        }
 	    }
@@ -1973,15 +2102,25 @@
 	        }
 	    }
 	    DrawText(L("X偏移", "X Offset"), 1100, 505, "White", "Gray");
-	    ElementPositionFixed(INPUT_OFFSET_X, 1220, 485, 200, 40);
+	    ElementPositionFixed(INPUT_OFFSET_X, STEPPER_INPUT_X, 485, STEPPER_INPUT_W, 40);
+	    drawStepperButton(STEPPER_MINUS_X, 485, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+	    drawStepperButton(STEPPER_PLUS_X, 485, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 	    DrawText(L("Y偏移", "Y Offset"), 1100, 555, "White", "Gray");
-	    ElementPositionFixed(INPUT_OFFSET_Y, 1220, 535, 200, 40);
+	    ElementPositionFixed(INPUT_OFFSET_Y, STEPPER_INPUT_X, 535, STEPPER_INPUT_W, 40);
+	    drawStepperButton(STEPPER_MINUS_X, 535, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+	    drawStepperButton(STEPPER_PLUS_X, 535, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 	    DrawText(L("缩放%", "Scale %"), 1100, 605, "White", "Gray");
-	    ElementPositionFixed(INPUT_SCALE, 1220, 585, 200, 40);
+	    ElementPositionFixed(INPUT_SCALE, STEPPER_INPUT_X, 585, STEPPER_INPUT_W, 40);
+	    drawStepperButton(STEPPER_MINUS_X, 585, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+	    drawStepperButton(STEPPER_PLUS_X, 585, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 	    DrawText(L("旋转%", "Rotation %"), 1100, 655, "White", "Gray");
-	    ElementPositionFixed(INPUT_ROTATION, 1220, 635, 200, 40);
+	    ElementPositionFixed(INPUT_ROTATION, STEPPER_INPUT_X, 635, STEPPER_INPUT_W, 40);
+	    drawStepperButton(STEPPER_MINUS_X, 635, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+	    drawStepperButton(STEPPER_PLUS_X, 635, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 	    DrawText(L("透明度%", "Opacity %"), 1100, 705, "White", "Gray");
-	    ElementPositionFixed(INPUT_OPACITY, 1220, 685, 200, 40);
+	    ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
+	    drawStepperButton(STEPPER_MINUS_X, 685, "Icons/Minus.png", L("减少（长按加速）", "Decrease (hold to accelerate)"));
+	    drawStepperButton(STEPPER_PLUS_X, 685, "Icons/Plus.png", L("增加（长按加速）", "Increase (hold to accelerate)"));
 	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
 	        L("保存该图层并返回列表", "Save this layer & back to list"));
 	    DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
@@ -1997,6 +2136,7 @@
 	            currentView = "addDomainConfirm";
 	            currentEditTexture = -1;
 	            tempTextureData = null;
+	            _pendingTextureRefresh = false;
 	            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
 	            return;
 	        }
@@ -2005,6 +2145,7 @@
 	        item.Property.Textures.splice(textureIndex, 1);
 	        currentEditTexture = -1;
 	        tempTextureData = null;
+	        _pendingTextureRefresh = false;
 	        currentListPage = 0;
 	        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
 	        syncItemToServer(item);
@@ -2039,6 +2180,7 @@
 	        syncItemToServer(item);
 	        currentEditTexture = -1;
 	        tempTextureData = null;
+	        _pendingTextureRefresh = false;
 	        currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
 	        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
 	        const C = CharacterGetCurrent();
@@ -2203,6 +2345,20 @@
 	                if (parts[0] && (!parts[3] || parts[3] === "")) {
 	                    parts[3] = "Crafted Item";
 	                    args[0] = parts.join(sep);
+	                }
+	            }
+	            return next(args);
+	        });
+	        u$1.hookFunction("GLDraw2DCanvas", 0, (args, next) => {
+	            const gl = args[0];
+	            const Img = args[1];
+	            if (gl?.textureCache) {
+	                const name = Img?.getAttribute?.("name");
+	                if (name) {
+	                    const old = gl.textureCache.get(name);
+	                    if (old?.texture) {
+	                        gl.deleteTexture(old.texture);
+	                    }
 	                }
 	            }
 	            return next(args);
