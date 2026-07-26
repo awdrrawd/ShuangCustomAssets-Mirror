@@ -3,7 +3,7 @@
  * 每个贴图对应一个游戏图层
  */
 
-import { isValidImageUrl, Logger } from "@lib/utils.js";
+import { isValidImageUrl, Logger, L, getCorsImage, isChineseLang } from "@lib/utils.js";
 import { isUrlAllowed, isDomainInWhitelist, extractDomain, addDomainToWhitelist, getDomainWarningEnabled } from "./settings.js";
 
 /**
@@ -37,6 +37,23 @@ let tempTextureData = null;
 let currentListPage = 0;
 let currentView = "list"; // "list" | "hide" | "addDomainConfirm"
 let pendingDomainToAdd = null; // 待确认添加的域名
+// 进入编辑前的原始贴图数据（用于「退出=取消编辑并返回列表」时还原）
+let originalEditTexture = null;
+
+// === 顶部状态提示（导入/导出等结果，显示在贴图管理页 1505,890） ===
+let statusMessage = null;      // { text: string, color: string }
+let statusMessageExpiry = 0;   // 时间戳，超过则不再显示
+
+/**
+ * 显示一条临时状态提示（用于导入/导出结果）
+ * @param {string} text
+ * @param {string} [color]
+ * @param {number} [durationMs]
+ */
+function showStatus(text, color = "#4CAF50", durationMs = 5000) {
+    statusMessage = { text, color };
+    statusMessageExpiry = Date.now() + durationMs;
+}
 
 // 每页显示的贴图数量
 const TEXTURES_PER_PAGE = 6;
@@ -49,6 +66,7 @@ const HIDE_CATEGORIES = [
     {
         key: "HideCosplay",
         label: "cosplay",
+        labelEn: "Cosplay",
         groups: [
             "HairFront", "HairBack", "新前发_Luzi", "新后发_Luzi", "额外头发_Luzi",
             "新前发_Luzi_stack", "新后发_Luzi_stack",
@@ -60,6 +78,7 @@ const HIDE_CATEGORIES = [
     {
         key: "HideFacial",
         label: "五官",
+        labelEn: "Face",
         groups: [
             "Eyes", "Eyes2", "Eyebrows", "Blush", "EyeShadow",
             "FacialHair", "Mouth", "左眼_Luzi", "右眼_Luzi"
@@ -68,6 +87,7 @@ const HIDE_CATEGORIES = [
     {
         key: "HideBody",
         label: "身体",
+        labelEn: "Body",
         groups: [
             "Emoticon", "Head", "BodyUpper", "BodyLower", "Height",
             "BodyStyle", "Pronouns", "Nipples", "Pussy",
@@ -78,6 +98,7 @@ const HIDE_CATEGORIES = [
     {
         key: "HideClothing",
         label: "服饰",
+        labelEn: "Clothing",
         groups: [
             "Fluids", "BodyMarkings", "Decals", "Liquid2_Luzi", "身体痕迹_Luzi", "BodyMarkings2_Luzi",
             "Glasses", "Mask", "Hat", "FaceMarkings", "Mask_笨笨蛋Luzi", "Hat_笨笨蛋Luzi",
@@ -97,6 +118,7 @@ const HIDE_CATEGORIES = [
     {
         key: "HideItems",
         label: "拘束道具",
+        labelEn: "Restraints",
         groups: [
             "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
             "ItemDevices", "ItemEars", "ItemFeet", "ItemHands", "ItemHead",
@@ -241,6 +263,7 @@ const extended = {
 
             currentEditTexture = -1;
             tempTextureData = null;
+            originalEditTexture = null;
             currentListPage = 0;
             currentView = "list";
             [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
@@ -279,8 +302,22 @@ const extended = {
         },
 
         Exit: (data) => {
+            // 若正在编辑某个图层，退出前还原为编辑前的原始数据（相当于「取消」）
+            if (currentEditTexture >= 0) {
+                const item = DialogFocusItem;
+                const originalTexture = data.PersistentData?._originalTexture;
+                if (item && originalTexture) {
+                    if (!item.Property) item.Property = { Textures: [] };
+                    if (!item.Property.Textures) item.Property.Textures = [];
+                    item.Property.Textures[currentEditTexture] = { ...originalTexture };
+                    syncItemToServer(item);
+                    const C = CharacterGetCurrent();
+                    if (C) CharacterRefresh(C, false, false);
+                }
+            }
             currentEditTexture = -1;
             tempTextureData = null;
+            originalEditTexture = null;
             currentListPage = 0;
             currentView = "list";
             [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
@@ -336,7 +373,11 @@ const extended = {
                 displayOpacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
             }
 
-            const img = DrawGetImage(imageUrl);
+            // 使用 CORS 安全加载器：仅渲染服务器正确返回 Access-Control-Allow-Origin 的图片，
+            // 加载失败（如 r2.dev 未开启 CORS）直接跳过，避免污染 canvas 导致 WebGL 黑框
+            const imgEntry = getCorsImage(imageUrl);
+            if (imgEntry.failed) return;
+            const img = imgEntry.img;
             if (!img.complete || img.naturalWidth <= 0) return;
 
             const width = Math.round(img.naturalWidth * scale);
@@ -384,48 +425,60 @@ const extended = {
  * 绘制添加可信域名确认页面
  */
 function drawAddDomainConfirm() {
-    DrawText("⚠ 添加可信域名确认 ⚠", 1200, 350, "Red", "Gray");
+    DrawText(L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠"), 1500, 370, "Red", "Gray");
 
-    let y = 420;
-    const lines = [
-        `即将添加域名到白名单: ${pendingDomainToAdd}`,
-        "",
-        "添加后，来自该域名的贴图 URL 将被允许加载",
-        "",
-        "请注意以下风险：",
-        "1. 请确认您信任该域名提供者",
-        "2. 该域名的所有 URL 都将被加载",
-        "3. 恶意域名可能用于追踪您的 IP 地址",
-        "4. 恶意域名可能导致隐私信息泄露",
-        "",
-        "确定要添加此域名到可信列表吗？",
+    let y = 440;
+    const lines = isChineseLang() ? [
+        { t: `即将添加域名到白名单: ${pendingDomainToAdd}`, c: "Cyan" },
+        { t: "", c: "White" },
+        { t: "添加后，来自该域名的贴图 URL 将被允许加载", c: "White" },
+        { t: "", c: "White" },
+        { t: "请注意以下风险：", c: "White" },
+        { t: "1. 请确认您信任该域名提供者", c: "White" },
+        { t: "2. 该域名的所有 URL 都将被加载", c: "White" },
+        { t: "3. 恶意域名可能用于追踪您的 IP 地址", c: "White" },
+        { t: "4. 恶意域名可能导致隐私信息泄露", c: "White" },
+        { t: "", c: "White" },
+        { t: "确定要添加此域名到可信列表吗？", c: "Red" },
+    ] : [
+        { t: `About to add domain to whitelist: ${pendingDomainToAdd}`, c: "Cyan" },
+        { t: "", c: "White" },
+        { t: "Once added, texture URLs from this domain will be allowed", c: "White" },
+        { t: "", c: "White" },
+        { t: "Please note the following risks:", c: "White" },
+        { t: "1. Make sure you trust this domain's provider", c: "White" },
+        { t: "2. All URLs from this domain will be loaded", c: "White" },
+        { t: "3. A malicious domain may track your IP address", c: "White" },
+        { t: "4. A malicious domain may leak private info", c: "White" },
+        { t: "", c: "White" },
+        { t: "Add this domain to the trusted list?", c: "Red" },
     ];
 
     for (const line of lines) {
-        const color = line.startsWith("即将") ? "Cyan" : (line.startsWith("确定") ? "Red" : "White");
-        DrawText(line, 1200, y, color, "Black");
+        DrawText(line.t, 1500, y, line.c, "Black");
         y += 35;
     }
 
     y += 10;
-    DrawButton(1050, y, 200, 50, "确认添加", "#4CAF50", "#66BB6A", false);
-    DrawButton(1300, y, 200, 50, "取消", "#9E9E9E", "#BDBDBD", false);
+    DrawButton(1250, y, 200, 50, L("确认添加", "Add"), "#4CAF50", "#66BB6A", false,
+        L(`将 ${pendingDomainToAdd} 加入白名单`, `Add ${pendingDomainToAdd} to whitelist`));
+    DrawButton(1500, y, 200, 50, L("取消", "Cancel"), "#9E9E9E", "#BDBDBD", false,
+        L("放弃添加并返回", "Discard and go back"));
 }
 
 /**
  * 处理添加可信域名确认页面点击
  */
 function handleAddDomainConfirmClick(item, data) {
-    const baseY = 420 + 35 * 11 + 10;
+    const baseY = 440 + 35 * 11 + 10;
     // 确认添加
-    if (MouseIn(1050, baseY, 200, 50)) {
+    if (MouseIn(1250, baseY, 200, 50)) {
         if (pendingDomainToAdd) {
             const success = addDomainToWhitelist(pendingDomainToAdd);
             if (success) {
                 Logger.info(`已添加可信域名: ${pendingDomainToAdd}`);
-                if (typeof ChatRoomSendLocal !== "undefined") {
-                    ChatRoomSendLocal(`[ShuangAssets] 已添加可信域名: ${pendingDomainToAdd}`);
-                }
+                showStatus(L(`✔ 已添加可信域名: ${pendingDomainToAdd}`,
+                    `✔ Trusted domain added: ${pendingDomainToAdd}`), "#4CAF50");
             }
         }
         pendingDomainToAdd = null;
@@ -436,7 +489,7 @@ function handleAddDomainConfirmClick(item, data) {
         return;
     }
     // 取消
-    if (MouseIn(1300, baseY, 200, 50)) {
+    if (MouseIn(1500, baseY, 200, 50)) {
         pendingDomainToAdd = null;
         currentView = "list";
         return;
@@ -447,41 +500,44 @@ function handleAddDomainConfirmClick(item, data) {
  * 绘制隐藏设置页面
  */
 function drawHideSettings(item) {
-    DrawText("隐藏设置", 1200, 350, "White", "Gray");
-    DrawText("选择需要隐藏的部位分类", 1200, 380, "Yellow", "Gray");
+    // 标题 / 副标题：与主列表页共用同一套居中坐标
+    DrawText(L("隐藏设置", "Hide Settings"), 1500, 360, "White", "Gray");
+    DrawText(L("选择需要隐藏的部位分类", "Choose which part categories to hide"), 1505, 410, "#fff942", "Gray");
 
-    const startY = 420;
-    const rowHeight = 55;
+    const startY = 450;
+    const rowHeight = 60;
 
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];
         const y = startY + i * rowHeight;
-        const isOn = item.Property?.[cat.key] === true;
+        const isHidden = item.Property?.[cat.key] === true;
+        const catLabel = L(cat.label, cat.labelEn);
 
-        DrawRect(1150, y, 400, rowHeight - 5, "rgba(0,0,0,0.5)");
-        DrawText(cat.label, 1170, y + 22, "White", "Black");
-        DrawText(`(${cat.groups.length} 个部位)`, 1300, y + 22, "#AAAAAA", "Black");
-        DrawButton(1450, y + 5, 80, 35, isOn ? "开" : "关",
-            isOn ? "#F44336" : "#666666",
-            isOn ? "#E57373" : "#999999", false);
+        DrawText(catLabel, 1100, y + 20, "White");
+        DrawButton(1200, y, 400, 40, L(`${cat.groups.length}个部位`, `${cat.groups.length} parts`), "White", null,
+            L(`该分类包含 ${cat.groups.length} 个部位组`, `This category covers ${cat.groups.length} groups`), false);
+        // 与列表页贴图可见开关保持一致的显示/隐藏配色
+        DrawButton(1620, y, 100, 40, isHidden ? L("隐藏", "Hidden") : L("显示", "Shown"),
+            isHidden ? "#666666" : "#4ba055",
+            null, L(`点击切换是否隐藏「${catLabel}」`, `Toggle hiding "${catLabel}"`), false);
     }
 
-    // 返回按钮
-    const backY = startY + HIDE_CATEGORIES.length * rowHeight + 20;
-    DrawButton(1150, backY, 200, 40, "返回", "#9E9E9E", "#BDBDBD", false);
+    // 确认（返回列表）
+    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+        L("确认并返回列表", "Confirm & back to list"));
 }
 
 /**
  * 处理隐藏设置页面点击
  */
 function handleHideSettingsClick(item) {
-    const startY = 420;
-    const rowHeight = 55;
+    const startY = 450;
+    const rowHeight = 60;
 
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];
         const y = startY + i * rowHeight;
-        if (MouseIn(1450, y + 5, 80, 35)) {
+        if (MouseIn(1620, y, 100, 40)) {
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             item.Property[cat.key] = !(item.Property[cat.key] === true);
             updateHideArray(item);
@@ -493,9 +549,8 @@ function handleHideSettingsClick(item) {
         }
     }
 
-    // 返回按钮
-    const backY = startY + HIDE_CATEGORIES.length * rowHeight + 20;
-    if (MouseIn(1150, backY, 200, 40)) {
+    // 确认（返回列表）
+    if (MouseIn(1885, 135, 90, 90)) {
         currentView = "list";
         return;
     }
@@ -506,15 +561,20 @@ function handleHideSettingsClick(item) {
  */
 function drawTextureListMain(item) {
     const textures = item.Property?.Textures || [];
-    
-    DrawText("贴图管理", 1200, 350, "White", "Gray");
-    DrawText(`已添加 ${textures.length} 个贴图（最多 ${MAX_TEXTURE_COUNT} 个）`, 1200, 380, "Yellow", "Gray");
-    
-    // 隐藏设置跳转按钮
-    DrawButton(1150, 405, 400, 40, "隐藏设置 >>>", "#607D8B", "#78909C", false);
-    
-    const startY = 570;
-    const itemHeight = 50;
+
+    DrawText(L("贴图管理", "Texture Manager"), 1500, 360, "White", "Gray");
+    DrawText(L(`已添加${textures.length}个贴图（最多${MAX_TEXTURE_COUNT}个）`,
+        `${textures.length} textures added (max ${MAX_TEXTURE_COUNT})`), 1505, 410, "#ebfe58", "Gray");
+
+    // 隐藏设置跳转（右上角图标按钮）
+    DrawButton(1665, 25, 90, 90, "", "White", "Icons/Private.png",
+        L("隐藏设置：隐藏身体部位/服饰等", "Hide settings: hide body parts / clothing"));
+
+    const startY = 450;
+    const itemHeight = 60;
+    // 新增按钮基准 Y 与每多一层的下移步长
+    const ADD_BTN_BASE_Y = 450;
+    const ADD_BTN_STEP = 60;
 
     // 分页计算
     const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
@@ -522,55 +582,72 @@ function drawTextureListMain(item) {
     if (currentListPage < 0) currentListPage = 0;
     const pageStart = currentListPage * TEXTURES_PER_PAGE;
     const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
+    // 当前页已有的图层数（0~TEXTURES_PER_PAGE）
+    const itemsOnPage = pageEnd - pageStart;
 
     for (let i = pageStart; i < pageEnd; i++) {
         const y = startY + (i - pageStart) * itemHeight;
         const texture = textures[i];
-        
-        DrawRect(1150, y, 400, itemHeight - 5, "rgba(0,0,0,0.5)");
-        
-        const urlPreview = texture?.TextureURL 
+
+        const urlPreview = texture?.TextureURL
             ? (texture.TextureURL.length > 12 ? texture.TextureURL.substring(0, 12) + "..." : texture.TextureURL)
             : "(空)";
-        
-        DrawText(`图层${i + 1}: ${urlPreview}`, 1160, y + 20, "White", "Black");
-        
+
+        DrawText(L(`图层${i + 1} :`, `Layer ${i + 1}:`), 1100, y + 20, "White");
+        DrawButton(1200, y, 400, 40, urlPreview, "White", null,
+            texture?.TextureURL || L("(空)", "(empty)"), false);
+
         // 可见开关
         const isVisible = texture?.Visible !== false;
-        DrawButton(1390, y + 5, 70, 35, isVisible ? "可见" : "隐藏", 
-            isVisible ? "#4CAF50" : "#666666", 
-            isVisible ? "#66BB6A" : "#999999", false);
-        
-        DrawButton(1480, y + 5, 60, 35, "编辑", "White", null, false);
-        
-        // 可信域名快捷按钮：白名单模式下，URL 域名不在白名单时显示
+        DrawButton(1620, y, 100, 40, isVisible ? L("显示", "Shown") : L("隐藏", "Hidden"),
+            isVisible ? "#4ba055" : "#666666", null,
+            L("点击切换该图层显示/隐藏", "Toggle this layer's visibility"), false);
+
+        DrawButton(1740, y, 100, 40, L("编辑", "Edit"), "White", null,
+            L("编辑该图层的 URL 与参数", "Edit this layer's URL and parameters"), false);
+
+        // 信任按钮：白名单模式下，URL 域名不在白名单时显示
         if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL)) {
-            DrawButton(1545, y + 5, 55, 35, "+可信", "#FF9800", "#FFB74D", false);
+            DrawButton(1860, y, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
+                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
         }
     }
-    
-    // 按钮位置固定基于每页最大行数，避免分页时按钮跳动
-    const btnY = startY + TEXTURES_PER_PAGE * itemHeight + 20;
-    
-    // 翻页按钮（始终绘制，仅 1 页时禁用）
-    const hasPages = totalPages > 1;
-    DrawButton(1150, btnY, 80, 35, "上一页", "#555555", "#777777", !hasPages);
-    DrawButton(1240, btnY, 80, 35, "下一页", "#555555", "#777777", !hasPages);
-    if (hasPages) {
-        DrawText(`${currentListPage + 1}/${totalPages}`, 1320, btnY + 17, "Cyan", "Gray");
-    }
-    
-    // 添加按钮
+
+    // 新增按钮：紧跟在当前页最后一个图层后面，1 个时 500，2 个时 560，每多一层再 +60；
+    // 当本页已满 6 层时，按钮停在对应位置，点击后新图层会落到下一页（沿用原本翻页逻辑）
     if (textures.length < MAX_TEXTURE_COUNT) {
-        DrawButton(1355, btnY, 95, 40, "添加新贴图", "#4CAF50", "#66BB6A", false);
+        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
+        DrawButton(1450, addBtnY, 90, 90, "", "White", "Icons/Plus.png",
+            L("添加一个新贴图图层", "Add a new texture layer"));
     }
-    DrawButton(1460, btnY, 90, 40, "确认保存", "#2196F3", "#42A5F5", false);
-    
+
+    // 底部按钮固定位置，基于每页最大行数计算，不随本页图层数变化
+    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
+
+    // 翻页按钮：只有「下一页」，循环到最后一页后自动跳回第一页，不显示页码
+    // 仅当图层总数 >= 7（即超过一页）时才显示
+    const hasPages = totalPages > 1;
+    if (textures.length >= 7) {
+        DrawButton(1885, 810, 90, 90, "", "White", "Icons/Down.png",
+            L("下一页", "Next page"), !hasPages);
+    }
+    // 确认并退出：保存同步后关闭对话框
+    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+        L("确认并退出（保存并关闭）", "Confirm & Exit (save and close)"));
+
     // 导入导出按钮
-    const ioBtnY = btnY + 50;
-    DrawButton(1150, ioBtnY, 130, 40, "导出配置", "#FF9800", "#FFB74D", false);
-    DrawButton(1285, ioBtnY, 130, 40, "覆盖导入", "#9C27B0", "#BA68C8", false);
-    DrawButton(1420, ioBtnY, 130, 40, "追加导入", "#7B1FA2", "#9C27B0", false);
+    const ioBtnY = btnY + 120;
+    DrawButton(1170, ioBtnY, 200, 50, L("导出配置", "Export"), "#4CAF50", "#66BB6A", false,
+        L("将当前配置复制到剪贴板", "Copy current config to clipboard"));
+    DrawButton(1390, ioBtnY, 200, 50, L("覆盖导入", "Import (Replace)"), "#28639A", null,
+        L("用剪贴板配置覆盖当前所有图层", "Replace all layers with clipboard config"), false);
+    DrawButton(1610, ioBtnY, 200, 50, L("追加导入", "Import (Append)"), "#28639A", null,
+        L("将剪贴板配置追加到当前图层后", "Append clipboard config after current layers"), false);
+
+    // 导入/导出结果提示（任务3：显示在 1505,890）
+    if (statusMessage && Date.now() < statusMessageExpiry) {
+        DrawText(statusMessage.text, 1505, 890, statusMessage.color, "Black");
+    }
 }
 
 /**
@@ -580,26 +657,29 @@ function handleTextureListClick(item, data) {
     const textures = item.Property?.Textures || [];
 
     // 隐藏设置跳转
-    if (MouseIn(1150, 405, 400, 40)) {
+    if (MouseIn(1665, 25, 90, 90)) {
         currentView = "hide";
         return;
     }
 
-    const startY = 570;
-    const itemHeight = 50;
-    
+    const startY = 450;
+    const itemHeight = 60;
+    const ADD_BTN_BASE_Y = 450;
+    const ADD_BTN_STEP = 60;
+
     // 分页计算
     const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
     if (currentListPage >= totalPages) currentListPage = totalPages - 1;
     if (currentListPage < 0) currentListPage = 0;
     const pageStart = currentListPage * TEXTURES_PER_PAGE;
     const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
-    
+    const itemsOnPage = pageEnd - pageStart;
+
     for (let i = pageStart; i < pageEnd; i++) {
         const y = startY + (i - pageStart) * itemHeight;
         const texture = textures[i];
         // 可见开关
-        if (MouseIn(1390, y + 5, 70, 35)) {
+        if (MouseIn(1620, y, 100, 40)) {
             textures[i].Visible = textures[i].Visible === false ? true : false;
             // 切换可见性后立即同步到服务器
             syncItemToServer(item);
@@ -608,16 +688,17 @@ function handleTextureListClick(item, data) {
             return;
         }
         // 编辑按钮
-        if (MouseIn(1480, y + 5, 60, 35)) {
+        if (MouseIn(1740, y, 100, 40)) {
             currentEditTexture = i;
             tempTextureData = { ...textures[i] };
+            originalEditTexture = { ...textures[i] };
             if (!data.PersistentData) data.PersistentData = {};
             data.PersistentData._originalTexture = { ...textures[i] };
             createEditInputs(textures[i]);
             return;
         }
-        // +可信 按钮
-        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1545, y + 5, 55, 35)) {
+        // 信任按钮
+        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1860, y, 100, 40)) {
             const domain = extractDomain(texture.TextureURL);
             if (domain) {
                 pendingDomainToAdd = domain;
@@ -626,72 +707,75 @@ function handleTextureListClick(item, data) {
             return;
         }
     }
-    
-    // 按钮位置固定基于每页最大行数
-    const btnY = startY + TEXTURES_PER_PAGE * itemHeight + 20;
-    const hasPages = totalPages > 1;
-    
-    // 翻页按钮（循环式）
-    if (hasPages && MouseIn(1150, btnY, 80, 35)) {
-        currentListPage = (currentListPage - 1 + totalPages) % totalPages;
-        return;
+
+    // 新增按钮：位置跟随当前页图层数量浮动，需与绘制逻辑保持一致
+    if (textures.length < MAX_TEXTURE_COUNT) {
+        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
+        if (MouseIn(1450, addBtnY, 90, 90)) {
+            const newTexture = { ...DEFAULT_TEXTURE };
+            item.Property.Textures.push(newTexture);
+            currentEditTexture = textures.length - 1;
+            tempTextureData = { ...newTexture };
+            originalEditTexture = null; // 新增的图层没有「原始数据」，退出=删除该空图层
+            if (!data.PersistentData) data.PersistentData = {};
+            data.PersistentData._originalTexture = { ...newTexture };
+            createEditInputs(newTexture);
+            return;
+        }
     }
-    if (hasPages && MouseIn(1240, btnY, 80, 35)) {
+
+    // 按钮位置固定基于每页最大行数，不随本页图层数变化
+    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
+    const hasPages = totalPages > 1;
+
+    // 翻页按钮：只有「下一页」，循环到最后一页后跳回第一页（仅图层>=7时可用）
+    if (textures.length >= 7 && hasPages && MouseIn(1885, 810, 90, 90)) {
         currentListPage = (currentListPage + 1) % totalPages;
         return;
     }
-    
-    if (textures.length < MAX_TEXTURE_COUNT && MouseIn(1355, btnY, 95, 40)) {
-        const newTexture = { ...DEFAULT_TEXTURE };
-        item.Property.Textures.push(newTexture);
-        currentEditTexture = textures.length - 1;
-        tempTextureData = { ...newTexture };
-        if (!data.PersistentData) data.PersistentData = {};
-        data.PersistentData._originalTexture = { ...newTexture };
-        createEditInputs(newTexture);
-        return;
-    }
-    
-    if (MouseIn(1460, btnY, 90, 40)) {
+
+    // 确认并退出（任务1）：保存同步后关闭整个对话框
+    if (MouseIn(1885, 135, 90, 90)) {
         const C = CharacterGetCurrent();
-        if (C && item) {
+        if (item) {
             if (!item.Property) item.Property = { Textures: [] };
             if (!item.Property.Textures) item.Property.Textures = [];
             // 保存前确保 Hide 数组与开关一致
             updateHideArray(item);
-            
+
             Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
             Logger.info(`隐藏分类 - ${HIDE_CATEGORIES.map(c => `${c.label}: ${item.Property[c.key]}`).join(', ')}`);
-            
+
             syncItemToServer(item);
-            CharacterRefresh(C, false, false);
+            if (C) CharacterRefresh(C, false, false);
             Logger.info("贴图设置已保存并同步");
         }
+        // 退出对话框（currentView 为 list，不会被 DialogLeaveFocusItem hook 拦截）
+        if (typeof DialogLeaveFocusItem === "function") DialogLeaveFocusItem();
         return;
     }
-    
+
     // 导入导出按钮
-    const ioBtnY = btnY + 50;
-    
+    const ioBtnY = btnY + 120;
+
     // 导出配置
-    if (MouseIn(1150, ioBtnY, 130, 40)) {
+    if (MouseIn(1170, ioBtnY, 200, 50)) {
         exportConfig(item);
         return;
     }
-    
+
     // 覆盖导入
-    if (MouseIn(1285, ioBtnY, 130, 40)) {
+    if (MouseIn(1390, ioBtnY, 200, 50)) {
         importConfig(item, "overwrite");
         return;
     }
-    
+
     // 追加导入
-    if (MouseIn(1420, ioBtnY, 130, 40)) {
+    if (MouseIn(1610, ioBtnY, 200, 50)) {
         // 预检查：当前图层已达上限，无法追加
         if ((item.Property?.Textures || []).length >= MAX_TEXTURE_COUNT) {
-            if (typeof ChatRoomSendLocal !== "undefined") {
-                ChatRoomSendLocal(`[ShuangAssets] 超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`);
-            }
+            showStatus(L(`✘ 超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`,
+                `✘ Texture limit reached (max ${MAX_TEXTURE_COUNT})`), "#E53935");
             return;
         }
         importConfig(item, "append");
@@ -719,10 +803,8 @@ function exportConfig(item) {
     // 复制到剪贴板
     navigator.clipboard.writeText(json).then(() => {
         Logger.info("配置已复制到剪贴板");
-        // 在游戏中显示通知
-        if (typeof ChatRoomSendLocal !== "undefined") {
-            ChatRoomSendLocal(`[ShuangAssets] 配置已复制到剪贴板，共 ${textures.length} 个图层`);
-        }
+        showStatus(L(`✔ 已复制到剪贴板，共 ${textures.length} 个图层`,
+            `✔ Copied to clipboard, ${textures.length} layers`), "#4CAF50");
     }).catch(err => {
         Logger.error("复制失败:", err);
         // 降级方案：创建下载
@@ -733,6 +815,7 @@ function exportConfig(item) {
         a.download = "shuang-custom-assets-config.json";
         a.click();
         URL.revokeObjectURL(url);
+        showStatus(L("✔ 剪贴板不可用，已改为下载配置文件", "✔ Clipboard unavailable, downloaded config file"), "#FF9800");
     });
 }
 
@@ -789,31 +872,30 @@ function importConfig(item, mode) {
             
             updateHideArray(item);
             
+            const count = item.Property.Textures.length;
             const modeText = mode === "append" ? "追加" : "覆盖";
-            Logger.info(`${modeText}导入成功:`, item.Property.Textures.length, "个图层");
-            
-            if (typeof ChatRoomSendLocal !== "undefined") {
-                ChatRoomSendLocal(`[ShuangAssets] ${modeText}导入成功，共 ${item.Property.Textures.length} 个图层`);
-            }
-            
+            const modeTextEn = mode === "append" ? "Append" : "Replace";
+            Logger.info(`${modeText}导入成功:`, count, "个图层");
+            showStatus(L(`✔ ${modeText}导入成功，共 ${count} 个图层`,
+                `✔ ${modeTextEn} import OK, ${count} layers`), "#4CAF50");
+
             // 同步到服务器并刷新角色
             syncItemToServer(item);
             const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false, false);
         } catch (err) {
             Logger.error("导入失败:", err.message);
-            if (typeof ChatRoomSendLocal !== "undefined") {
-                ChatRoomSendLocal(`[ShuangAssets] 导入失败: ${err.message}`);
-            }
+            showStatus(L(`✘ 导入失败: ${err.message}`, `✘ Import failed: ${err.message}`), "#E53935");
         }
     }).catch(err => {
         Logger.error("读取剪贴板失败:", err);
-        if (typeof ChatRoomSendLocal !== "undefined") {
-            ChatRoomSendLocal(`[ShuangAssets] 读取剪贴板失败，请确保已复制配置 JSON`);
-        }
+        showStatus(L("✘ 读取剪贴板失败，请确保已复制配置 JSON", "✘ Cannot read clipboard, make sure the config JSON is copied"), "#E53935");
     });
 }
 
+/**
+ * 创建编辑输入框
+ */
 /**
  * 创建编辑输入框
  */
@@ -823,25 +905,31 @@ function createEditInputs(texture) {
         input.setAttribute("placeholder", "https://...");
         input.style.width = "350px";
     }
-    
+    ElementPositionFixed(INPUT_URL, 1220, 435, 490, 40);
+
     input = ElementCreateInput(INPUT_OFFSET_X, "number", String(texture.OffsetX ?? 1), "10");
     if (input) input.style.width = "80px";
-    
+    ElementPositionFixed(INPUT_OFFSET_X, 1220, 485, 200, 40);
+
     input = ElementCreateInput(INPUT_OFFSET_Y, "number", String(texture.OffsetY ?? 1), "10");
     if (input) input.style.width = "80px";
-    
+    ElementPositionFixed(INPUT_OFFSET_Y, 1220, 535, 200, 40);
+
     input = ElementCreateInput(INPUT_SCALE, "number", String(texture.Scale || 100), "10");
     if (input) input.style.width = "80px";
-    
+    ElementPositionFixed(INPUT_SCALE, 1220, 585, 200, 40);
+
     input = ElementCreateInput(INPUT_ROTATION, "number", String(texture.Rotation || 0), "10");
     if (input) input.style.width = "80px";
-    
+    ElementPositionFixed(INPUT_ROTATION, 1220, 635, 200, 40);
+
     input = ElementCreateInput(INPUT_OPACITY, "number", String(texture.Opacity ?? 100), "10");
     if (input) {
         input.style.width = "80px";
         input.min = "0";
         input.max = "100";
     }
+    ElementPositionFixed(INPUT_OPACITY, 1220, 685, 200, 40);
 }
 
 /**
@@ -917,80 +1005,76 @@ function drawTextureEditPanel(item, textureIndex, data) {
             const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false, false);
 
-            // URL 变化时预加载图片，加载完成后再次刷新
+            // URL 变化时预加载图片（CORS 安全），加载完成后再次刷新
             if (urlChanged && isUrlAllowed(newUrl)) {
-                const img = DrawGetImage(newUrl);
-                if (!img.complete) {
-                    img.onload = () => {
+                const entry = getCorsImage(newUrl);
+                if (!entry.img.complete) {
+                    entry.img.addEventListener("load", () => {
                         Logger.info(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
                         if (C) CharacterRefresh(C, false, false);
-                    };
+                    }, { once: true });
                 }
             }
         }
     }
     
-    DrawText(`编辑图层${textureIndex + 1}`, 1200, 350, "White", "Gray");
-    
-    let y = 400;
-    const lineHeight = 45;
-    
-    DrawText("贴图 URL:", 1150, y, "White", "Gray");
-    ElementPosition(INPUT_URL, 1300, y - 5, 350, 35);
-    y += lineHeight;
-    
-    DrawText("X 偏移:", 1150, y, "White", "Gray");
-    ElementPosition(INPUT_OFFSET_X, 1300, y - 5, 100, 30);
-    y += lineHeight;
-    
-    DrawText("Y 偏移:", 1150, y, "White", "Gray");
-    ElementPosition(INPUT_OFFSET_Y, 1300, y - 5, 100, 30);
-    y += lineHeight;
-    
-    DrawText("缩放 %:", 1150, y, "White", "Gray");
-    ElementPosition(INPUT_SCALE, 1300, y - 5, 100, 30);
-    y += lineHeight;
-    
-    DrawText("旋转 °:", 1150, y, "White", "Gray");
-    ElementPosition(INPUT_ROTATION, 1300, y - 5, 100, 30);
-    y += lineHeight;
-    
-    DrawText("透明度 %:", 1150, y, "White", "Gray");
-    ElementPosition(INPUT_OPACITY, 1300, y - 5, 100, 30);
-    y += lineHeight + 20;
-    
-    DrawText("修改后自动预览，点击「确认」返回列表", 1300, y, "Yellow", "Black");
-    y += 30;
-    
-    // 可信域名快捷按钮：白名单模式下，URL 域名不在白名单时显示
+    // 标题：id1 (1430,340,140,39.65) → 中心点 (1500,360)
+    DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
+
+    // 说明文字：id2 (1270.42,385,470,40) → 中心点 (1505,405)
+    DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press ✓ to return"), 1505, 405, "Yellow", "Black");
+
+    // 贴图：id9 标签 (1000,435,200,40) → 中心 (1100,455)；id11 输入框 x=1220，Y 对齐标签高度 455
+    DrawText(L("贴图", "Image"), 1100, 455, "White", "Gray");
+    ElementPositionFixed(INPUT_URL, 1220, 435, 490, 40);
+    // 信任按钮：id15 (1730,435,100,40)，与贴图 URL 同一行，固定位置显示，不随其他字段变化
     const currentUrl = urlInput?.value?.trim() || "";
     if (currentUrl && !isDomainInWhitelist(currentUrl)) {
         const domain = extractDomain(currentUrl);
         if (domain) {
-            DrawButton(1150, y, 200, 35, `+可信域名: ${domain.length > 15 ? domain.substring(0, 15) + "..." : domain}`, "#FF9800", "#FFB74D", false);
+            DrawButton(1730, 435, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
+                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
         }
-        y += 40;
     }
-    
-    DrawButton(1150, y, 150, 35, "删除此贴图", "#F44336", "#E57373", false);
-    DrawButton(1310, y, 120, 35, "确认", "#4CAF50", "#66BB6A", false);
-    DrawButton(1440, y, 120, 35, "取消", "#9E9E9E", "#BDBDBD", false);
+
+    // X偏移：id3 标签 (1000,485,200,40) → 中心 (1100,505)；输入框 x=1220，Y 对齐标签高度 505
+    DrawText(L("X偏移", "X Offset"), 1100, 505, "White", "Gray");
+    ElementPositionFixed(INPUT_OFFSET_X, 1220, 485, 200, 40);
+
+    // Y偏移：id6 标签 (1000,535,200,40) → 中心 (1100,555)；输入框 Y 对齐 555
+    DrawText(L("Y偏移", "Y Offset"), 1100, 555, "White", "Gray");
+    ElementPositionFixed(INPUT_OFFSET_Y, 1220, 535, 200, 40);
+
+    // 缩放%：id7 标签 (1000,585,200,40) → 中心 (1100,605)；输入框 Y 对齐 605
+    DrawText(L("缩放%", "Scale %"), 1100, 605, "White", "Gray");
+    ElementPositionFixed(INPUT_SCALE, 1220, 585, 200, 40);
+
+    // 旋转%：id8 标签 (1000,635,200,40) → 中心 (1100,655)；输入框 Y 对齐 655
+    DrawText(L("旋转%", "Rotation %"), 1100, 655, "White", "Gray");
+    ElementPositionFixed(INPUT_ROTATION, 1220, 635, 200, 40);
+
+    // 透明度%：id12 标签 (1000,685,200,40) → 中心 (1100,705)；输入框 Y 对齐 705
+    DrawText(L("透明度%", "Opacity %"), 1100, 705, "White", "Gray");
+    ElementPositionFixed(INPUT_OPACITY, 1220, 685, 200, 40);
+
+    // 确认保存：id13 (1885,135,90,90)
+    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+        L("保存该图层并返回列表", "Save this layer & back to list"));
+    // 删除此贴图：id14 (1885,245,90,90)，不染色，与其他图标按钮一致使用白底
+    DrawButton(1885, 245, 90, 90, "", "White", "Icons/Cancel.png",
+        L("删除此图层", "Delete this layer"), false);
 }
 
 /**
  * 处理编辑点击
  */
 function handleTextureEditClick(item, textureIndex, data) {
-    let y = 400;
-    const lineHeight = 45;
-    y += lineHeight * 6 + 20 + 30;  // 6个输入行 + 提示行
-
-    // 可信域名按钮（如果显示的话）
+    // 可信域名按钮（与贴图 URL 同一行，固定位置，不随其他字段变化）
     const urlInput = document.getElementById(INPUT_URL);
     const currentUrl = urlInput?.value?.trim() || "";
     if (currentUrl && !isDomainInWhitelist(currentUrl)) {
         const domain = extractDomain(currentUrl);
-        if (domain && MouseIn(1150, y, 200, 35)) {
+        if (domain && MouseIn(1730, 435, 100, 40)) {
             pendingDomainToAdd = domain;
             currentView = "addDomainConfirm";
             // 移除编辑页面的输入框，避免遮挡确认对话框
@@ -999,10 +1083,10 @@ function handleTextureEditClick(item, textureIndex, data) {
             [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
             return;
         }
-        y += 40;
     }
-    
-    if (MouseIn(1150, y, 150, 35)) {
+
+    // 删除此贴图（右下角图标按钮）
+    if (MouseIn(1885, 245, 90, 90)) {
         item.Property.Textures.splice(textureIndex, 1);
         currentEditTexture = -1;
         tempTextureData = null;
@@ -1014,7 +1098,8 @@ function handleTextureEditClick(item, textureIndex, data) {
         return;
     }
 
-    if (MouseIn(1310, y, 120, 35)) {
+    // 确认保存（右上角图标按钮）
+    if (MouseIn(1885, 135, 90, 90)) {
         const urlInput = document.getElementById(INPUT_URL);
         const offsetXInput = document.getElementById(INPUT_OFFSET_X);
         const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
@@ -1045,23 +1130,6 @@ function handleTextureEditClick(item, textureIndex, data) {
         item.Property.Textures[textureIndex] = finalTexture;
 
         // 立即同步到服务器
-        syncItemToServer(item);
-
-        currentEditTexture = -1;
-        tempTextureData = null;
-        currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
-        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
-        const C = CharacterGetCurrent();
-        if (C) CharacterRefresh(C, false, false);
-        return;
-    }
-
-    if (MouseIn(1440, y, 120, 35)) {
-        const originalTexture = data.PersistentData?._originalTexture;
-        if (originalTexture) {
-            item.Property.Textures[textureIndex] = { ...originalTexture };
-        }
-        // 恢复设置后同步到服务器
         syncItemToServer(item);
 
         currentEditTexture = -1;
@@ -1172,4 +1240,64 @@ export function setupLoginBadge(HookManager) {
             }
             next(args);
         });
+}
+
+/**
+ * 从子页面（编辑图层 / 隐藏设置 / 添加域名确认）返回贴图管理列表
+ * 若正在编辑图层，则视为「取消编辑」：还原为编辑前数据（新增未保存的空图层则移除）
+ */
+function returnToListFromSubview() {
+    if (currentEditTexture >= 0) {
+        const item = DialogFocusItem;
+        if (item) {
+            if (!item.Property) item.Property = { Textures: [] };
+            if (!item.Property.Textures) item.Property.Textures = [];
+            if (originalEditTexture) {
+                // 编辑已存在图层：还原
+                item.Property.Textures[currentEditTexture] = { ...originalEditTexture };
+            } else {
+                // 新增但未确认的图层：取消即移除
+                item.Property.Textures.splice(currentEditTexture, 1);
+            }
+            syncItemToServer(item);
+            const C = CharacterGetCurrent();
+            if (C) CharacterRefresh(C, false, false);
+        }
+    }
+    currentEditTexture = -1;
+    tempTextureData = null;
+    originalEditTexture = null;
+    pendingDomainToAdd = null;
+    currentView = "list";
+    [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY].forEach(id => ElementRemove(id));
+}
+
+/**
+ * 注册与对话框交互相关的全局函数 hook
+ * 任务5：编辑图层（及其它子页面）时点击退出，应返回贴图管理列表而非整个跳出
+ * 任务6：配置本道具时隐藏左侧人物身上的互动格线，避免上传图片时被框线干扰
+ * @param {HookManager} HookManager - SDK 的 HookManager
+ */
+export function setupDialogHooks(HookManager) {
+    // 任务6：DialogFocusItem 为「自定义贴图」时，跳过角色身上的互动区域格线绘制
+    // DrawAssetGroupZone 由 DrawCharacter 在 C.FocusGroup 存在时调用，用于画各部位可点击格子
+    if (typeof DrawAssetGroupZone === "function") {
+        HookManager.hookFunction("DrawAssetGroupZone", 0, (args, next) => {
+            if (DialogFocusItem?.Asset?.Name === asset.Name) return;
+            return next(args);
+        });
+    }
+
+    // 任务5：在子页面时点击退出（DialogLeaveFocusItem）→ 返回列表并阻止真正退出
+    if (typeof DialogLeaveFocusItem === "function") {
+        HookManager.hookFunction("DialogLeaveFocusItem", 0, (args, next) => {
+            const item = DialogFocusItem;
+            const inSubview = currentEditTexture >= 0 || currentView !== "list";
+            if (item?.Asset?.Name === asset.Name && inSubview) {
+                returnToListFromSubview();
+                return; // 阻止关闭对话框
+            }
+            return next(args);
+        });
+    }
 }

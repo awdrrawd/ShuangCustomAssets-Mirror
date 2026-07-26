@@ -3,7 +3,7 @@
  * 提供贴图 URL 加载模式控制和域名白名单管理
  */
 
-import { Logger } from "@lib/utils.js";
+import { Logger, L, isChineseLang } from "@lib/utils.js";
 
 // === 常量 ===
 const EXTENSION_ID = "ShuangCustomAssets";
@@ -25,6 +25,16 @@ const DEFAULT_ALLOWED_DOMAINS = [
     "imgur.com",
     "postimg.cc",
     "hd-r.icu",
+    // catbox / litterbox
+    "catbox.moe",          // 覆盖 files.catbox.moe
+    "litter.catbox.moe",   // litterbox 临时图床
+    // Cloudflare R2 公共开发域名（注意：r2.dev 默认不返回 CORS 头，需在存储桶启用 CORS 才能正常显示）
+    // 使用通配符仅放行 pub-*.r2.dev（公共开发桶），不放行其它 *.r2.dev
+    "pub-*.r2.dev",
+    "r2.cloudflarestorage.com",
+    // Discord CDN（返回 Access-Control-Allow-Origin: *；但附件链接带 ?ex=&hm= 会过期，仅适合临时使用）
+    "cdn.discordapp.com",
+    "media.discordapp.net",
     ...ALWAYS_ALLOWED_DOMAINS
 ];
 
@@ -85,6 +95,27 @@ export function extractDomain(url) {
 }
 
 /**
+ * 判断域名是否匹配某个白名单条目
+ * 支持通配符 *：* 匹配同一标签内任意字符（不跨越 "."），例如 pub-*.r2.dev
+ * 精确条目：完全相等，或作为父域名匹配子域（domain 以 ".条目" 结尾）
+ * @param {string} domain - 待检查的主机名
+ * @param {string} pattern - 白名单条目
+ * @returns {boolean}
+ */
+function domainMatches(domain, pattern) {
+    if (!domain || !pattern) return false;
+    if (pattern.includes("*")) {
+        // 转义正则特殊字符，再把 * 替换为 [^.]*（不跨越点，避免 pub-*.r2.dev 意外匹配 x.evil.r2.dev）
+        const re = new RegExp(
+            "^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[^.]*") + "$",
+            "i"
+        );
+        return re.test(domain);
+    }
+    return domain === pattern || domain.endsWith("." + pattern);
+}
+
+/**
  * 检查 URL 是否允许加载
  * @param {string} url
  * @returns {boolean}
@@ -95,7 +126,7 @@ export function isUrlAllowed(url) {
 
     // 插件自身服务域名始终允许（如登录页面标识）
     const domain = extractDomain(url);
-    if (domain && ALWAYS_ALLOWED_DOMAINS.some(d => domain === d || domain.endsWith("." + d))) {
+    if (domain && ALWAYS_ALLOWED_DOMAINS.some(d => domainMatches(domain, d))) {
         return true;
     }
     if (!domain) return false;
@@ -109,11 +140,7 @@ export function isUrlAllowed(url) {
 
     // 白名单模式：检查域名
     const allowed = settings.allowedDomains || [];
-    return allowed.some(allowed => {
-        if (domain === allowed) return true;
-        if (domain.endsWith("." + allowed)) return true;
-        return false;
-    });
+    return allowed.some(entry => domainMatches(domain, entry));
 }
 
 /**
@@ -126,8 +153,10 @@ export function isDomainInWhitelist(url) {
     if (settings.urlLoadMode !== "whitelist") return true;
     const domain = extractDomain(url);
     if (!domain) return false;
+    // 插件自身服务域名视为始终可信
+    if (ALWAYS_ALLOWED_DOMAINS.some(d => domainMatches(domain, d))) return true;
     const allowed = settings.allowedDomains || [];
-    return allowed.some(a => domain === a || domain.endsWith("." + a));
+    return allowed.some(a => domainMatches(domain, a));
 }
 
 /**
@@ -161,7 +190,7 @@ export function registerExtensionSetting() {
 
     PreferenceRegisterExtensionSetting({
         Identifier: EXTENSION_ID,
-        ButtonText: "自定义贴图设置",
+        ButtonText: L("自定义贴图设置", "Custom Texture Settings"),
         Image: "Icons/Texture.png",
         load: () => {
             settingsPage = "main";
@@ -221,56 +250,62 @@ function _drawTextLeft(text, x, y, color, backColor) {
 function _drawMainPage() {
     const settings = getSettings();
 
-    DrawText("自定义贴图 - 安全设置", 1000, 100, "Black", "Gray");
+    DrawText(L("自定义贴图 - 安全设置", "Custom Texture - Security Settings"), 1000, 100, "Black", "Gray");
 
     const modeText = settings.urlLoadMode === "whitelist"
-        ? "当前模式：白名单模式"
-        : "当前模式：不限制模式";
+        ? L("当前模式：白名单模式", "Current mode: Whitelist")
+        : L("当前模式：不限制模式", "Current mode: Unrestricted");
     DrawText(modeText, 1000, 180, "Black", "Gray");
 
     const descText = settings.urlLoadMode === "whitelist"
-        ? "仅加载来自可信域名的贴图 URL"
-        : "加载所有 HTTPS 贴图 URL（可能存在隐私风险）";
+        ? L("仅加载来自可信域名的贴图 URL", "Only load texture URLs from trusted domains")
+        : L("加载所有 HTTPS 贴图 URL（可能存在隐私风险）", "Load all HTTPS texture URLs (privacy risk)");
     DrawText(descText, 1000, 220, "Gray", "White");
 
     // 按钮（居中 X=1000）
-    DrawButton(800, 280, 400, 60, "加载模式设置 >>>", "White");
+    DrawButton(800, 280, 400, 60, L("加载模式设置 >>>", "Load Mode Settings >>>"), "White",
+        null, L("选择白名单/不限制加载模式", "Choose whitelist / unrestricted load mode"));
 
     if (settings.urlLoadMode === "whitelist") {
-        DrawButton(800, 360, 400, 60, "域名白名单管理 >>>", "White");
-        DrawText(`已配置 ${settings.allowedDomains?.length || 0} 个可信域名`, 1000, 440, "Gray", "White");
+        DrawButton(800, 360, 400, 60, L("域名白名单管理 >>>", "Domain Whitelist >>>"), "White",
+            null, L("添加或删除可信域名", "Add or remove trusted domains"));
+        DrawText(L(`已配置 ${settings.allowedDomains?.length || 0} 个可信域名`,
+            `${settings.allowedDomains?.length || 0} trusted domains configured`), 1000, 440, "Gray", "White");
     }
 
     // 域名提示设置（始终显示）
     const warnY = settings.urlLoadMode === "whitelist" ? 500 : 360;
     const isWarnOn = settings.domainWarningEnabled !== false;
-    DrawText("不可信域名提示", 800, warnY + 22, "Black", "White");
-    DrawButton(1150, warnY - 5, 80, 35, isWarnOn ? "开" : "关",
+    DrawText(L("不可信域名提示", "Untrusted domain warning"), 800, warnY + 22, "Black", "White");
+    DrawButton(1150, warnY - 5, 80, 35, isWarnOn ? L("开", "On") : L("关", "Off"),
         isWarnOn ? "#4CAF50" : "#666666",
-        isWarnOn ? "#66BB6A" : "#999999", false);
+        isWarnOn ? "#66BB6A" : "#999999", false,
+        L("是否对不在白名单的域名显示警告图片", "Whether to show a warning image for non-whitelisted domains"));
 
-    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png");
+    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 }
 
 function _drawModeSelectPage() {
     const settings = getSettings();
 
-    DrawText("选择贴图加载模式", 1000, 100, "Black", "Gray");
+    DrawText(L("选择贴图加载模式", "Select texture load mode"), 1000, 100, "Black", "Gray");
 
     const whitelistActive = settings.urlLoadMode === "whitelist";
     DrawButton(700, 200, 600, 80,
-        `白名单模式${whitelistActive ? "（当前）" : ""}`,
-        whitelistActive ? "#D4FFD4" : "White");
-    DrawText("仅加载来自可信域名的贴图 URL", 1000, 300, "Gray", "White");
+        L(`白名单模式${whitelistActive ? "（当前）" : ""}`, `Whitelist${whitelistActive ? " (current)" : ""}`),
+        whitelistActive ? "#D4FFD4" : "White",
+        null, L("仅加载可信域名的贴图（推荐）", "Only load textures from trusted domains (recommended)"));
+    DrawText(L("仅加载来自可信域名的贴图 URL", "Only load texture URLs from trusted domains"), 1000, 300, "Gray", "White");
 
     const unrestrictedActive = settings.urlLoadMode === "unrestricted";
     DrawButton(700, 360, 600, 80,
-        `不限制模式${unrestrictedActive ? "（当前）" : ""}`,
-        unrestrictedActive ? "#FFE4D4" : "White");
-    DrawText("加载所有 HTTPS 贴图 URL", 1000, 460, "Gray", "White");
+        L(`不限制模式${unrestrictedActive ? "（当前）" : ""}`, `Unrestricted${unrestrictedActive ? " (current)" : ""}`),
+        unrestrictedActive ? "#FFE4D4" : "White",
+        null, L("加载任意 HTTPS 贴图（有隐私风险）", "Load any HTTPS texture (privacy risk)"));
+    DrawText(L("加载所有 HTTPS 贴图 URL", "Load all HTTPS texture URLs"), 1000, 460, "Gray", "White");
 
-    DrawButton(800, 560, 400, 60, "返回", "White");
-    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png");
+    DrawButton(800, 560, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
+    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 }
 
 function _drawWhitelistPage() {
@@ -294,8 +329,8 @@ function _drawWhitelistPage() {
     const hasPrev = whitelistPage > 0;
     const hasNext = whitelistPage < totalPages - 1;
 
-    DrawText("域名白名单管理", 1000, 100, "Black", "Gray");
-    DrawText("仅来自这些域名的贴图 URL 会被加载", 1000, 140, "Gray", "White");
+    DrawText(L("域名白名单管理", "Domain Whitelist"), 1000, 100, "Black", "Gray");
+    DrawText(L("仅来自这些域名的贴图 URL 会被加载", "Only texture URLs from these domains will load"), 1000, 140, "Gray", "White");
 
     // 域名列表 - 左对齐文字 + 右侧删除按钮
     // 显示当前页的域名
@@ -303,39 +338,48 @@ function _drawWhitelistPage() {
         const displayIdx = i - pageStart;
         const y = listStartY + displayIdx * lineH;
         _drawTextLeft(`${i + 1}. ${domains[i]}`, domainTextX, y, "Black", "White");
-        DrawButton(deleteBtnX, y - 17, deleteBtnW, 35, "删除", "#FFD4D4");
+        DrawButton(deleteBtnX, y - 17, deleteBtnW, 35, L("删除", "Delete"), "#FFD4D4",
+            null, L(`从白名单移除 ${domains[i]}`, `Remove ${domains[i]} from whitelist`));
     }
 
     // 翻页控制和页面信息
     const paginationY = listStartY + maxShow * lineH + 10;
-    DrawText(`第 ${whitelistPage + 1}/${totalPages} 页  (共 ${domains.length} 个域名)`, 1000, paginationY, "Gray", "White");
+    DrawText(L(`第 ${whitelistPage + 1}/${totalPages} 页  (共 ${domains.length} 个域名)`,
+        `Page ${whitelistPage + 1}/${totalPages}  (${domains.length} domains)`), 1000, paginationY, "Gray", "White");
 
-    DrawButton(1180, paginationY - 17, 80, 35, "上一页", "#555555", "#777777", !hasPrev);
-    DrawButton(1270, paginationY - 17, 80, 35, "下一页", "#555555", "#777777", !hasNext);
+    DrawButton(1180, paginationY - 17, 80, 35, L("上一页", "Prev"), "#555555", "#777777", !hasPrev,
+        L("上一页", "Previous page"));
+    DrawButton(1270, paginationY - 17, 80, 35, L("下一页", "Next"), "#555555", "#777777", !hasNext,
+        L("下一页", "Next page"));
 
     // 添加域名区域
     const inputY = paginationY + 40;
-    _drawTextLeft("添加域名:", domainTextX, inputY, "Black", "White");
+    _drawTextLeft(L("添加域名:", "Add domain:"), domainTextX, inputY, "Black", "White");
 
     // 输入框在文字右侧
-    DrawButton(900, inputY - 17, 100, 35, "添加", "#D4FFD4");
-    DrawButton(1010, inputY - 17, 100, 35, "清空全部", "#FFD4D4");
-    DrawButton(1120, inputY - 17, 120, 35, "添加推荐域名", "#B3E5FC");
+    DrawButton(900, inputY - 17, 100, 35, L("添加", "Add"), "#D4FFD4",
+        null, L("将输入框中的域名加入白名单", "Add the entered domain to the whitelist"));
+    DrawButton(1010, inputY - 17, 100, 35, L("清空全部", "Clear All"), "#FFD4D4",
+        null, L("移除所有可信域名", "Remove all trusted domains"));
+    DrawButton(1120, inputY - 17, 120, 35, L("添加推荐域名", "Add Defaults"), "#B3E5FC",
+        null, L("添加内置推荐图床域名", "Add the built-in recommended image hosts"));
 
     // 导入导出
     const ieY = inputY + 50;
-    DrawButton(900, ieY - 17, 120, 35, "导出配置", "#FF9800", "#FFB74D", false);
-    DrawButton(1030, ieY - 17, 120, 35, "导入配置", "#2196F3", "#42A5F5", false);
+    DrawButton(900, ieY - 17, 120, 35, L("导出配置", "Export"), "#FF9800", "#FFB74D", false,
+        L("将白名单复制到剪贴板", "Copy the whitelist to clipboard"));
+    DrawButton(1030, ieY - 17, 120, 35, L("导入配置", "Import"), "#2196F3", "#42A5F5", false,
+        L("从 JSON 导入白名单", "Import a whitelist from JSON"));
 
     // 返回按钮
-    DrawButton(800, 720, 400, 60, "返回", "White");
-    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png");
+    DrawButton(800, 720, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
+    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 }
 
 function _drawUnrestrictedConfirmPage() {
-    DrawText("⚠ 隐私安全警告 ⚠", 1000, 120, "Red", "Yellow");
+    DrawText(L("⚠ 隐私安全警告 ⚠", "⚠ Privacy & Security Warning ⚠"), 1000, 120, "Red", "Yellow");
 
-    const lines = [
+    const lines = isChineseLang() ? [
         "不限制模式将加载来自任意 HTTPS 地址的贴图 URL",
         "",
         "请注意以下风险：",
@@ -347,20 +391,35 @@ function _drawUnrestrictedConfirmPage() {
         "我们强烈建议您保持白名单模式",
         "",
         "确定要开启不限制模式吗？",
+    ] : [
+        "Unrestricted mode loads texture URLs from any HTTPS address",
+        "",
+        "Please note the following risks:",
+        "1. Other players may provide malicious texture URLs",
+        "2. These URLs may be used to track your IP address",
+        "3. Malicious URLs may leak private information",
+        "4. Your real IP may be recorded by third parties",
+        "",
+        "We strongly recommend keeping Whitelist mode",
+        "",
+        "Are you sure you want to enable Unrestricted mode?",
     ];
 
     let y = 180;
-    for (const line of lines) {
-        const color = line.startsWith("确定") ? "Red" : "Black";
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const color = (i === lines.length - 1) ? "Red" : "Black";
         DrawText(line, 1000, y, color, "White");
         y += 35;
     }
 
     // 确认和取消按钮（居中）
-    DrawButton(700, y + 20, 280, 60, "我已了解风险，确认开启", "#FFD4D4");
-    DrawButton(1020, y + 20, 280, 60, "取消，保持白名单模式", "#D4FFD4");
+    DrawButton(700, y + 20, 280, 60, L("我已了解风险，确认开启", "I understand, enable it"), "#FFD4D4",
+        null, L("切换到不限制模式", "Switch to Unrestricted mode"));
+    DrawButton(1020, y + 20, 280, 60, L("取消，保持白名单模式", "Cancel, keep Whitelist"), "#D4FFD4",
+        null, L("保持白名单模式", "Keep Whitelist mode"));
 
-    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png");
+    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 }
 
 // === 页面点击 ===
@@ -498,7 +557,7 @@ function _clickWhitelistPage() {
 
     // 清空全部
     if (MouseIn(1010, inputY - 17, 100, 35)) {
-        if (confirm("确定要清空所有可信域名吗？")) {
+        if (confirm(L("确定要清空所有可信域名吗？", "Clear all trusted domains?"))) {
             settings.allowedDomains = [];
             saveSettings();
             whitelistPage = 0;
@@ -548,7 +607,9 @@ function _clickWhitelistPage() {
 
     // 导入配置
     if (MouseIn(1030, ieY - 17, 120, 35)) {
-        const jsonStr = prompt("请粘贴域名白名单 JSON 配置：\n格式如: [\"domain1.com\", \"domain2.com\"]");
+        const jsonStr = prompt(L(
+            "请粘贴域名白名单 JSON 配置：\n格式如: [\"domain1.com\", \"domain2.com\"]",
+            "Paste the whitelist JSON config:\ne.g. [\"domain1.com\", \"domain2.com\"]"));
         if (jsonStr) {
             try {
                 const imported = JSON.parse(jsonStr);
@@ -572,7 +633,7 @@ function _clickWhitelistPage() {
                 }
             } catch (e) {
                 Logger.error("导入域名配置失败:", e);
-                alert("导入失败：JSON 格式错误，请检查后重试");
+                alert(L("导入失败：JSON 格式错误，请检查后重试", "Import failed: invalid JSON, please check and retry"));
             }
         }
         return;
