@@ -4,6 +4,7 @@
  */
 
 import { Logger, L, isChineseLang } from "@lib/utils.js";
+import { BADGE_IMAGE_URL } from "./constants.js";
 
 // === 常量 ===
 const EXTENSION_ID = "ShuangCustomAssets";
@@ -191,7 +192,7 @@ export function registerExtensionSetting() {
     PreferenceRegisterExtensionSetting({
         Identifier: EXTENSION_ID,
         ButtonText: L("自定义贴图设置", "Custom Texture Settings"),
-        Image: "Icons/Texture.png",
+        Image: BADGE_IMAGE_URL,
         load: () => {
             settingsPage = "main";
             whitelistPage = 0;

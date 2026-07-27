@@ -1,0 +1,411 @@
+/**
+ * 自定义贴图道具 - 列表/隐藏/域名确认页面
+ * 包含贴图管理主列表、隐藏设置、添加可信域名确认页面的绘制与点击处理
+ */
+
+import {
+    MAX_TEXTURE_COUNT, TEXTURES_PER_PAGE,
+    DEFAULT_TEXTURE, DEFAULT_PROPS, HIDE_CATEGORIES
+} from "./constants.js";
+import { state, resetDragState, showStatus } from "./state.js";
+import { syncItemToServer } from "./serverSync.js";
+import { updateHideArray } from "./hideArray.js";
+import { createEditInputs } from "./editPanel.js";
+import { exportConfig, importConfig } from "./importExport.js";
+import { L, isChineseLang, Logger } from "@lib/utils.js";
+import { isDomainInWhitelist, extractDomain, addDomainToWhitelist } from "./settings.js";
+
+/**
+ * 绘制添加可信域名确认页面
+ */
+export function drawAddDomainConfirm() {
+    DrawText(L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠"), 1500, 370, "Red", "Gray");
+
+    let y = 440;
+    const lines = isChineseLang() ? [
+        { t: `即将添加域名到白名单: ${state.pendingDomainToAdd}`, c: "Cyan" },
+        { t: "", c: "White" },
+        { t: "添加后，来自该域名的贴图 URL 将被允许加载", c: "White" },
+        { t: "", c: "White" },
+        { t: "请注意以下风险：", c: "White" },
+        { t: "1. 请确认您信任该域名提供者", c: "White" },
+        { t: "2. 该域名的所有 URL 都将被加载", c: "White" },
+        { t: "3. 恶意域名可能用于追踪您的 IP 地址", c: "White" },
+        { t: "4. 恶意域名可能导致隐私信息泄露", c: "White" },
+        { t: "", c: "White" },
+        { t: "确定要添加此域名到可信列表吗？", c: "Red" },
+    ] : [
+        { t: `About to add domain to whitelist: ${state.pendingDomainToAdd}`, c: "Cyan" },
+        { t: "", c: "White" },
+        { t: "Once added, texture URLs from this domain will be allowed", c: "White" },
+        { t: "", c: "White" },
+        { t: "Please note the following risks:", c: "White" },
+        { t: "1. Make sure you trust this domain's provider", c: "White" },
+        { t: "2. All URLs from this domain will be loaded", c: "White" },
+        { t: "3. A malicious domain may track your IP address", c: "White" },
+        { t: "4. A malicious domain may leak private info", c: "White" },
+        { t: "", c: "White" },
+        { t: "Add this domain to the trusted list?", c: "Red" },
+    ];
+
+    for (const line of lines) {
+        DrawText(line.t, 1500, y, line.c, "Black");
+        y += 35;
+    }
+
+    y += 10;
+    DrawButton(1250, y, 200, 50, L("确认添加", "Add"), "#4CAF50", "#66BB6A", false,
+        L(`将 ${state.pendingDomainToAdd} 加入白名单`, `Add ${state.pendingDomainToAdd} to whitelist`));
+    DrawButton(1500, y, 200, 50, L("取消", "Cancel"), "#9E9E9E", "#BDBDBD", false,
+        L("放弃添加并返回", "Discard and go back"));
+}
+
+/**
+ * 处理添加可信域名确认页面点击
+ */
+export function handleAddDomainConfirmClick(item, data) {
+    const baseY = 440 + 35 * 11 + 10;
+    // 确认添加
+    if (MouseIn(1250, baseY, 200, 50)) {
+        if (state.pendingDomainToAdd) {
+            const success = addDomainToWhitelist(state.pendingDomainToAdd);
+            if (success) {
+                Logger.info(`已添加可信域名: ${state.pendingDomainToAdd}`);
+                showStatus(L(`✔ 已添加可信域名: ${state.pendingDomainToAdd}`,
+                    `✔ Trusted domain added: ${state.pendingDomainToAdd}`), "#4CAF50");
+            }
+        }
+        state.pendingDomainToAdd = null;
+        state.currentView = "list";
+        // 刷新预览
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false, false);
+        return;
+    }
+    // 取消
+    if (MouseIn(1500, baseY, 200, 50)) {
+        state.pendingDomainToAdd = null;
+        state.currentView = "list";
+        return;
+    }
+}
+
+/**
+ * 绘制隐藏设置页面
+ */
+export function drawHideSettings(item) {
+    // 标题 / 副标题：与主列表页共用同一套居中坐标
+    DrawText(L("隐藏设置", "Hide Settings"), 1500, 360, "White", "Gray");
+    DrawText(L("选择需要隐藏的部位分类", "Choose which part categories to hide"), 1505, 410, "#fff942", "Gray");
+
+    const startY = 450;
+    const rowHeight = 60;
+
+    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
+        const cat = HIDE_CATEGORIES[i];
+        const y = startY + i * rowHeight;
+        const isHidden = item.Property?.[cat.key] === true;
+        const catLabel = L(cat.label, cat.labelEn);
+
+        DrawText(catLabel, 1100, y + 20, "White");
+        DrawButton(1200, y, 400, 40, L(`${cat.groups.length}个部位`, `${cat.groups.length} parts`), "White", null,
+            L(`该分类包含 ${cat.groups.length} 个部位组`, `This category covers ${cat.groups.length} groups`), false);
+        // 与列表页贴图可见开关保持一致的显示/隐藏配色
+        DrawButton(1620, y, 100, 40, isHidden ? L("隐藏", "Hidden") : L("显示", "Shown"),
+            isHidden ? "#666666" : "#4CAF50",
+            null, L(`点击切换是否隐藏「${catLabel}」`, `Toggle hiding "${catLabel}"`), false);
+    }
+
+    // 确认（返回列表）
+    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+        L("确认并返回列表", "Confirm & back to list"));
+}
+
+/**
+ * 处理隐藏设置页面点击
+ */
+export function handleHideSettingsClick(item) {
+    const startY = 450;
+    const rowHeight = 60;
+
+    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
+        const cat = HIDE_CATEGORIES[i];
+        const y = startY + i * rowHeight;
+        if (MouseIn(1620, y, 100, 40)) {
+            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+            item.Property[cat.key] = !(item.Property[cat.key] === true);
+            updateHideArray(item);
+            Logger.info(`${cat.label} 切换为: ${item.Property[cat.key]}`);
+            syncItemToServer(item);
+            const C = CharacterGetCurrent();
+            if (C) CharacterRefresh(C, false, false);
+            return;
+        }
+    }
+
+    // 确认（返回列表）
+    if (MouseIn(1885, 135, 90, 90)) {
+        state.currentView = "list";
+        return;
+    }
+}
+
+/**
+ * 绘制主界面：贴图列表
+ */
+export function drawTextureListMain(item) {
+    const textures = item.Property?.Textures || [];
+
+    DrawText(L("贴图管理", "Texture Manager"), 1500, 360, "White", "Gray");
+    DrawText(L(`已添加${textures.length}个贴图（最多${MAX_TEXTURE_COUNT}个）`,
+        `${textures.length} textures added (max ${MAX_TEXTURE_COUNT})`), 1505, 410, "#ebfe58", "Gray");
+
+    // 隐藏设置跳转（右上角图标按钮）
+    DrawButton(1665, 25, 90, 90, "", "White", "Icons/Private.png",
+        L("隐藏设置：隐藏身体部位/服饰等", "Hide settings: hide body parts / clothing"));
+
+    const startY = 450;
+    const itemHeight = 60;
+    // 新增按钮基准 Y 与每多一层的下移步长
+    const ADD_BTN_BASE_Y = 450;
+    const ADD_BTN_STEP = 60;
+
+    // 分页计算
+    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+    if (state.currentListPage >= totalPages) state.currentListPage = totalPages - 1;
+    if (state.currentListPage < 0) state.currentListPage = 0;
+    const pageStart = state.currentListPage * TEXTURES_PER_PAGE;
+    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
+    // 当前页已有的图层数（0~TEXTURES_PER_PAGE）
+    const itemsOnPage = pageEnd - pageStart;
+
+    for (let i = pageStart; i < pageEnd; i++) {
+        const y = startY + (i - pageStart) * itemHeight;
+        const texture = textures[i];
+
+        const urlPreview = texture?.TextureURL
+            ? (texture.TextureURL.length > 12 ? texture.TextureURL.substring(0, 12) + "..." : texture.TextureURL)
+            : "(空)";
+
+        DrawText(L(`图层${i + 1} :`, `Layer ${i + 1}:`), 1100, y + 20, "White");
+        DrawButton(1200, y, 400, 40, urlPreview, "White", null,
+            texture?.TextureURL || L("(空)", "(empty)"), false);
+
+        // 可见开关
+        const isVisible = texture?.Visible !== false;
+        DrawButton(1620, y, 100, 40, isVisible ? L("显示", "Shown") : L("隐藏", "Hidden"),
+            isVisible ? "#4CAF50" : "#666666", null,
+            L("点击切换该图层显示/隐藏", "Toggle this layer's visibility"), false);
+
+        DrawButton(1740, y, 100, 40, L("编辑", "Edit"), "White", null,
+            L("编辑该图层的 URL 与参数", "Edit this layer's URL and parameters"), false);
+
+        // 信任按钮：白名单模式下，URL 域名不在白名单时显示
+        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL)) {
+            DrawButton(1860, y, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
+                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
+        }
+    }
+
+    // 新增按钮：紧跟在当前页最后一个图层后面，1 个时 500，2 个时 560，每多一层再 +60；
+    // 当本页已满 6 层时，按钮停在对应位置，点击后新图层会落到下一页（沿用原本翻页逻辑）
+    if (textures.length < MAX_TEXTURE_COUNT) {
+        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
+        DrawButton(1450, addBtnY, 90, 90, "", "White", "Icons/Plus.png",
+            L("添加一个新贴图图层", "Add a new texture layer"));
+    }
+
+    // 底部按钮固定位置，基于每页最大行数计算，不随本页图层数变化
+    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
+
+    // 翻页按钮：只有「下一页」，循环到最后一页后自动跳回第一页，不显示页码
+    // 仅当图层总数 >= 7（即超过一页）时才显示
+    const hasPages = totalPages > 1;
+    if (textures.length >= 7) {
+        DrawButton(1885, 810, 90, 90, "", "White", "Icons/Down.png",
+            L("下一页", "Next page"), !hasPages);
+    }
+    // 确认并退出：保存同步后关闭对话框
+    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+        L("确认并退出（保存并关闭）", "Confirm & Exit (save and close)"));
+
+    // 导入导出按钮
+    const ioBtnY = btnY + 120;
+    DrawButton(1170, ioBtnY, 200, 50, L("导出配置", "Export"), "#4CAF50", null,
+        L("将当前配置复制到剪贴板", "Copy current config to clipboard"), false);
+    DrawButton(1390, ioBtnY, 200, 50, L("覆盖导入", "Import (Replace)"), "#28639A", null,
+        L("用剪贴板配置覆盖当前所有图层", "Replace all layers with clipboard config"), false);
+    DrawButton(1610, ioBtnY, 200, 50, L("追加导入", "Import (Append)"), "#28639A", null,
+        L("将剪贴板配置追加到当前图层后", "Append clipboard config after current layers"), false);
+
+    // 导入/导出结果提示（任务3：显示在 1505,890）
+    if (state.statusMessage && Date.now() < state.statusMessageExpiry) {
+        DrawText(state.statusMessage.text, 1505, 890, state.statusMessage.color, "Black");
+    }
+}
+
+/**
+ * 处理主界面点击
+ */
+export function handleTextureListClick(item, data) {
+    const textures = item.Property?.Textures || [];
+
+    // 隐藏设置跳转
+    if (MouseIn(1665, 25, 90, 90)) {
+        state.currentView = "hide";
+        return;
+    }
+
+    const startY = 450;
+    const itemHeight = 60;
+    const ADD_BTN_BASE_Y = 450;
+    const ADD_BTN_STEP = 60;
+
+    // 分页计算
+    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+    if (state.currentListPage >= totalPages) state.currentListPage = totalPages - 1;
+    if (state.currentListPage < 0) state.currentListPage = 0;
+    const pageStart = state.currentListPage * TEXTURES_PER_PAGE;
+    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
+    const itemsOnPage = pageEnd - pageStart;
+
+    for (let i = pageStart; i < pageEnd; i++) {
+        const y = startY + (i - pageStart) * itemHeight;
+        const texture = textures[i];
+        // 可见开关
+        if (MouseIn(1620, y, 100, 40)) {
+            textures[i].Visible = textures[i].Visible === false ? true : false;
+            // 切换可见性后立即同步到服务器
+            syncItemToServer(item);
+            const C = CharacterGetCurrent();
+            if (C) CharacterRefresh(C, false, false);
+            return;
+        }
+        // 编辑按钮
+        if (MouseIn(1740, y, 100, 40)) {
+            state.currentEditTexture = i;
+            state.tempTextureData = { ...textures[i] };
+            state.originalEditTexture = { ...textures[i] };
+            if (!data.PersistentData) data.PersistentData = {};
+            data.PersistentData._originalTexture = { ...textures[i] };
+            createEditInputs(textures[i]);
+            resetDragState();
+            return;
+        }
+        // 信任按钮
+        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1860, y, 100, 40)) {
+            const domain = extractDomain(texture.TextureURL);
+            if (domain) {
+                state.pendingDomainToAdd = domain;
+                state.currentView = "addDomainConfirm";
+            }
+            return;
+        }
+    }
+
+    // 新增按钮：位置跟随当前页图层数量浮动，需与绘制逻辑保持一致
+    if (textures.length < MAX_TEXTURE_COUNT) {
+        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
+        if (MouseIn(1450, addBtnY, 90, 90)) {
+            const newTexture = { ...DEFAULT_TEXTURE };
+            item.Property.Textures.push(newTexture);
+            state.currentEditTexture = textures.length - 1;
+            state.tempTextureData = { ...newTexture };
+            state.originalEditTexture = null; // 新增的图层没有「原始数据」，退出=删除该空图层
+            if (!data.PersistentData) data.PersistentData = {};
+            data.PersistentData._originalTexture = { ...newTexture };
+            createEditInputs(newTexture);
+            resetDragState();
+            return;
+        }
+    }
+
+    // 按钮位置固定基于每页最大行数，不随本页图层数变化
+    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
+    const hasPages = totalPages > 1;
+
+    // 翻页按钮：只有「下一页」，循环到最后一页后跳回第一页（仅图层>=7时可用）
+    if (textures.length >= 7 && hasPages && MouseIn(1885, 810, 90, 90)) {
+        state.currentListPage = (state.currentListPage + 1) % totalPages;
+        return;
+    }
+
+    // 确认并退出（任务1）：保存同步后关闭整个对话框
+    if (MouseIn(1885, 135, 90, 90)) {
+        const C = CharacterGetCurrent();
+        if (item) {
+            if (!item.Property) item.Property = { Textures: [] };
+            if (!item.Property.Textures) item.Property.Textures = [];
+            // 保存前确保 Hide 数组与开关一致
+            updateHideArray(item);
+
+            Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
+            Logger.info(`隐藏分类 - ${HIDE_CATEGORIES.map(c => `${c.label}: ${item.Property[c.key]}`).join(', ')}`);
+
+            syncItemToServer(item);
+            if (C) CharacterRefresh(C, false, false);
+            Logger.info("贴图设置已保存并同步");
+        }
+        // 退出对话框（currentView 为 list，不会被 DialogLeaveFocusItem hook 拦截）
+        if (typeof DialogLeaveFocusItem === "function") DialogLeaveFocusItem();
+        return;
+    }
+
+    // 导入导出按钮
+    const ioBtnY = btnY + 120;
+
+    // 导出配置
+    if (MouseIn(1170, ioBtnY, 200, 50)) {
+        exportConfig(item);
+        return;
+    }
+
+    // 覆盖导入
+    if (MouseIn(1390, ioBtnY, 200, 50)) {
+        importConfig(item, "overwrite");
+        return;
+    }
+
+    // 追加导入
+    if (MouseIn(1610, ioBtnY, 200, 50)) {
+        // 预检查：当前图层已达上限，无法追加
+        if ((item.Property?.Textures || []).length >= MAX_TEXTURE_COUNT) {
+            showStatus(L(`✘ 超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`,
+                `✘ Texture limit reached (max ${MAX_TEXTURE_COUNT})`), "#E53935");
+            return;
+        }
+        importConfig(item, "append");
+        return;
+    }
+}
+
+/**
+ * 从子页面（编辑图层 / 隐藏设置 / 添加域名确认）返回贴图管理列表
+ * 若正在编辑图层，则视为「取消编辑」：还原为编辑前数据（新增未保存的空图层则移除）
+ */
+export function returnToListFromSubview() {
+    if (state.currentEditTexture >= 0) {
+        const item = DialogFocusItem;
+        if (item) {
+            if (!item.Property) item.Property = { Textures: [] };
+            if (!item.Property.Textures) item.Property.Textures = [];
+            if (state.originalEditTexture) {
+                // 编辑已存在图层：还原
+                item.Property.Textures[state.currentEditTexture] = { ...state.originalEditTexture };
+            } else {
+                // 新增但未确认的图层：取消即移除
+                item.Property.Textures.splice(state.currentEditTexture, 1);
+            }
+            syncItemToServer(item);
+            const C = CharacterGetCurrent();
+            if (C) CharacterRefresh(C, false, false);
+        }
+    }
+    state.currentEditTexture = -1;
+    state.tempTextureData = null;
+    state.originalEditTexture = null;
+    state.originalOverridePriority = undefined;
+    state.pendingDomainToAdd = null;
+    resetDragState();
+    state.currentView = "list";
+}
