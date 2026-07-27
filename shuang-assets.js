@@ -714,6 +714,252 @@
 	    }
 	}
 
+	const ASSET_NAME = "自定义贴图";
+	const DEFAULT_TEXTURE = {
+	    TextureURL: "",
+	    OffsetX: 1,
+	    OffsetY: 1,
+	    Scale: 100,
+	    Rotation: 0,
+	    Visible: true,
+	    Opacity: 100,
+	    MirrorH: false,
+	    MirrorV: false
+	};
+	const DEFAULT_PROPS = {
+	    Textures: [],
+	    HideEmoticon: false,
+	    HideCosplay: false,
+	    HideFacial: false,
+	    HideBody: false,
+	    HideClothing: false,
+	    HideItems: false
+	};
+	const TEXTURES_PER_PAGE = 6;
+	const MAX_TEXTURE_COUNT = 16;
+	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
+	const ALL_ITEM_GROUPS = [
+	    "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
+	    "ItemDevices", "ItemEars", "ItemFeet", "ItemHands", "ItemHead",
+	    "ItemHood", "ItemLegs", "ItemMisc", "ItemMouth", "ItemMouth2",
+	    "ItemMouth3", "ItemNeck", "ItemNeckAccessories", "ItemNeckRestraints",
+	    "ItemNipples", "ItemNipplesPiercings", "ItemNose", "ItemPelvis",
+	    "ItemTorso", "ItemTorso2", "ItemVulva", "ItemVulvaPiercings",
+	    "ItemHandheld"
+	];
+	const TEXTURE_REFRESH_INTERVAL = 200;
+	const TEXTURE_DRAG_REFRESH_INTERVAL = 50;
+	const ASSETS_CDN_PRIMARY = "https://shuang-custom-assets.pages.dev";
+	const ASSETS_CDN_FALLBACK = "https://shuang-custom-assets.netlify.app";
+	const HIDE_CATEGORIES = [
+	    {
+	        key: "HideEmoticon",
+	        label: "表情图标",
+	        labelEn: "Emoticon",
+	        groups: [
+	            "Emoticon"
+	        ]
+	    },
+	    {
+	        key: "HideCosplay",
+	        label: "cosplay",
+	        labelEn: "Cosplay",
+	        groups: [
+	            "HairFront", "HairBack", "新前发_Luzi", "新后发_Luzi", "额外头发_Luzi",
+	            "新前发_Luzi_stack", "新后发_Luzi_stack",
+	            "TailStraps", "Luzi_TailStraps_0",
+	            "Wings", "Wings_笨笨蛋Luzi",
+	            "动物身体_Luzi", "额外身高_Luzi"
+	        ]
+	    },
+	    {
+	        key: "HideFacial",
+	        label: "五官",
+	        labelEn: "Face",
+	        groups: [
+	            "Eyes", "Eyes2", "Eyebrows", "Blush", "EyeShadow",
+	            "FacialHair", "Mouth", "左眼_Luzi", "右眼_Luzi"
+	        ]
+	    },
+	    {
+	        key: "HideBody",
+	        label: "身体",
+	        labelEn: "Body",
+	        groups: [
+	            "Head", "BodyUpper", "BodyLower", "Height",
+	            "BodyStyle", "Pronouns", "Nipples", "Pussy",
+	            "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight",
+	            "外观工具"
+	        ]
+	    },
+	    {
+	        key: "HideClothing",
+	        label: "服饰",
+	        labelEn: "Clothing",
+	        groups: [
+	            "Fluids", "BodyMarkings", "Decals", "Liquid2_Luzi", "身体痕迹_Luzi", "BodyMarkings2_Luzi",
+	            "Glasses", "Mask", "Hat", "FaceMarkings", "Mask_笨笨蛋Luzi", "Hat_笨笨蛋Luzi",
+	            "Cloth", "ClothLower", "ClothOuter", "ClothAccessory",
+	            "Suit", "SuitLower", "Corset", "Bra", "Panties",
+	            "Cloth_笨笨蛋Luzi", "Cloth_笨笨笨蛋Luzi2", "ClothLower_笨笨蛋Luzi", "ClothLower_笨笨笨蛋Luzi2",
+	            "Bra_笨笨蛋Luzi", "Panties_笨笨蛋Luzi", "Suit_笨笨蛋Luzi", "SuitLower_笨笨蛋Luzi",
+	            "ClothAccessory_笨笨蛋Luzi", "ClothAccessory_笨笨笨蛋Luzi2", "长袖子_Luzi",
+	            "HairAccessory1", "HairAccessory2", "HairAccessory3",
+	            "HairAccessory3_笨笨蛋Luzi", "Luzi_HairAccessory3_1", "Luzi_HairAccessory3_2",
+	            "Necklace", "Necklace_笨笨蛋Luzi",
+	            "Gloves", "Bracelet", "HandAccessoryLeft", "HandAccessoryRight", "Gloves_笨笨蛋Luzi",
+	            "Socks", "SocksLeft", "SocksRight", "Shoes", "AnkletLeft", "AnkletRight", "Garters", "Shoes_笨笨蛋Luzi",
+	            "Jewelry", "Luzi_Jewelry_0"
+	        ]
+	    },
+	    {
+	        key: "HideItems",
+	        label: "拘束道具",
+	        labelEn: "Restraints",
+	        groups: [
+	            "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
+	            "ItemDevices", "ItemEars", "ItemFeet", "ItemHands", "ItemHead",
+	            "ItemHood", "ItemLegs", "ItemMisc", "ItemMouth", "ItemMouth2",
+	            "ItemMouth3", "ItemNeck", "ItemNeckAccessories", "ItemNeckRestraints",
+	            "ItemNipples", "ItemNipplesPiercings", "ItemNose", "ItemPelvis",
+	            "ItemTorso", "ItemTorso2", "ItemVulva", "ItemVulvaPiercings", "ItemHandheld"
+	        ]
+	    }
+	];
+	const ALL_HIDEABLE_GROUPS = HIDE_CATEGORIES.flatMap(c => c.groups);
+	const INPUT_OFFSET_X = "CustomTextureOffsetXInput";
+	const INPUT_OFFSET_Y = "CustomTextureOffsetYInput";
+	const INPUT_SCALE = "CustomTextureScaleInput";
+	const INPUT_ROTATION = "CustomTextureRotationInput";
+	const INPUT_OPACITY = "CustomTextureOpacityInput";
+	const INPUT_PRIORITY = "CustomTexturePriorityInput";
+	const URL_INPUT_ID = "ShuangTextureUrlInput";
+	const OPACITY_SLIDER_ID = "ShuangTextureOpacitySlider";
+	const OPACITY_SLIDER_X = 1435;
+	const OPACITY_SLIDER_W = 260;
+	const STEPPER_BTN_W = 40;
+	const STEPPER_BTN_H = 40;
+	const STEPPER_MINUS_X = 1220;
+	const STEPPER_PLUS_X = 1380;
+	const STEPPER_INPUT_X = 1265;
+	const STEPPER_INPUT_W = 110;
+	const STEPPER_FIELDS = [
+	    { id: INPUT_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX",  def: 1,   min: null, max: null },
+	    { id: INPUT_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY",  def: 1,   min: null, max: null },
+	    { id: INPUT_SCALE,    y: 635, labelCn: "缩放%",   labelEn: "Scale %",    labelY: 655, prop: "Scale",    def: 100, min: null, max: null },
+	    { id: INPUT_ROTATION, y: 685, labelCn: "旋转%",   labelEn: "Rotation %",  labelY: 705, prop: "Rotation", def: 0,   min: null, max: null },
+	    { id: INPUT_OPACITY,  y: 735, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 755, prop: "Opacity",  def: 100, min: 0,    max: 100 },
+	    { id: INPUT_PRIORITY, y: 785, labelCn: "图层优先级",  labelEn: "Layer Priority",   labelY: 805, prop: null,      def: 50,  min: -99,  max: 99 }
+	];
+	const MIRROR_ROW_Y = 585;
+	const MIRROR_ROW_LABEL_Y = 605;
+	const MIRROR_H_BTN_X = 1220;
+	const MIRROR_V_BTN_X = 1330;
+	const MIRROR_BTN_W = 90;
+	const MIRROR_BTN_H = 40;
+	const MOVE_BTN_X = 1435;
+	const MOVE_BTN_Y = 510;
+	const MOVE_BTN_W = 150;
+	const MOVE_BTN_H = 40;
+	const stepperPress = {
+	    fieldId: null,
+	    direction: 0,
+	    startTime: 0,
+	    lastUpdate: 0
+	};
+	const URL_BOX_X = 1220;
+	const URL_BOX_Y = 435;
+	const URL_BOX_W = 490;
+	const URL_BOX_H = 40;
+	const BADGE_IMAGE_URL = "https://shuang-custom-assets.pages.dev/SCA_logo.png";
+	const LOGIN_BADGE_TEXTURE = {
+	    TextureURL: BADGE_IMAGE_URL,
+	    OffsetX: 153,
+	    OffsetY: -200,
+	    Scale: 21,
+	    Rotation: 0,
+	    Opacity: 100,
+	    Visible: true
+	};
+	const LOGIN_BADGE_ASSET_NAME = "自定义贴图";
+	const LOGIN_BADGE_GROUP = "ItemTorso";
+	const assetStrings = {
+	    CN: { SelectBase: "贴图管理" },
+	    EN: { SelectBase: "Texture Manager" }
+	};
+
+	const state = {
+	    currentEditTexture: -1,
+	    tempTextureData: null,
+	    currentListPage: 0,
+	    currentView: "list",
+	    pendingDomainToAdd: null,
+	    originalEditTexture: null,
+	    tempPriority: 50,
+	    originalOverridePriority: undefined,
+	    isDragMode: false,
+	    dragActive: false,
+	    dragStartMouseX: 0,
+	    dragStartMouseY: 0,
+	    dragStartOffsetX: 0,
+	    dragStartOffsetY: 0,
+	    _lastTextureRefresh: 0,
+	    _pendingTextureRefresh: false,
+	    statusMessage: null,
+	    statusMessageExpiry: 0,
+	    _fieldsDirty: false,
+	    _pointerDown: false,
+	    _stepperListenerReady: false,
+	};
+	function resetDragState() {
+	    state.isDragMode = false;
+	    state.dragActive = false;
+	}
+	function showStatus(text, color = "#4CAF50", durationMs = 5000) {
+	    state.statusMessage = { text, color };
+	    state.statusMessageExpiry = Date.now() + durationMs;
+	}
+
+	function updateHideArray(item) {
+	    if (!item || !item.Property) return false;
+	    const hide = [];
+	    const currentGroup = item.Asset?.Group?.Name;
+	    for (const cat of HIDE_CATEGORIES) {
+	        if (item.Property[cat.key] === true) {
+	            for (const g of cat.groups) {
+	                if (cat.key === "HideItems" && g === currentGroup) continue;
+	                hide.push(g);
+	            }
+	        }
+	    }
+	    const oldHide = item.Property.Hide || [];
+	    const newHideStr = [...hide].sort().join(",");
+	    const oldHideStr = [...oldHide].sort().join(",");
+	    const needsRefresh = newHideStr !== oldHideStr;
+	    if (hide.length > 0) {
+	        item.Property.Hide = hide;
+	    } else {
+	        delete item.Property.Hide;
+	    }
+	    return needsRefresh;
+	}
+
+	function syncItemToServer(item) {
+	    if (CurrentScreen === "Crafting") return;
+	    const C = CharacterGetCurrent();
+	    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
+	    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+	    if (C.IsPlayer()) {
+	        if (typeof ChatRoomCharacterUpdate === "function") {
+	            ChatRoomCharacterUpdate(C);
+	        }
+	        if (typeof ServerPlayerAppearanceSync === "function") {
+	            ServerPlayerAppearanceSync();
+	        }
+	    }
+	    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
+	}
+
 	const EXTENSION_ID = "ShuangCustomAssets";
 	const ALWAYS_ALLOWED_DOMAINS = [
 	    "shuang-custom-assets.pages.dev"
@@ -819,7 +1065,7 @@
 	    PreferenceRegisterExtensionSetting({
 	        Identifier: EXTENSION_ID,
 	        ButtonText: L("自定义贴图设置", "Custom Texture Settings"),
-	        Image: "Icons/Texture.png",
+	        Image: BADGE_IMAGE_URL,
 	        load: () => {
 	            settingsPage = "main";
 	            whitelistPage = 0;
@@ -1225,743 +1471,214 @@
 	    if (input) input.remove();
 	}
 
-	const DEFAULT_TEXTURE = {
-	    TextureURL: "",
-	    OffsetX: 1,
-	    OffsetY: 1,
-	    Scale: 100,
-	    Rotation: 0,
-	    Visible: true,
-	    Opacity: 100
-	};
-	const DEFAULT_PROPS = {
-	    Textures: [],
-	    HideCosplay: false,
-	    HideFacial: false,
-	    HideBody: false,
-	    HideClothing: false,
-	    HideItems: false
-	};
-	let currentEditTexture = -1;
-	let tempTextureData = null;
-	let currentListPage = 0;
-	let currentView = "list";
-	let pendingDomainToAdd = null;
-	let originalEditTexture = null;
-	let tempPriority = 50;
-	let originalOverridePriority = undefined;
-	let _lastTextureRefresh = 0;
-	let _pendingTextureRefresh = false;
-	const TEXTURE_REFRESH_INTERVAL = 200;
-	let statusMessage = null;
-	let statusMessageExpiry = 0;
-	function showStatus(text, color = "#4CAF50", durationMs = 5000) {
-	    statusMessage = { text, color };
-	    statusMessageExpiry = Date.now() + durationMs;
-	}
-	const TEXTURES_PER_PAGE = 6;
-	const HIDE_CATEGORIES = [
-	    {
-	        key: "HideCosplay",
-	        label: "cosplay",
-	        labelEn: "Cosplay",
-	        groups: [
-	            "HairFront", "HairBack", "新前发_Luzi", "新后发_Luzi", "额外头发_Luzi",
-	            "新前发_Luzi_stack", "新后发_Luzi_stack",
-	            "TailStraps", "Luzi_TailStraps_0",
-	            "Wings", "Wings_笨笨蛋Luzi",
-	            "动物身体_Luzi", "额外身高_Luzi"
-	        ]
-	    },
-	    {
-	        key: "HideFacial",
-	        label: "五官",
-	        labelEn: "Face",
-	        groups: [
-	            "Eyes", "Eyes2", "Eyebrows", "Blush", "EyeShadow",
-	            "FacialHair", "Mouth", "左眼_Luzi", "右眼_Luzi"
-	        ]
-	    },
-	    {
-	        key: "HideBody",
-	        label: "身体",
-	        labelEn: "Body",
-	        groups: [
-	            "Emoticon", "Head", "BodyUpper", "BodyLower", "Height",
-	            "BodyStyle", "Pronouns", "Nipples", "Pussy",
-	            "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight",
-	            "外观工具"
-	        ]
-	    },
-	    {
-	        key: "HideClothing",
-	        label: "服饰",
-	        labelEn: "Clothing",
-	        groups: [
-	            "Fluids", "BodyMarkings", "Decals", "Liquid2_Luzi", "身体痕迹_Luzi", "BodyMarkings2_Luzi",
-	            "Glasses", "Mask", "Hat", "FaceMarkings", "Mask_笨笨蛋Luzi", "Hat_笨笨蛋Luzi",
-	            "Cloth", "ClothLower", "ClothOuter", "ClothAccessory",
-	            "Suit", "SuitLower", "Corset", "Bra", "Panties",
-	            "Cloth_笨笨蛋Luzi", "Cloth_笨笨笨蛋Luzi2", "ClothLower_笨笨蛋Luzi", "ClothLower_笨笨笨蛋Luzi2",
-	            "Bra_笨笨蛋Luzi", "Panties_笨笨蛋Luzi", "Suit_笨笨蛋Luzi", "SuitLower_笨笨蛋Luzi",
-	            "ClothAccessory_笨笨蛋Luzi", "ClothAccessory_笨笨笨蛋Luzi2", "长袖子_Luzi",
-	            "HairAccessory1", "HairAccessory2", "HairAccessory3",
-	            "HairAccessory3_笨笨蛋Luzi", "Luzi_HairAccessory3_1", "Luzi_HairAccessory3_2",
-	            "Necklace", "Necklace_笨笨蛋Luzi",
-	            "Gloves", "Bracelet", "HandAccessoryLeft", "HandAccessoryRight", "Gloves_笨笨蛋Luzi",
-	            "Socks", "SocksLeft", "SocksRight", "Shoes", "AnkletLeft", "AnkletRight", "Garters", "Shoes_笨笨蛋Luzi",
-	            "Jewelry", "Luzi_Jewelry_0"
-	        ]
-	    },
-	    {
-	        key: "HideItems",
-	        label: "拘束道具",
-	        labelEn: "Restraints",
-	        groups: [
-	            "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
-	            "ItemDevices", "ItemEars", "ItemFeet", "ItemHands", "ItemHead",
-	            "ItemHood", "ItemLegs", "ItemMisc", "ItemMouth", "ItemMouth2",
-	            "ItemMouth3", "ItemNeck", "ItemNeckAccessories", "ItemNeckRestraints",
-	            "ItemNipples", "ItemNipplesPiercings", "ItemNose", "ItemPelvis",
-	            "ItemTorso", "ItemTorso2", "ItemVulva", "ItemVulvaPiercings", "ItemHandheld"
-	        ]
-	    }
-	];
-	const ALL_HIDEABLE_GROUPS = HIDE_CATEGORIES.flatMap(c => c.groups);
-	function updateHideArray(item) {
-	    if (!item || !item.Property) return false;
-	    const hide = [];
-	    const currentGroup = item.Asset?.Group?.Name;
-	    for (const cat of HIDE_CATEGORIES) {
-	        if (item.Property[cat.key] === true) {
-	            for (const g of cat.groups) {
-	                if (cat.key === "HideItems" && g === currentGroup) continue;
-	                hide.push(g);
-	            }
-	        }
-	    }
-	    const oldHide = item.Property.Hide || [];
-	    const newHideStr = [...hide].sort().join(",");
-	    const oldHideStr = [...oldHide].sort().join(",");
-	    const needsRefresh = newHideStr !== oldHideStr;
-	    if (hide.length > 0) {
-	        item.Property.Hide = hide;
-	    } else {
-	        delete item.Property.Hide;
-	    }
-	    return needsRefresh;
-	}
-	const INPUT_URL = "CustomTextureURLInput";
-	const INPUT_OFFSET_X = "CustomTextureOffsetXInput";
-	const INPUT_OFFSET_Y = "CustomTextureOffsetYInput";
-	const INPUT_SCALE = "CustomTextureScaleInput";
-	const INPUT_ROTATION = "CustomTextureRotationInput";
-	const INPUT_OPACITY = "CustomTextureOpacityInput";
-	const INPUT_PRIORITY = "CustomTexturePriorityInput";
-	const STEPPER_BTN_W = 40;
-	const STEPPER_BTN_H = 40;
-	const STEPPER_MINUS_X = 1220;
-	const STEPPER_PLUS_X = 1380;
-	const STEPPER_INPUT_X = 1265;
-	const STEPPER_INPUT_W = 110;
-	const STEPPER_FIELDS = [
-	    { id: INPUT_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX",  def: 1,   min: null, max: null },
-	    { id: INPUT_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY",  def: 1,   min: null, max: null },
-	    { id: INPUT_SCALE,    y: 585, labelCn: "缩放%",   labelEn: "Scale %",    labelY: 605, prop: "Scale",    def: 100, min: null, max: null },
-	    { id: INPUT_ROTATION, y: 635, labelCn: "旋转%",   labelEn: "Rotation %",  labelY: 655, prop: "Rotation", def: 0,   min: null, max: null },
-	    { id: INPUT_OPACITY,  y: 685, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 705, prop: "Opacity",  def: 100, min: 0,    max: 100 },
-	    { id: INPUT_PRIORITY, y: 735, labelCn: "图层优先级",  labelEn: "Layer Priority",   labelY: 755, prop: null,      def: 50,  min: -99,  max: 99 }
-	];
-	const stepperPress = {
-	    fieldId: null,
-	    direction: 0,
-	    startTime: 0,
-	    lastUpdate: 0
-	};
-	let _pointerDown = false;
-	let _stepperListenerReady = false;
-	const MAX_TEXTURE_COUNT = 16;
-	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
-	const ALL_ITEM_GROUPS = [
-	    "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
-	    "ItemDevices", "ItemEars", "ItemFeet", "ItemHands", "ItemHead",
-	    "ItemHood", "ItemLegs", "ItemMisc", "ItemMouth", "ItemMouth2",
-	    "ItemMouth3", "ItemNeck", "ItemNeckAccessories", "ItemNeckRestraints",
-	    "ItemNipples", "ItemNipplesPiercings", "ItemNose", "ItemPelvis",
-	    "ItemTorso", "ItemTorso2", "ItemVulva", "ItemVulvaPiercings",
-	    "ItemHandheld"
-	];
-	const asset = {
-	    Name: "自定义贴图",
-	    Random: false,
-	    Left: 125,
-	    Top: 225,
-	    ParentGroup: {},
-	    Priority: 50,
-	    PoseMapping: {},
-	    DynamicGroupName: "ItemMisc",
-	    AllowColorize: false,
-	    Extended: true,
-	    Layer: LAYER_NAMES.map(name => ({ Name: name, AllowColorize: false }))
-	};
-	const translation = {
-	    CN: "自定义贴图",
-	    EN: "Custom Texture"
-	};
-	const layerNames = {
-	    CN: Object.fromEntries(LAYER_NAMES.map((name, i) => [name, `图层${i + 1}`])),
-	    EN: Object.fromEntries(LAYER_NAMES.map(name => [name, name]))
-	};
-	const extended = {
-	    Archetype: "noarch",
-	    DrawImages: false,
-	    BaselineProperty: {
-	        Textures: [],
-	        HideCosplay: false,
-	        HideFacial: false,
-	        HideBody: false,
-	        HideClothing: false,
-	        HideItems: false,
-	        Hide: []
-	    },
-	    ScriptHooks: {
-	        Load: (data, originalFunction) => {
-	            originalFunction();
-	            const item = DialogFocusItem;
-	            if (!item) return;
-	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
-	            if (!item.Property.Textures) item.Property.Textures = [];
-	            for (const cat of HIDE_CATEGORIES) {
-	                if (item.Property[cat.key] === undefined) item.Property[cat.key] = false;
-	            }
-	            updateHideArray(item);
-	            currentEditTexture = -1;
-	            tempTextureData = null;
-	            originalEditTexture = null;
-	            originalOverridePriority = undefined;
-	            currentListPage = 0;
-	            currentView = "list";
-	            _pendingTextureRefresh = false;
-	            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
-	        },
-	        Draw: (data, originalFunction) => {
-	            originalFunction();
-	            const item = DialogFocusItem;
-	            if (!item) return;
-	            if (currentView === "addDomainConfirm") {
-	                drawAddDomainConfirm();
-	            } else if (currentEditTexture >= 0) {
-	                drawTextureEditPanel(item, currentEditTexture);
-	            } else if (currentView === "hide") {
-	                drawHideSettings(item);
-	            } else {
-	                drawTextureListMain(item);
-	            }
-	        },
-	        Click: (data, originalFunction) => {
-	            originalFunction();
-	            const item = DialogFocusItem;
-	            if (!item) return;
-	            if (currentView === "addDomainConfirm") {
-	                handleAddDomainConfirmClick();
-	            } else if (currentEditTexture >= 0) {
-	                handleTextureEditClick(item, currentEditTexture);
-	            } else if (currentView === "hide") {
-	                handleHideSettingsClick(item);
-	            } else {
-	                handleTextureListClick(item, data);
-	            }
-	        },
-	        Exit: (data) => {
-	            if (currentEditTexture >= 0) {
-	                const item = DialogFocusItem;
-	                const originalTexture = data.PersistentData?._originalTexture;
-	                if (item && originalTexture) {
-	                    if (!item.Property) item.Property = { Textures: [] };
-	                    if (!item.Property.Textures) item.Property.Textures = [];
-	                    item.Property.Textures[currentEditTexture] = { ...originalTexture };
-	                    if (originalOverridePriority !== undefined) {
-	                        item.Property.OverridePriority = JSON.parse(JSON.stringify(originalOverridePriority));
-	                    } else {
-	                        delete item.Property.OverridePriority;
-	                    }
-	                    syncItemToServer(item);
-	                    const C = CharacterGetCurrent();
-	                    if (C) CharacterRefresh(C, false, false);
-	                }
-	            }
-	            currentEditTexture = -1;
-	            tempTextureData = null;
-	            originalEditTexture = null;
-	            originalOverridePriority = undefined;
-	            currentListPage = 0;
-	            currentView = "list";
-	            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
-	        },
-	        AfterDraw: (data, originalFunction, drawData) => {
-	            const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
-	            const item = CA;
-	            const layerIndex = LAYER_NAMES.indexOf(L);
-	            if (layerIndex === 0 && item?.Property) {
-	                updateHideArray(item);
-	                if (data.PersistentData && !data.PersistentData._cacheMigrated) {
-	                    for (const key in data.PersistentData) {
-	                        if (!key.startsWith("_")) {
-	                            delete data.PersistentData[key];
-	                        }
-	                    }
-	                    data.PersistentData._cacheMigrated = true;
-	                }
-	            }
-	            if (layerIndex === -1) return;
-	            const textures = item?.Property?.Textures;
-	            if (!textures || layerIndex >= textures.length) return;
-	            const texture = textures[layerIndex];
-	            if (!texture || !texture.TextureURL) return;
-	            if (texture.Visible === false) return;
-	            const warnEnabled = getDomainWarningEnabled();
-	            let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity;
-	            if (warnEnabled && !isDomainInWhitelist(texture.TextureURL)) {
-	                imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
-	                offsetX = 167;
-	                offsetY = -256;
-	                scale = 16 / 100;
-	                rotation = 0;
-	                displayOpacity = 1.0;
-	            } else if (!isUrlAllowed(texture.TextureURL)) {
-	                return;
-	            } else {
-	                imageUrl = texture.TextureURL;
-	                offsetX = texture.OffsetX || 0;
-	                offsetY = texture.OffsetY || 0;
-	                scale = (texture.Scale || 100) / 100;
-	                rotation = texture.Rotation || 0;
-	                displayOpacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
-	            }
-	            const imgEntry = getCorsImage(imageUrl);
-	            if (imgEntry.failed) return;
-	            const img = imgEntry.img;
-	            if (!img.complete || img.naturalWidth <= 0) return;
-	            const width = Math.round(img.naturalWidth * scale);
-	            const height = Math.round(img.naturalHeight * scale);
-	            const rad = rotation * Math.PI / 180;
-	            const cos = Math.abs(Math.cos(rad));
-	            const sin = Math.abs(Math.sin(rad));
-	            const bboxWidth = Math.round(width * cos + height * sin);
-	            const bboxHeight = Math.round(width * sin + height * cos);
-	            const layerCanvasKey = `_canvas_${layerIndex}`;
-	            const layerParamsKey = `_params_${layerIndex}`;
-	            const currentParams = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}`;
-	            let tempCanvas = data.PersistentData?.[layerCanvasKey];
-	            if (!tempCanvas) {
-	                tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
-	                if (!data.PersistentData) data.PersistentData = {};
-	                data.PersistentData[layerCanvasKey] = tempCanvas;
-	                data.PersistentData[layerParamsKey] = null;
-	            }
-	            if (data.PersistentData[layerParamsKey] !== currentParams) {
-	                if (tempCanvas.width !== bboxWidth || tempCanvas.height !== bboxHeight) {
-	                    tempCanvas.width = bboxWidth;
-	                    tempCanvas.height = bboxHeight;
-	                }
-	                const ctx = tempCanvas.getContext("2d");
-	                ctx.clearRect(0, 0, bboxWidth, bboxHeight);
-	                ctx.save();
-	                ctx.globalAlpha = displayOpacity;
-	                ctx.translate(bboxWidth / 2, bboxHeight / 2);
-	                ctx.rotate(rad);
-	                ctx.translate(-width / 2, -height / 2);
-	                ctx.drawImage(img, 0, 0, width, height);
-	                ctx.restore();
-	                data.PersistentData[layerParamsKey] = currentParams;
-	            }
-	            const drawX = X + offsetX - (bboxWidth - width) / 2;
-	            const drawY = Y + offsetY - (bboxHeight - height) / 2;
-	            drawCanvas(tempCanvas, drawX, drawY);
-	            drawCanvasBlink(tempCanvas, drawX, drawY);
-	        }
-	    }
-	};
-	function drawAddDomainConfirm() {
-	    DrawText(L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠"), 1500, 370, "Red", "Gray");
-	    let y = 440;
-	    const lines = isChineseLang() ? [
-	        { t: `即将添加域名到白名单: ${pendingDomainToAdd}`, c: "Cyan" },
-	        { t: "", c: "White" },
-	        { t: "添加后，来自该域名的贴图 URL 将被允许加载", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "请注意以下风险：", c: "White" },
-	        { t: "1. 请确认您信任该域名提供者", c: "White" },
-	        { t: "2. 该域名的所有 URL 都将被加载", c: "White" },
-	        { t: "3. 恶意域名可能用于追踪您的 IP 地址", c: "White" },
-	        { t: "4. 恶意域名可能导致隐私信息泄露", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "确定要添加此域名到可信列表吗？", c: "Red" },
-	    ] : [
-	        { t: `About to add domain to whitelist: ${pendingDomainToAdd}`, c: "Cyan" },
-	        { t: "", c: "White" },
-	        { t: "Once added, texture URLs from this domain will be allowed", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "Please note the following risks:", c: "White" },
-	        { t: "1. Make sure you trust this domain's provider", c: "White" },
-	        { t: "2. All URLs from this domain will be loaded", c: "White" },
-	        { t: "3. A malicious domain may track your IP address", c: "White" },
-	        { t: "4. A malicious domain may leak private info", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "Add this domain to the trusted list?", c: "Red" },
-	    ];
-	    for (const line of lines) {
-	        DrawText(line.t, 1500, y, line.c, "Black");
-	        y += 35;
-	    }
-	    y += 10;
-	    DrawButton(1250, y, 200, 50, L("确认添加", "Add"), "#4CAF50", "#66BB6A", false,
-	        L(`将 ${pendingDomainToAdd} 加入白名单`, `Add ${pendingDomainToAdd} to whitelist`));
-	    DrawButton(1500, y, 200, 50, L("取消", "Cancel"), "#9E9E9E", "#BDBDBD", false,
-	        L("放弃添加并返回", "Discard and go back"));
-	}
-	function handleAddDomainConfirmClick(item, data) {
-	    const baseY = 440 + 35 * 11 + 10;
-	    if (MouseIn(1250, baseY, 200, 50)) {
-	        if (pendingDomainToAdd) {
-	            const success = addDomainToWhitelist(pendingDomainToAdd);
-	            if (success) {
-	                Logger.info(`已添加可信域名: ${pendingDomainToAdd}`);
-	                showStatus(L(`✔ 已添加可信域名: ${pendingDomainToAdd}`,
-	                    `✔ Trusted domain added: ${pendingDomainToAdd}`), "#4CAF50");
-	            }
-	        }
-	        pendingDomainToAdd = null;
-	        currentView = "list";
-	        const C = CharacterGetCurrent();
-	        if (C) CharacterRefresh(C, false, false);
-	        return;
-	    }
-	    if (MouseIn(1500, baseY, 200, 50)) {
-	        pendingDomainToAdd = null;
-	        currentView = "list";
-	        return;
-	    }
-	}
-	function drawHideSettings(item) {
-	    DrawText(L("隐藏设置", "Hide Settings"), 1500, 360, "White", "Gray");
-	    DrawText(L("选择需要隐藏的部位分类", "Choose which part categories to hide"), 1505, 410, "#fff942", "Gray");
-	    const startY = 450;
-	    const rowHeight = 60;
-	    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
-	        const cat = HIDE_CATEGORIES[i];
-	        const y = startY + i * rowHeight;
-	        const isHidden = item.Property?.[cat.key] === true;
-	        const catLabel = L(cat.label, cat.labelEn);
-	        DrawText(catLabel, 1100, y + 20, "White");
-	        DrawButton(1200, y, 400, 40, L(`${cat.groups.length}个部位`, `${cat.groups.length} parts`), "White", null,
-	            L(`该分类包含 ${cat.groups.length} 个部位组`, `This category covers ${cat.groups.length} groups`), false);
-	        DrawButton(1620, y, 100, 40, isHidden ? L("隐藏", "Hidden") : L("显示", "Shown"),
-	            isHidden ? "#666666" : "#4ba055",
-	            null, L(`点击切换是否隐藏「${catLabel}」`, `Toggle hiding "${catLabel}"`), false);
-	    }
-	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
-	        L("确认并返回列表", "Confirm & back to list"));
-	}
-	function handleHideSettingsClick(item) {
-	    const startY = 450;
-	    const rowHeight = 60;
-	    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
-	        const cat = HIDE_CATEGORIES[i];
-	        const y = startY + i * rowHeight;
-	        if (MouseIn(1620, y, 100, 40)) {
-	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
-	            item.Property[cat.key] = !(item.Property[cat.key] === true);
-	            updateHideArray(item);
-	            Logger.info(`${cat.label} 切换为: ${item.Property[cat.key]}`);
-	            syncItemToServer(item);
-	            const C = CharacterGetCurrent();
-	            if (C) CharacterRefresh(C, false, false);
-	            return;
-	        }
-	    }
-	    if (MouseIn(1885, 135, 90, 90)) {
-	        currentView = "list";
-	        return;
-	    }
-	}
-	function drawTextureListMain(item) {
-	    const textures = item.Property?.Textures || [];
-	    DrawText(L("贴图管理", "Texture Manager"), 1500, 360, "White", "Gray");
-	    DrawText(L(`已添加${textures.length}个贴图（最多${MAX_TEXTURE_COUNT}个）`,
-	        `${textures.length} textures added (max ${MAX_TEXTURE_COUNT})`), 1505, 410, "#ebfe58", "Gray");
-	    DrawButton(1665, 25, 90, 90, "", "White", "Icons/Private.png",
-	        L("隐藏设置：隐藏身体部位/服饰等", "Hide settings: hide body parts / clothing"));
-	    const startY = 450;
-	    const itemHeight = 60;
-	    const ADD_BTN_BASE_Y = 450;
-	    const ADD_BTN_STEP = 60;
-	    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
-	    if (currentListPage >= totalPages) currentListPage = totalPages - 1;
-	    if (currentListPage < 0) currentListPage = 0;
-	    const pageStart = currentListPage * TEXTURES_PER_PAGE;
-	    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
-	    const itemsOnPage = pageEnd - pageStart;
-	    for (let i = pageStart; i < pageEnd; i++) {
-	        const y = startY + (i - pageStart) * itemHeight;
-	        const texture = textures[i];
-	        const urlPreview = texture?.TextureURL
-	            ? (texture.TextureURL.length > 12 ? texture.TextureURL.substring(0, 12) + "..." : texture.TextureURL)
-	            : "(空)";
-	        DrawText(L(`图层${i + 1} :`, `Layer ${i + 1}:`), 1100, y + 20, "White");
-	        DrawButton(1200, y, 400, 40, urlPreview, "White", null,
-	            texture?.TextureURL || L("(空)", "(empty)"), false);
-	        const isVisible = texture?.Visible !== false;
-	        DrawButton(1620, y, 100, 40, isVisible ? L("显示", "Shown") : L("隐藏", "Hidden"),
-	            isVisible ? "#4ba055" : "#666666", null,
-	            L("点击切换该图层显示/隐藏", "Toggle this layer's visibility"), false);
-	        DrawButton(1740, y, 100, 40, L("编辑", "Edit"), "White", null,
-	            L("编辑该图层的 URL 与参数", "Edit this layer's URL and parameters"), false);
-	        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL)) {
-	            DrawButton(1860, y, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
-	                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
-	        }
-	    }
-	    if (textures.length < MAX_TEXTURE_COUNT) {
-	        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
-	        DrawButton(1450, addBtnY, 90, 90, "", "White", "Icons/Plus.png",
-	            L("添加一个新贴图图层", "Add a new texture layer"));
-	    }
-	    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
-	    const hasPages = totalPages > 1;
-	    if (textures.length >= 7) {
-	        DrawButton(1885, 810, 90, 90, "", "White", "Icons/Down.png",
-	            L("下一页", "Next page"), !hasPages);
-	    }
-	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
-	        L("确认并退出（保存并关闭）", "Confirm & Exit (save and close)"));
-	    const ioBtnY = btnY + 120;
-	    DrawButton(1170, ioBtnY, 200, 50, L("导出配置", "Export"), "#4CAF50", "#66BB6A", false,
-	        L("将当前配置复制到剪贴板", "Copy current config to clipboard"));
-	    DrawButton(1390, ioBtnY, 200, 50, L("覆盖导入", "Import (Replace)"), "#28639A", null,
-	        L("用剪贴板配置覆盖当前所有图层", "Replace all layers with clipboard config"), false);
-	    DrawButton(1610, ioBtnY, 200, 50, L("追加导入", "Import (Append)"), "#28639A", null,
-	        L("将剪贴板配置追加到当前图层后", "Append clipboard config after current layers"), false);
-	    if (statusMessage && Date.now() < statusMessageExpiry) {
-	        DrawText(statusMessage.text, 1505, 890, statusMessage.color, "Black");
-	    }
-	}
-	function handleTextureListClick(item, data) {
-	    const textures = item.Property?.Textures || [];
-	    if (MouseIn(1665, 25, 90, 90)) {
-	        currentView = "hide";
-	        return;
-	    }
-	    const startY = 450;
-	    const itemHeight = 60;
-	    const ADD_BTN_BASE_Y = 450;
-	    const ADD_BTN_STEP = 60;
-	    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
-	    if (currentListPage >= totalPages) currentListPage = totalPages - 1;
-	    if (currentListPage < 0) currentListPage = 0;
-	    const pageStart = currentListPage * TEXTURES_PER_PAGE;
-	    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
-	    const itemsOnPage = pageEnd - pageStart;
-	    for (let i = pageStart; i < pageEnd; i++) {
-	        const y = startY + (i - pageStart) * itemHeight;
-	        const texture = textures[i];
-	        if (MouseIn(1620, y, 100, 40)) {
-	            textures[i].Visible = textures[i].Visible === false ? true : false;
-	            syncItemToServer(item);
-	            const C = CharacterGetCurrent();
-	            if (C) CharacterRefresh(C, false, false);
-	            return;
-	        }
-	        if (MouseIn(1740, y, 100, 40)) {
-	            currentEditTexture = i;
-	            tempTextureData = { ...textures[i] };
-	            originalEditTexture = { ...textures[i] };
-	            if (!data.PersistentData) data.PersistentData = {};
-	            data.PersistentData._originalTexture = { ...textures[i] };
-	            createEditInputs(textures[i]);
-	            return;
-	        }
-	        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1860, y, 100, 40)) {
-	            const domain = extractDomain(texture.TextureURL);
-	            if (domain) {
-	                pendingDomainToAdd = domain;
-	                currentView = "addDomainConfirm";
-	            }
-	            return;
-	        }
-	    }
-	    if (textures.length < MAX_TEXTURE_COUNT) {
-	        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
-	        if (MouseIn(1450, addBtnY, 90, 90)) {
-	            const newTexture = { ...DEFAULT_TEXTURE };
-	            item.Property.Textures.push(newTexture);
-	            currentEditTexture = textures.length - 1;
-	            tempTextureData = { ...newTexture };
-	            originalEditTexture = null;
-	            if (!data.PersistentData) data.PersistentData = {};
-	            data.PersistentData._originalTexture = { ...newTexture };
-	            createEditInputs(newTexture);
-	            return;
-	        }
-	    }
-	    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
-	    const hasPages = totalPages > 1;
-	    if (textures.length >= 7 && hasPages && MouseIn(1885, 810, 90, 90)) {
-	        currentListPage = (currentListPage + 1) % totalPages;
-	        return;
-	    }
-	    if (MouseIn(1885, 135, 90, 90)) {
-	        const C = CharacterGetCurrent();
-	        if (item) {
-	            if (!item.Property) item.Property = { Textures: [] };
-	            if (!item.Property.Textures) item.Property.Textures = [];
-	            updateHideArray(item);
-	            Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
-	            Logger.info(`隐藏分类 - ${HIDE_CATEGORIES.map(c => `${c.label}: ${item.Property[c.key]}`).join(', ')}`);
-	            syncItemToServer(item);
-	            if (C) CharacterRefresh(C, false, false);
-	            Logger.info("贴图设置已保存并同步");
-	        }
-	        if (typeof DialogLeaveFocusItem === "function") DialogLeaveFocusItem();
-	        return;
-	    }
-	    const ioBtnY = btnY + 120;
-	    if (MouseIn(1170, ioBtnY, 200, 50)) {
-	        exportConfig(item);
-	        return;
-	    }
-	    if (MouseIn(1390, ioBtnY, 200, 50)) {
-	        importConfig(item, "overwrite");
-	        return;
-	    }
-	    if (MouseIn(1610, ioBtnY, 200, 50)) {
-	        if ((item.Property?.Textures || []).length >= MAX_TEXTURE_COUNT) {
-	            showStatus(L(`✘ 超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`,
-	                `✘ Texture limit reached (max ${MAX_TEXTURE_COUNT})`), "#E53935");
-	            return;
-	        }
-	        importConfig(item, "append");
-	        return;
-	    }
-	}
-	function exportConfig(item) {
-	    const textures = item.Property?.Textures || [];
-	    const config = {
-	        type: "ShuangCustomAssets",
-	        version: 4,
-	        textures: textures,
-	        hideCosplay: item.Property?.HideCosplay === true,
-	        hideFacial: item.Property?.HideFacial === true,
-	        hideBody: item.Property?.HideBody === true,
-	        hideClothing: item.Property?.HideClothing === true,
-	        hideItems: item.Property?.HideItems === true
-	    };
-	    const json = JSON.stringify(config, null, 2);
-	    navigator.clipboard.writeText(json).then(() => {
-	        Logger.info("配置已复制到剪贴板");
-	        showStatus(L(`✔ 已复制到剪贴板，共 ${textures.length} 个图层`,
-	            `✔ Copied to clipboard, ${textures.length} layers`), "#4CAF50");
-	    }).catch(err => {
-	        Logger.error("复制失败:", err);
-	        const blob = new Blob([json], { type: "application/json" });
-	        const url = URL.createObjectURL(blob);
-	        const a = document.createElement("a");
-	        a.href = url;
-	        a.download = "shuang-custom-assets-config.json";
-	        a.click();
-	        URL.revokeObjectURL(url);
-	        showStatus(L("✔ 剪贴板不可用，已改为下载配置文件", "✔ Clipboard unavailable, downloaded config file"), "#FF9800");
-	    });
-	}
-	function importConfig(item, mode) {
-	    navigator.clipboard.readText().then(text => {
-	        try {
-	            const config = JSON.parse(text);
-	            if (config.type !== "ShuangCustomAssets") {
-	                throw new Error("无效的配置类型");
-	            }
-	            if (!Array.isArray(config.textures)) {
-	                throw new Error("配置格式错误");
-	            }
-	            const validTextures = config.textures.map(t => ({
-	                TextureURL: String(t.TextureURL || ""),
-	                OffsetX: parseInt(t.OffsetX) || 0,
-	                OffsetY: parseInt(t.OffsetY) || 0,
-	                Scale: parseInt(t.Scale) || 100,
-	                Rotation: parseInt(t.Rotation) || 0,
-	                Visible: t.Visible !== false,
-	                Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100))
-	            }));
-	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
-	            if (!item.Property.Textures) item.Property.Textures = [];
-	            if (mode === "append") {
-	                const currentCount = item.Property.Textures.length;
-	                const totalCount = currentCount + validTextures.length;
-	                if (totalCount > MAX_TEXTURE_COUNT) {
-	                    throw new Error(`超过贴图数量上限（当前 ${currentCount} + 导入 ${validTextures.length} = ${totalCount}，最多 ${MAX_TEXTURE_COUNT}）`);
-	                }
-	                item.Property.Textures = [...item.Property.Textures, ...validTextures];
-	            } else {
-	                if (validTextures.length > MAX_TEXTURE_COUNT) {
-	                    throw new Error(`超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个，当前 ${validTextures.length} 个）`);
-	                }
-	                item.Property.Textures = validTextures;
-	                for (const cat of HIDE_CATEGORIES) {
-	                    item.Property[cat.key] = config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] === true;
-	                }
-	            }
-	            updateHideArray(item);
-	            const count = item.Property.Textures.length;
-	            const modeText = mode === "append" ? "追加" : "覆盖";
-	            const modeTextEn = mode === "append" ? "Append" : "Replace";
-	            Logger.info(`${modeText}导入成功:`, count, "个图层");
-	            showStatus(L(`✔ ${modeText}导入成功，共 ${count} 个图层`,
-	                `✔ ${modeTextEn} import OK, ${count} layers`), "#4CAF50");
-	            syncItemToServer(item);
-	            const C = CharacterGetCurrent();
-	            if (C) CharacterRefresh(C, false, false);
-	        } catch (err) {
-	            Logger.error("导入失败:", err.message);
-	            showStatus(L(`✘ 导入失败: ${err.message}`, `✘ Import failed: ${err.message}`), "#E53935");
-	        }
-	    }).catch(err => {
-	        Logger.error("读取剪贴板失败:", err);
-	        showStatus(L("✘ 读取剪贴板失败，请确保已复制配置 JSON", "✘ Cannot read clipboard, make sure the config JSON is copied"), "#E53935");
-	    });
-	}
 	function setupStepperListeners() {
-	    if (_stepperListenerReady) return;
-	    _stepperListenerReady = true;
-	    document.addEventListener("mousedown", () => { _pointerDown = true; });
+	    if (state._stepperListenerReady) return;
+	    state._stepperListenerReady = true;
+	    document.addEventListener("mousedown", () => { state._pointerDown = true; });
 	    document.addEventListener("mouseup", () => {
-	        _pointerDown = false;
+	        state._pointerDown = false;
 	        stepperPress.fieldId = null;
-	        _lastTextureRefresh = 0;
+	        state._lastTextureRefresh = 0;
 	    });
-	    document.addEventListener("touchstart", () => { _pointerDown = true; }, { passive: true });
+	    document.addEventListener("touchstart", () => { state._pointerDown = true; }, { passive: true });
 	    document.addEventListener("touchend", () => {
-	        _pointerDown = false;
+	        state._pointerDown = false;
 	        stepperPress.fieldId = null;
-	        _lastTextureRefresh = 0;
+	        state._lastTextureRefresh = 0;
 	    });
 	    document.addEventListener("touchcancel", () => {
-	        _pointerDown = false;
+	        state._pointerDown = false;
 	        stepperPress.fieldId = null;
-	        _lastTextureRefresh = 0;
+	        state._lastTextureRefresh = 0;
 	    });
 	}
-	function applyStepperChange(field, delta) {
-	    const input = document.getElementById(field.id);
-	    if (!input) return;
-	    let value = parseInt(input.value);
+	function getFieldValue(field) {
+	    if (field.prop === null) return state.tempPriority;
+	    const v = state.tempTextureData ? state.tempTextureData[field.prop] : undefined;
+	    return typeof v === "number" && !isNaN(v) ? v : field.def;
+	}
+	function setFieldValue(field, value) {
 	    if (isNaN(value)) value = field.def;
-	    value += delta;
 	    if (field.min !== null) value = Math.max(field.min, value);
 	    if (field.max !== null) value = Math.min(field.max, value);
-	    input.value = String(value);
+	    if (field.prop === null) {
+	        if (state.tempPriority !== value) {
+	            state.tempPriority = value;
+	            state._fieldsDirty = true;
+	        }
+	    } else if (state.tempTextureData) {
+	        if (state.tempTextureData[field.prop] !== value) {
+	            state.tempTextureData[field.prop] = value;
+	            state._fieldsDirty = true;
+	        }
+	    }
+	    const domInput = document.getElementById(field.id);
+	    if (domInput && domInput.value !== String(value)) {
+	        domInput.value = String(value);
+	    }
+	    if (field.id === INPUT_OPACITY) {
+	        const slider = document.getElementById(OPACITY_SLIDER_ID);
+	        if (slider && slider.value !== String(value)) {
+	            slider.value = String(value);
+	        }
+	    }
+	}
+	function applyStepperChange(field, delta) {
+	    setFieldValue(field, getFieldValue(field) + delta);
+	}
+	function drawMirrorRow() {
+	    DrawText(L("镜像", "Mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
+	    const mirrorH = state.tempTextureData?.MirrorH === true;
+	    const mirrorV = state.tempTextureData?.MirrorV === true;
+	    DrawButton(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
+	        L("水平", "H-Flip"), mirrorH ? "#4CAF50" : "White", null,
+	        L("水平镜像翻转图片", "Flip the image horizontally"), false);
+	    DrawButton(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
+	        L("垂直", "V-Flip"), mirrorV ? "#4CAF50" : "White", null,
+	        L("垂直镜像翻转图片", "Flip the image vertically"), false);
+	}
+	function handleMirrorRowClick() {
+	    if (!state.tempTextureData) return false;
+	    if (MouseIn(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
+	        state.tempTextureData.MirrorH = !(state.tempTextureData.MirrorH === true);
+	        state._fieldsDirty = true;
+	        return true;
+	    }
+	    if (MouseIn(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
+	        state.tempTextureData.MirrorV = !(state.tempTextureData.MirrorV === true);
+	        state._fieldsDirty = true;
+	        return true;
+	    }
+	    return false;
+	}
+	function drawMoveButton() {
+	    DrawButton(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H,
+	        L("移动", "Move"), state.isDragMode ? "#4CAF50" : "White", null, null, false);
+	    if (MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) {
+	        const hintX = 1770;
+	        const hintY = MOVE_BTN_Y + MOVE_BTN_H / 2;
+	        const lines = isChineseLang()
+	            ? ["开启后可在左侧", "角色预览区域", "按住鼠标", "拖动图片"]
+	            : ["When enabled,", "drag on the", "character preview", "to move the image"];
+	        for (let i = 0; i < lines.length; i++) {
+	            DrawText(lines[i], hintX, hintY - 22 + i * 30, "Yellow", "Black");
+	        }
+	    }
+	}
+	function handleMoveButtonClick() {
+	    if (!MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) return false;
+	    state.isDragMode = !state.isDragMode;
+	    state.dragActive = false;
+	    return true;
+	}
+	function updateDragMove() {
+	    if (!state.isDragMode || !state.tempTextureData) {
+	        state.dragActive = false;
+	        return;
+	    }
+	    const inPreviewArea = MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000;
+	    if (!state._pointerDown || !inPreviewArea) {
+	        state.dragActive = false;
+	        return;
+	    }
+	    if (!state.dragActive) {
+	        state.dragActive = true;
+	        state.dragStartMouseX = MouseX;
+	        state.dragStartMouseY = MouseY;
+	        state.dragStartOffsetX = parseInt(state.tempTextureData.OffsetX) || 0;
+	        state.dragStartOffsetY = parseInt(state.tempTextureData.OffsetY) || 0;
+	        return;
+	    }
+	    const newOffsetX = Math.round(state.dragStartOffsetX + (MouseX - state.dragStartMouseX));
+	    const newOffsetY = Math.round(state.dragStartOffsetY + (MouseY - state.dragStartMouseY));
+	    if (state.tempTextureData.OffsetX !== newOffsetX || state.tempTextureData.OffsetY !== newOffsetY) {
+	        state.tempTextureData.OffsetX = newOffsetX;
+	        state.tempTextureData.OffsetY = newOffsetY;
+	        state._fieldsDirty = true;
+	    }
+	}
+	function createEditPanelDomInputs() {
+	    if (!document.getElementById(URL_INPUT_ID)) {
+	        const input = ElementCreateInput(URL_INPUT_ID, "text", "", 1000);
+	        input.placeholder = L("请输入贴图网址（需以 https:// 开头）", "Enter image URL (must start with https://)");
+	        input.addEventListener("input", () => {
+	            if (!state.tempTextureData) return;
+	            const newUrl = input.value.trim();
+	            if (state.tempTextureData.TextureURL !== newUrl) {
+	                state.tempTextureData.TextureURL = newUrl;
+	                state._fieldsDirty = true;
+	            }
+	        });
+	    }
+	    for (const field of STEPPER_FIELDS) {
+	        if (document.getElementById(field.id)) continue;
+	        const input = ElementCreateInput(field.id, "number", String(field.def), "10");
+	        input.style.width = "80px";
+	        if (field.min !== null) input.min = String(field.min);
+	        if (field.max !== null) input.max = String(field.max);
+	        input.addEventListener("input", () => {
+	            const parsed = parseInt(input.value);
+	            if (isNaN(parsed)) return;
+	            if (field.prop === null) {
+	                if (state.tempPriority !== parsed) {
+	                    state.tempPriority = parsed;
+	                    state._fieldsDirty = true;
+	                }
+	            } else if (state.tempTextureData) {
+	                if (state.tempTextureData[field.prop] !== parsed) {
+	                    state.tempTextureData[field.prop] = parsed;
+	                    state._fieldsDirty = true;
+	                }
+	            }
+	            if (field.id === INPUT_OPACITY) {
+	                const slider = document.getElementById(OPACITY_SLIDER_ID);
+	                if (slider && slider.value !== String(parsed)) {
+	                    slider.value = String(Math.max(0, Math.min(100, parsed)));
+	                }
+	            }
+	        });
+	    }
+	    if (!document.getElementById(OPACITY_SLIDER_ID)) {
+	        const slider = ElementCreateRangeInput(OPACITY_SLIDER_ID, 100, 0, 100, 1);
+	        slider.addEventListener("input", () => {
+	            if (!state.tempTextureData) return;
+	            const v = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
+	            if (state.tempTextureData.Opacity !== v) {
+	                state.tempTextureData.Opacity = v;
+	                state._fieldsDirty = true;
+	            }
+	            const opacityInput = document.getElementById(INPUT_OPACITY);
+	            if (opacityInput && opacityInput.value !== String(v)) {
+	                opacityInput.value = String(v);
+	            }
+	        });
+	    }
+	}
+	function positionEditPanelInputs(visible) {
+	    if (!visible) {
+	        ElementPosition(URL_INPUT_ID, -999, -999, 0, 0);
+	        for (const field of STEPPER_FIELDS) {
+	            ElementPosition(field.id, -999, -999, 0, 0);
+	        }
+	        ElementPosition(OPACITY_SLIDER_ID, -999, -999, 0, 0);
+	        return;
+	    }
+	    ElementPosition(URL_INPUT_ID, URL_BOX_X + URL_BOX_W / 2, URL_BOX_Y + URL_BOX_H / 2, URL_BOX_W, URL_BOX_H);
+	    for (const field of STEPPER_FIELDS) {
+	        ElementPositionFixed(field.id, STEPPER_INPUT_X, field.y, STEPPER_INPUT_W, 40);
+	    }
+	    const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
+	    ElementPositionFixed(OPACITY_SLIDER_ID, OPACITY_SLIDER_X, opacityField.y + 20, OPACITY_SLIDER_W, 40);
+	}
+	function removeEditPanelInputs() {
+	    ElementRemove(URL_INPUT_ID);
+	    for (const field of STEPPER_FIELDS) {
+	        ElementRemove(field.id);
+	    }
+	    ElementRemove(OPACITY_SLIDER_ID);
 	}
 	function updateSteppers() {
-	    if (!_pointerDown) {
+	    if (!state._pointerDown) {
 	        stepperPress.fieldId = null;
 	        return;
 	    }
@@ -2005,33 +1722,9 @@
 	    DrawImageResize(icon, x + 2, y + 2, STEPPER_BTN_W - 4, STEPPER_BTN_H - 4);
 	}
 	function createEditInputs(texture) {
-	    let input = ElementCreateInput(INPUT_URL, "text", texture.TextureURL || "", "1000");
-	    if (input) {
-	        input.setAttribute("placeholder", "https://...");
-	        input.style.width = "350px";
-	    }
-	    ElementPositionFixed(INPUT_URL, 1220, 435, 490, 40);
-	    input = ElementCreateInput(INPUT_OFFSET_X, "number", String(texture.OffsetX ?? 1), "10");
-	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_OFFSET_X, STEPPER_INPUT_X, 485, STEPPER_INPUT_W, 40);
-	    input = ElementCreateInput(INPUT_OFFSET_Y, "number", String(texture.OffsetY ?? 1), "10");
-	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_OFFSET_Y, STEPPER_INPUT_X, 535, STEPPER_INPUT_W, 40);
-	    input = ElementCreateInput(INPUT_SCALE, "number", String(texture.Scale || 100), "10");
-	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_SCALE, STEPPER_INPUT_X, 585, STEPPER_INPUT_W, 40);
-	    input = ElementCreateInput(INPUT_ROTATION, "number", String(texture.Rotation || 0), "10");
-	    if (input) input.style.width = "80px";
-	    ElementPositionFixed(INPUT_ROTATION, STEPPER_INPUT_X, 635, STEPPER_INPUT_W, 40);
-	    input = ElementCreateInput(INPUT_OPACITY, "number", String(texture.Opacity ?? 100), "10");
-	    if (input) {
-	        input.style.width = "80px";
-	        input.min = "0";
-	        input.max = "100";
-	    }
-	    ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
+	    state._fieldsDirty = false;
 	    const item = DialogFocusItem;
-	    const layerName = LAYER_NAMES[currentEditTexture];
+	    const layerName = LAYER_NAMES[state.currentEditTexture];
 	    const op = item?.Property?.OverridePriority;
 	    let priorityValue = 50;
 	    if (typeof op === "number") {
@@ -2039,64 +1732,39 @@
 	    } else if (op && typeof op[layerName] === "number") {
 	        priorityValue = op[layerName];
 	    }
-	    tempPriority = priorityValue;
-	    originalOverridePriority = op ? JSON.parse(JSON.stringify(op)) : undefined;
-	    input = ElementCreateInput(INPUT_PRIORITY, "number", String(priorityValue), "10");
-	    if (input) {
-	        input.style.width = "80px";
-	        input.min = "-99";
-	        input.max = "99";
+	    state.tempPriority = priorityValue;
+	    state.originalOverridePriority = op ? JSON.parse(JSON.stringify(op)) : undefined;
+	    const urlInput =  (document.getElementById(URL_INPUT_ID));
+	    if (urlInput) urlInput.value = state.tempTextureData?.TextureURL || "";
+	    for (const field of STEPPER_FIELDS) {
+	        const input =  (document.getElementById(field.id));
+	        if (input) input.value = String(getFieldValue(field));
 	    }
-	    ElementPositionFixed(INPUT_PRIORITY, STEPPER_INPUT_X, 735, STEPPER_INPUT_W, 40);
-	}
-	function syncItemToServer(item) {
-	    if (CurrentScreen === "Crafting") return;
-	    const C = CharacterGetCurrent();
-	    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
-	    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
-	    if (C.IsPlayer()) {
-	        if (typeof ChatRoomCharacterUpdate === "function") {
-	            ChatRoomCharacterUpdate(C);
-	        }
-	        if (typeof ServerPlayerAppearanceSync === "function") {
-	            ServerPlayerAppearanceSync();
-	        }
+	    const opacitySlider =  (document.getElementById(OPACITY_SLIDER_ID));
+	    if (opacitySlider) {
+	        const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
+	        opacitySlider.value = String(getFieldValue(opacityField));
 	    }
-	    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
 	}
 	function drawTextureEditPanel(item, textureIndex, data) {
 	    setupStepperListeners();
 	    updateSteppers();
-	    const urlInput = document.getElementById(INPUT_URL);
-	    const offsetXInput = document.getElementById(INPUT_OFFSET_X);
-	    const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
-	    const scaleInput = document.getElementById(INPUT_SCALE);
-	    const rotationInput = document.getElementById(INPUT_ROTATION);
-	    const opacityInput = document.getElementById(INPUT_OPACITY);
-	    if (tempTextureData) {
-	        const newUrl = urlInput?.value?.trim() || "";
-	        const newOffsetX = parseInt(offsetXInput?.value) || 0;
-	        const newOffsetY = parseInt(offsetYInput?.value) || 0;
-	        const newScale = parseInt(scaleInput?.value) || 100;
-	        const newRotation = parseInt(rotationInput?.value) || 0;
-	        const newOpacity = Math.max(0, Math.min(100, parseInt(opacityInput?.value) || 100));
-	        if (tempTextureData.TextureURL !== newUrl ||
-	            tempTextureData.OffsetX !== newOffsetX ||
-	            tempTextureData.OffsetY !== newOffsetY ||
-	            tempTextureData.Scale !== newScale ||
-	            tempTextureData.Rotation !== newRotation ||
-	            tempTextureData.Opacity !== newOpacity) {
-	            const urlChanged = tempTextureData.TextureURL !== newUrl;
-	            tempTextureData.TextureURL = newUrl;
-	            tempTextureData.OffsetX = newOffsetX;
-	            tempTextureData.OffsetY = newOffsetY;
-	            tempTextureData.Scale = newScale;
-	            tempTextureData.Rotation = newRotation;
-	            tempTextureData.Opacity = newOpacity;
+	    updateDragMove();
+	    if (state.tempTextureData) {
+	        if (state._fieldsDirty) {
+	            state._fieldsDirty = false;
 	            if (!item.Property) item.Property = { Textures: [] };
 	            if (!item.Property.Textures) item.Property.Textures = [];
-	            item.Property.Textures[textureIndex] = { ...tempTextureData };
-	            _pendingTextureRefresh = true;
+	            const previousUrl = item.Property.Textures[textureIndex]?.TextureURL || "";
+	            const newUrl = state.tempTextureData.TextureURL || "";
+	            const urlChanged = previousUrl !== newUrl;
+	            item.Property.Textures[textureIndex] = { ...state.tempTextureData };
+	            const layerName = LAYER_NAMES[textureIndex];
+	            if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
+	                item.Property.OverridePriority = {};
+	            }
+	            item.Property.OverridePriority[layerName] = state.tempPriority;
+	            state._pendingTextureRefresh = true;
 	            if (urlChanged && isUrlAllowed(newUrl)) {
 	                const entry = getCorsImage(newUrl);
 	                if (!entry.img.complete) {
@@ -2108,36 +1776,21 @@
 	                }
 	            }
 	        }
-	        const priorityInput = document.getElementById(INPUT_PRIORITY);
-	        if (priorityInput) {
-	            const parsedPriority = parseInt(priorityInput.value);
-	            const newPriority = Math.max(-99, Math.min(99, isNaN(parsedPriority) ? 50 : parsedPriority));
-	            if (newPriority !== tempPriority) {
-	                tempPriority = newPriority;
-	                if (!item.Property) item.Property = {};
-	                const layerName = LAYER_NAMES[textureIndex];
-	                if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
-	                    item.Property.OverridePriority = {};
-	                }
-	                item.Property.OverridePriority[layerName] = newPriority;
-	                _pendingTextureRefresh = true;
-	            }
-	        }
-	        if (_pendingTextureRefresh) {
+	        if (state._pendingTextureRefresh) {
 	            const now = Date.now();
-	            if (now - _lastTextureRefresh >= TEXTURE_REFRESH_INTERVAL) {
+	            const interval = state.dragActive ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
+	            if (now - state._lastTextureRefresh >= interval) {
 	                const C = CharacterGetCurrent();
 	                if (C) CharacterRefresh(C, false, false);
-	                _lastTextureRefresh = now;
-	                _pendingTextureRefresh = false;
+	                state._lastTextureRefresh = now;
+	                state._pendingTextureRefresh = false;
 	            }
 	        }
 	    }
 	    DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
 	    DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press ✓ to return"), 1505, 405, "Yellow", "Black");
 	    DrawText(L("贴图", "Image"), 1100, 455, "White", "Gray");
-	    ElementPositionFixed(INPUT_URL, 1220, 435, 490, 40);
-	    const currentUrl = urlInput?.value?.trim() || "";
+	    const currentUrl = state.tempTextureData?.TextureURL || "";
 	    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
 	        const domain = extractDomain(currentUrl);
 	        if (domain) {
@@ -2145,78 +1798,62 @@
 	                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
 	        }
 	    }
-	    DrawText(L("X偏移", "X Offset"), 1100, 505, "White", "Gray");
-	    ElementPositionFixed(INPUT_OFFSET_X, STEPPER_INPUT_X, 485, STEPPER_INPUT_W, 40);
-	    drawStepperButton(STEPPER_MINUS_X, 485, "Icons/Minus.png");
-	    drawStepperButton(STEPPER_PLUS_X, 485, "Icons/Plus.png");
-	    DrawText(L("Y偏移", "Y Offset"), 1100, 555, "White", "Gray");
-	    ElementPositionFixed(INPUT_OFFSET_Y, STEPPER_INPUT_X, 535, STEPPER_INPUT_W, 40);
-	    drawStepperButton(STEPPER_MINUS_X, 535, "Icons/Minus.png");
-	    drawStepperButton(STEPPER_PLUS_X, 535, "Icons/Plus.png");
-	    DrawText(L("缩放%", "Scale %"), 1100, 605, "White", "Gray");
-	    ElementPositionFixed(INPUT_SCALE, STEPPER_INPUT_X, 585, STEPPER_INPUT_W, 40);
-	    drawStepperButton(STEPPER_MINUS_X, 585, "Icons/Minus.png");
-	    drawStepperButton(STEPPER_PLUS_X, 585, "Icons/Plus.png");
-	    DrawText(L("旋转%", "Rotation %"), 1100, 655, "White", "Gray");
-	    ElementPositionFixed(INPUT_ROTATION, STEPPER_INPUT_X, 635, STEPPER_INPUT_W, 40);
-	    drawStepperButton(STEPPER_MINUS_X, 635, "Icons/Minus.png");
-	    drawStepperButton(STEPPER_PLUS_X, 635, "Icons/Plus.png");
-	    DrawText(L("透明度%", "Opacity %"), 1100, 705, "White", "Gray");
-	    ElementPositionFixed(INPUT_OPACITY, STEPPER_INPUT_X, 685, STEPPER_INPUT_W, 40);
-	    drawStepperButton(STEPPER_MINUS_X, 685, "Icons/Minus.png");
-	    drawStepperButton(STEPPER_PLUS_X, 685, "Icons/Plus.png");
-	    DrawText(L("图层优先级", "Layer Priority"), 1100, 755, "White", "Gray");
-	    ElementPositionFixed(INPUT_PRIORITY, STEPPER_INPUT_X, 735, STEPPER_INPUT_W, 40);
-	    drawStepperButton(STEPPER_MINUS_X, 735, "Icons/Minus.png");
-	    drawStepperButton(STEPPER_PLUS_X, 735, "Icons/Plus.png");
+	    drawMoveButton();
+	    for (const field of STEPPER_FIELDS) {
+	        DrawText(L(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
+	        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
+	        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
+	    }
+	    drawMirrorRow();
 	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
 	        L("保存该图层并返回列表", "Save this layer & back to list"));
 	    DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
 	        L("删除此图层", "Delete this layer"), false);
 	}
 	function handleTextureEditClick(item, textureIndex, data) {
-	    const urlInput = document.getElementById(INPUT_URL);
-	    const currentUrl = urlInput?.value?.trim() || "";
+	    const currentUrl = state.tempTextureData?.TextureURL || "";
 	    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
 	        const domain = extractDomain(currentUrl);
 	        if (domain && MouseIn(1730, 435, 100, 40)) {
-	            pendingDomainToAdd = domain;
-	            currentView = "addDomainConfirm";
-	            currentEditTexture = -1;
-	            tempTextureData = null;
-	            originalOverridePriority = undefined;
-	            _pendingTextureRefresh = false;
-	            [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
+	            state.pendingDomainToAdd = domain;
+	            state.currentView = "addDomainConfirm";
+	            state.currentEditTexture = -1;
+	            state.tempTextureData = null;
+	            state.originalOverridePriority = undefined;
+	            state._pendingTextureRefresh = false;
+	            resetDragState();
 	            return;
 	        }
 	    }
+	    if (handleMoveButtonClick()) {
+	        return;
+	    }
+	    if (handleMirrorRowClick()) {
+	        return;
+	    }
 	    if (MouseIn(1885, 245, 90, 90)) {
 	        item.Property.Textures.splice(textureIndex, 1);
-	        currentEditTexture = -1;
-	        tempTextureData = null;
-	        originalOverridePriority = undefined;
-	        _pendingTextureRefresh = false;
-	        currentListPage = 0;
-	        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
+	        state.currentEditTexture = -1;
+	        state.tempTextureData = null;
+	        state.originalOverridePriority = undefined;
+	        state._pendingTextureRefresh = false;
+	        state.currentListPage = 0;
+	        resetDragState();
 	        syncItemToServer(item);
 	        const C = CharacterGetCurrent();
 	        if (C) CharacterRefresh(C, false, false);
 	        return;
 	    }
 	    if (MouseIn(1885, 135, 90, 90)) {
-	        const urlInput = document.getElementById(INPUT_URL);
-	        const offsetXInput = document.getElementById(INPUT_OFFSET_X);
-	        const offsetYInput = document.getElementById(INPUT_OFFSET_Y);
-	        const scaleInput = document.getElementById(INPUT_SCALE);
-	        const rotationInput = document.getElementById(INPUT_ROTATION);
-	        const opacityInput = document.getElementById(INPUT_OPACITY);
 	        const finalTexture = {
-	            TextureURL: urlInput?.value?.trim() || "",
-	            OffsetX: parseInt(offsetXInput?.value) || 0,
-	            OffsetY: parseInt(offsetYInput?.value) || 0,
-	            Scale: parseInt(scaleInput?.value) || 100,
-	            Rotation: parseInt(rotationInput?.value) || 0,
-	            Opacity: Math.max(0, Math.min(100, parseInt(opacityInput?.value) || 100))
+	            TextureURL: state.tempTextureData?.TextureURL?.trim() || "",
+	            OffsetX: parseInt(state.tempTextureData?.OffsetX) || 0,
+	            OffsetY: parseInt(state.tempTextureData?.OffsetY) || 0,
+	            Scale: parseInt(state.tempTextureData?.Scale) || 100,
+	            Rotation: parseInt(state.tempTextureData?.Rotation) || 0,
+	            Opacity: Math.max(0, Math.min(100, parseInt(state.tempTextureData?.Opacity) || 100)),
+	            MirrorH: state.tempTextureData?.MirrorH === true,
+	            MirrorV: state.tempTextureData?.MirrorV === true
 	        };
 	        if (!item.Property) item.Property = { Textures: [] };
 	        if (!item.Property.Textures) item.Property.Textures = [];
@@ -2227,61 +1864,542 @@
 	            finalTexture.Visible = true;
 	        }
 	        item.Property.Textures[textureIndex] = finalTexture;
+	        const layerName = LAYER_NAMES[textureIndex];
+	        if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
+	            item.Property.OverridePriority = {};
+	        }
+	        item.Property.OverridePriority[layerName] = state.tempPriority;
 	        syncItemToServer(item);
-	        currentEditTexture = -1;
-	        tempTextureData = null;
-	        originalOverridePriority = undefined;
-	        _pendingTextureRefresh = false;
-	        currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
-	        [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
+	        state.currentEditTexture = -1;
+	        state.tempTextureData = null;
+	        state.originalOverridePriority = undefined;
+	        state._pendingTextureRefresh = false;
+	        state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
+	        resetDragState();
 	        const C = CharacterGetCurrent();
 	        if (C) CharacterRefresh(C, false, false);
 	        return;
 	    }
 	}
-	const assetStrings = {
-	    CN: { SelectBase: "贴图管理" },
-	    EN: { SelectBase: "Texture Manager" }
-	};
-	function register(AssetManager) {
-	    AssetManager.addAssetWithConfig(ALL_ITEM_GROUPS, asset, {
-	        layerNames,
-	        extended,
-	        translation,
-	        assetStrings
-	    });
-	    const previewMappings = {};
-	    for (const group of ALL_ITEM_GROUPS) {
-	        previewMappings[`Assets/Female3DCG/${group}/Preview/${asset.Name}.png`] = BADGE_IMAGE_URL;
+
+	function exportConfig(item) {
+	    const textures = item.Property?.Textures || [];
+	    const overridePriority = (item.Property?.OverridePriority && typeof item.Property.OverridePriority === "object")
+	        ? item.Property.OverridePriority
+	        : {};
+	    const config = {
+	        type: "ShuangCustomAssets",
+	        version: 5,
+	        textures: textures,
+	        overridePriority: overridePriority,
+	    };
+	    for (const cat of HIDE_CATEGORIES) {
+	        config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] = item.Property?.[cat.key] === true;
 	    }
-	    AssetManager.addImageMapping(previewMappings);
-	    const allAllowHide = ALL_HIDEABLE_GROUPS;
-	    AssetManager.afterLoad(() => {
-	        for (const group of ALL_ITEM_GROUPS) {
-	            const assetObj = AssetGet("Female3DCG", group, asset.Name);
-	            if (assetObj) {
-	                assetObj.AllowHide = allAllowHide;
-	                if (assetObj.Wear === undefined) assetObj.Wear = true;
-	                if (assetObj.Enable === undefined) assetObj.Enable = true;
-	            }
-	        }
-	        if (typeof CraftingAssetsPopulate === "function") {
-	            CraftingAssets = CraftingAssetsPopulate();
-	        }
+	    const json = JSON.stringify(config, null, 2);
+	    navigator.clipboard.writeText(json).then(() => {
+	        Logger.info("配置已复制到剪贴板");
+	        showStatus(L(`✔ 已复制到剪贴板，共 ${textures.length} 个图层`,
+	            `✔ Copied to clipboard, ${textures.length} layers`), "#4CAF50");
+	    }).catch(err => {
+	        Logger.error("复制失败:", err);
+	        const blob = new Blob([json], { type: "application/json" });
+	        const url = URL.createObjectURL(blob);
+	        const a = document.createElement("a");
+	        a.href = url;
+	        a.download = "shuang-custom-assets-config.json";
+	        a.click();
+	        URL.revokeObjectURL(url);
+	        showStatus(L("✔ 剪贴板不可用，已改为下载配置文件", "✔ Clipboard unavailable, downloaded config file"), "#FF9800");
 	    });
 	}
-	const BADGE_IMAGE_URL = "https://shuang-custom-assets.pages.dev/SCA_logo.png";
-	const LOGIN_BADGE_TEXTURE = {
-	    TextureURL: BADGE_IMAGE_URL,
-	    OffsetX: 153,
-	    OffsetY: -200,
-	    Scale: 21,
-	    Rotation: 0,
-	    Opacity: 100,
-	    Visible: true
-	};
-	const LOGIN_BADGE_ASSET_NAME = "自定义贴图";
-	const LOGIN_BADGE_GROUP = "ItemTorso";
+	function sanitizePriorityMap(raw, layerCount) {
+	    const result = {};
+	    if (!raw || typeof raw !== "object") return result;
+	    for (const key in raw) {
+	        const idx = LAYER_NAMES.indexOf(key);
+	        if (idx === -1 || idx >= layerCount) continue;
+	        const val = parseInt(raw[key]);
+	        if (isNaN(val)) continue;
+	        result[key] = Math.max(-99, Math.min(99, val));
+	    }
+	    return result;
+	}
+	function importConfig(item, mode) {
+	    navigator.clipboard.readText().then(text => {
+	        try {
+	            const config = JSON.parse(text);
+	            if (config.type !== "ShuangCustomAssets") {
+	                throw new Error("无效的配置类型");
+	            }
+	            if (!Array.isArray(config.textures)) {
+	                throw new Error("配置格式错误");
+	            }
+	            const validTextures = config.textures.map(t => ({
+	                TextureURL: String(t.TextureURL || ""),
+	                OffsetX: parseInt(t.OffsetX) || 0,
+	                OffsetY: parseInt(t.OffsetY) || 0,
+	                Scale: parseInt(t.Scale) || 100,
+	                Rotation: parseInt(t.Rotation) || 0,
+	                Visible: t.Visible !== false,
+	                Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100)),
+	                MirrorH: t.MirrorH === true,
+	                MirrorV: t.MirrorV === true
+	            }));
+	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+	            if (!item.Property.Textures) item.Property.Textures = [];
+	            if (mode === "append") {
+	                const currentCount = item.Property.Textures.length;
+	                const totalCount = currentCount + validTextures.length;
+	                if (totalCount > MAX_TEXTURE_COUNT) {
+	                    throw new Error(`超过贴图数量上限（当前 ${currentCount} + 导入 ${validTextures.length} = ${totalCount}，最多 ${MAX_TEXTURE_COUNT}）`);
+	                }
+	                item.Property.Textures = [...item.Property.Textures, ...validTextures];
+	                const importedPriority = sanitizePriorityMap(config.overridePriority, validTextures.length);
+	                const shiftedPriority = {};
+	                for (const key in importedPriority) {
+	                    const idx = LAYER_NAMES.indexOf(key);
+	                    const newIdx = idx + currentCount;
+	                    if (newIdx < MAX_TEXTURE_COUNT) shiftedPriority[LAYER_NAMES[newIdx]] = importedPriority[key];
+	                }
+	                if (Object.keys(shiftedPriority).length > 0) {
+	                    if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
+	                        item.Property.OverridePriority = {};
+	                    }
+	                    Object.assign(item.Property.OverridePriority, shiftedPriority);
+	                }
+	            } else {
+	                if (validTextures.length > MAX_TEXTURE_COUNT) {
+	                    throw new Error(`超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个，当前 ${validTextures.length} 个）`);
+	                }
+	                item.Property.Textures = validTextures;
+	                for (const cat of HIDE_CATEGORIES) {
+	                    item.Property[cat.key] = config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] === true;
+	                }
+	                const importedPriority = sanitizePriorityMap(config.overridePriority, validTextures.length);
+	                if (Object.keys(importedPriority).length > 0) {
+	                    item.Property.OverridePriority = importedPriority;
+	                } else {
+	                    delete item.Property.OverridePriority;
+	                }
+	            }
+	            updateHideArray(item);
+	            const count = item.Property.Textures.length;
+	            const modeText = mode === "append" ? "追加" : "覆盖";
+	            const modeTextEn = mode === "append" ? "Append" : "Replace";
+	            Logger.info(`${modeText}导入成功:`, count, "个图层");
+	            showStatus(L(`✔ ${modeText}导入成功，共 ${count} 个图层`,
+	                `✔ ${modeTextEn} import OK, ${count} layers`), "#4CAF50");
+	            syncItemToServer(item);
+	            const C = CharacterGetCurrent();
+	            if (C) CharacterRefresh(C, false, false);
+	        } catch (err) {
+	            Logger.error("导入失败:", err.message);
+	            showStatus(L(`✘ 导入失败: ${err.message}`, `✘ Import failed: ${err.message}`), "#E53935");
+	        }
+	    }).catch(err => {
+	        Logger.error("读取剪贴板失败:", err);
+	        showStatus(L("✘ 读取剪贴板失败，请确保已复制配置 JSON", "✘ Cannot read clipboard, make sure the config JSON is copied"), "#E53935");
+	    });
+	}
+
+	function drawAddDomainConfirm() {
+	    DrawText(L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠"), 1500, 370, "Red", "Gray");
+	    let y = 440;
+	    const lines = isChineseLang() ? [
+	        { t: `即将添加域名到白名单: ${state.pendingDomainToAdd}`, c: "Cyan" },
+	        { t: "", c: "White" },
+	        { t: "添加后，来自该域名的贴图 URL 将被允许加载", c: "White" },
+	        { t: "", c: "White" },
+	        { t: "请注意以下风险：", c: "White" },
+	        { t: "1. 请确认您信任该域名提供者", c: "White" },
+	        { t: "2. 该域名的所有 URL 都将被加载", c: "White" },
+	        { t: "3. 恶意域名可能用于追踪您的 IP 地址", c: "White" },
+	        { t: "4. 恶意域名可能导致隐私信息泄露", c: "White" },
+	        { t: "", c: "White" },
+	        { t: "确定要添加此域名到可信列表吗？", c: "Red" },
+	    ] : [
+	        { t: `About to add domain to whitelist: ${state.pendingDomainToAdd}`, c: "Cyan" },
+	        { t: "", c: "White" },
+	        { t: "Once added, texture URLs from this domain will be allowed", c: "White" },
+	        { t: "", c: "White" },
+	        { t: "Please note the following risks:", c: "White" },
+	        { t: "1. Make sure you trust this domain's provider", c: "White" },
+	        { t: "2. All URLs from this domain will be loaded", c: "White" },
+	        { t: "3. A malicious domain may track your IP address", c: "White" },
+	        { t: "4. A malicious domain may leak private info", c: "White" },
+	        { t: "", c: "White" },
+	        { t: "Add this domain to the trusted list?", c: "Red" },
+	    ];
+	    for (const line of lines) {
+	        DrawText(line.t, 1500, y, line.c, "Black");
+	        y += 35;
+	    }
+	    y += 10;
+	    DrawButton(1250, y, 200, 50, L("确认添加", "Add"), "#4CAF50", "#66BB6A", false,
+	        L(`将 ${state.pendingDomainToAdd} 加入白名单`, `Add ${state.pendingDomainToAdd} to whitelist`));
+	    DrawButton(1500, y, 200, 50, L("取消", "Cancel"), "#9E9E9E", "#BDBDBD", false,
+	        L("放弃添加并返回", "Discard and go back"));
+	}
+	function handleAddDomainConfirmClick(item, data) {
+	    const baseY = 440 + 35 * 11 + 10;
+	    if (MouseIn(1250, baseY, 200, 50)) {
+	        if (state.pendingDomainToAdd) {
+	            const success = addDomainToWhitelist(state.pendingDomainToAdd);
+	            if (success) {
+	                Logger.info(`已添加可信域名: ${state.pendingDomainToAdd}`);
+	                showStatus(L(`✔ 已添加可信域名: ${state.pendingDomainToAdd}`,
+	                    `✔ Trusted domain added: ${state.pendingDomainToAdd}`), "#4CAF50");
+	            }
+	        }
+	        state.pendingDomainToAdd = null;
+	        state.currentView = "list";
+	        const C = CharacterGetCurrent();
+	        if (C) CharacterRefresh(C, false, false);
+	        return;
+	    }
+	    if (MouseIn(1500, baseY, 200, 50)) {
+	        state.pendingDomainToAdd = null;
+	        state.currentView = "list";
+	        return;
+	    }
+	}
+	function drawHideSettings(item) {
+	    DrawText(L("隐藏设置", "Hide Settings"), 1500, 360, "White", "Gray");
+	    DrawText(L("选择需要隐藏的部位分类", "Choose which part categories to hide"), 1505, 410, "#fff942", "Gray");
+	    const startY = 450;
+	    const rowHeight = 60;
+	    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
+	        const cat = HIDE_CATEGORIES[i];
+	        const y = startY + i * rowHeight;
+	        const isHidden = item.Property?.[cat.key] === true;
+	        const catLabel = L(cat.label, cat.labelEn);
+	        DrawText(catLabel, 1100, y + 20, "White");
+	        DrawButton(1200, y, 400, 40, L(`${cat.groups.length}个部位`, `${cat.groups.length} parts`), "White", null,
+	            L(`该分类包含 ${cat.groups.length} 个部位组`, `This category covers ${cat.groups.length} groups`), false);
+	        DrawButton(1620, y, 100, 40, isHidden ? L("隐藏", "Hidden") : L("显示", "Shown"),
+	            isHidden ? "#666666" : "#4CAF50",
+	            null, L(`点击切换是否隐藏「${catLabel}」`, `Toggle hiding "${catLabel}"`), false);
+	    }
+	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+	        L("确认并返回列表", "Confirm & back to list"));
+	}
+	function handleHideSettingsClick(item) {
+	    const startY = 450;
+	    const rowHeight = 60;
+	    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
+	        const cat = HIDE_CATEGORIES[i];
+	        const y = startY + i * rowHeight;
+	        if (MouseIn(1620, y, 100, 40)) {
+	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+	            item.Property[cat.key] = !(item.Property[cat.key] === true);
+	            updateHideArray(item);
+	            Logger.info(`${cat.label} 切换为: ${item.Property[cat.key]}`);
+	            syncItemToServer(item);
+	            const C = CharacterGetCurrent();
+	            if (C) CharacterRefresh(C, false, false);
+	            return;
+	        }
+	    }
+	    if (MouseIn(1885, 135, 90, 90)) {
+	        state.currentView = "list";
+	        return;
+	    }
+	}
+	function drawTextureListMain(item) {
+	    const textures = item.Property?.Textures || [];
+	    DrawText(L("贴图管理", "Texture Manager"), 1500, 360, "White", "Gray");
+	    DrawText(L(`已添加${textures.length}个贴图（最多${MAX_TEXTURE_COUNT}个）`,
+	        `${textures.length} textures added (max ${MAX_TEXTURE_COUNT})`), 1505, 410, "#ebfe58", "Gray");
+	    DrawButton(1665, 25, 90, 90, "", "White", "Icons/Private.png",
+	        L("隐藏设置：隐藏身体部位/服饰等", "Hide settings: hide body parts / clothing"));
+	    const startY = 450;
+	    const itemHeight = 60;
+	    const ADD_BTN_BASE_Y = 450;
+	    const ADD_BTN_STEP = 60;
+	    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+	    if (state.currentListPage >= totalPages) state.currentListPage = totalPages - 1;
+	    if (state.currentListPage < 0) state.currentListPage = 0;
+	    const pageStart = state.currentListPage * TEXTURES_PER_PAGE;
+	    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
+	    const itemsOnPage = pageEnd - pageStart;
+	    for (let i = pageStart; i < pageEnd; i++) {
+	        const y = startY + (i - pageStart) * itemHeight;
+	        const texture = textures[i];
+	        const urlPreview = texture?.TextureURL
+	            ? (texture.TextureURL.length > 12 ? texture.TextureURL.substring(0, 12) + "..." : texture.TextureURL)
+	            : "(空)";
+	        DrawText(L(`图层${i + 1} :`, `Layer ${i + 1}:`), 1100, y + 20, "White");
+	        DrawButton(1200, y, 400, 40, urlPreview, "White", null,
+	            texture?.TextureURL || L("(空)", "(empty)"), false);
+	        const isVisible = texture?.Visible !== false;
+	        DrawButton(1620, y, 100, 40, isVisible ? L("显示", "Shown") : L("隐藏", "Hidden"),
+	            isVisible ? "#4CAF50" : "#666666", null,
+	            L("点击切换该图层显示/隐藏", "Toggle this layer's visibility"), false);
+	        DrawButton(1740, y, 100, 40, L("编辑", "Edit"), "White", null,
+	            L("编辑该图层的 URL 与参数", "Edit this layer's URL and parameters"), false);
+	        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL)) {
+	            DrawButton(1860, y, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
+	                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
+	        }
+	    }
+	    if (textures.length < MAX_TEXTURE_COUNT) {
+	        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
+	        DrawButton(1450, addBtnY, 90, 90, "", "White", "Icons/Plus.png",
+	            L("添加一个新贴图图层", "Add a new texture layer"));
+	    }
+	    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
+	    const hasPages = totalPages > 1;
+	    if (textures.length >= 7) {
+	        DrawButton(1885, 810, 90, 90, "", "White", "Icons/Down.png",
+	            L("下一页", "Next page"), !hasPages);
+	    }
+	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+	        L("确认并退出（保存并关闭）", "Confirm & Exit (save and close)"));
+	    const ioBtnY = btnY + 120;
+	    DrawButton(1170, ioBtnY, 200, 50, L("导出配置", "Export"), "#4CAF50", null,
+	        L("将当前配置复制到剪贴板", "Copy current config to clipboard"), false);
+	    DrawButton(1390, ioBtnY, 200, 50, L("覆盖导入", "Import (Replace)"), "#28639A", null,
+	        L("用剪贴板配置覆盖当前所有图层", "Replace all layers with clipboard config"), false);
+	    DrawButton(1610, ioBtnY, 200, 50, L("追加导入", "Import (Append)"), "#28639A", null,
+	        L("将剪贴板配置追加到当前图层后", "Append clipboard config after current layers"), false);
+	    if (state.statusMessage && Date.now() < state.statusMessageExpiry) {
+	        DrawText(state.statusMessage.text, 1505, 890, state.statusMessage.color, "Black");
+	    }
+	}
+	function handleTextureListClick(item, data) {
+	    const textures = item.Property?.Textures || [];
+	    if (MouseIn(1665, 25, 90, 90)) {
+	        state.currentView = "hide";
+	        return;
+	    }
+	    const startY = 450;
+	    const itemHeight = 60;
+	    const ADD_BTN_BASE_Y = 450;
+	    const ADD_BTN_STEP = 60;
+	    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+	    if (state.currentListPage >= totalPages) state.currentListPage = totalPages - 1;
+	    if (state.currentListPage < 0) state.currentListPage = 0;
+	    const pageStart = state.currentListPage * TEXTURES_PER_PAGE;
+	    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
+	    const itemsOnPage = pageEnd - pageStart;
+	    for (let i = pageStart; i < pageEnd; i++) {
+	        const y = startY + (i - pageStart) * itemHeight;
+	        const texture = textures[i];
+	        if (MouseIn(1620, y, 100, 40)) {
+	            textures[i].Visible = textures[i].Visible === false ? true : false;
+	            syncItemToServer(item);
+	            const C = CharacterGetCurrent();
+	            if (C) CharacterRefresh(C, false, false);
+	            return;
+	        }
+	        if (MouseIn(1740, y, 100, 40)) {
+	            state.currentEditTexture = i;
+	            state.tempTextureData = { ...textures[i] };
+	            state.originalEditTexture = { ...textures[i] };
+	            if (!data.PersistentData) data.PersistentData = {};
+	            data.PersistentData._originalTexture = { ...textures[i] };
+	            createEditInputs(textures[i]);
+	            resetDragState();
+	            return;
+	        }
+	        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1860, y, 100, 40)) {
+	            const domain = extractDomain(texture.TextureURL);
+	            if (domain) {
+	                state.pendingDomainToAdd = domain;
+	                state.currentView = "addDomainConfirm";
+	            }
+	            return;
+	        }
+	    }
+	    if (textures.length < MAX_TEXTURE_COUNT) {
+	        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
+	        if (MouseIn(1450, addBtnY, 90, 90)) {
+	            const newTexture = { ...DEFAULT_TEXTURE };
+	            item.Property.Textures.push(newTexture);
+	            state.currentEditTexture = textures.length - 1;
+	            state.tempTextureData = { ...newTexture };
+	            state.originalEditTexture = null;
+	            if (!data.PersistentData) data.PersistentData = {};
+	            data.PersistentData._originalTexture = { ...newTexture };
+	            createEditInputs();
+	            resetDragState();
+	            return;
+	        }
+	    }
+	    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
+	    const hasPages = totalPages > 1;
+	    if (textures.length >= 7 && hasPages && MouseIn(1885, 810, 90, 90)) {
+	        state.currentListPage = (state.currentListPage + 1) % totalPages;
+	        return;
+	    }
+	    if (MouseIn(1885, 135, 90, 90)) {
+	        const C = CharacterGetCurrent();
+	        if (item) {
+	            if (!item.Property) item.Property = { Textures: [] };
+	            if (!item.Property.Textures) item.Property.Textures = [];
+	            updateHideArray(item);
+	            Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
+	            Logger.info(`隐藏分类 - ${HIDE_CATEGORIES.map(c => `${c.label}: ${item.Property[c.key]}`).join(', ')}`);
+	            syncItemToServer(item);
+	            if (C) CharacterRefresh(C, false, false);
+	            Logger.info("贴图设置已保存并同步");
+	        }
+	        if (typeof DialogLeaveFocusItem === "function") DialogLeaveFocusItem();
+	        return;
+	    }
+	    const ioBtnY = btnY + 120;
+	    if (MouseIn(1170, ioBtnY, 200, 50)) {
+	        exportConfig(item);
+	        return;
+	    }
+	    if (MouseIn(1390, ioBtnY, 200, 50)) {
+	        importConfig(item, "overwrite");
+	        return;
+	    }
+	    if (MouseIn(1610, ioBtnY, 200, 50)) {
+	        if ((item.Property?.Textures || []).length >= MAX_TEXTURE_COUNT) {
+	            showStatus(L(`✘ 超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`,
+	                `✘ Texture limit reached (max ${MAX_TEXTURE_COUNT})`), "#E53935");
+	            return;
+	        }
+	        importConfig(item, "append");
+	        return;
+	    }
+	}
+	function returnToListFromSubview() {
+	    if (state.currentEditTexture >= 0) {
+	        const item = DialogFocusItem;
+	        if (item) {
+	            if (!item.Property) item.Property = { Textures: [] };
+	            if (!item.Property.Textures) item.Property.Textures = [];
+	            if (state.originalEditTexture) {
+	                item.Property.Textures[state.currentEditTexture] = { ...state.originalEditTexture };
+	            } else {
+	                item.Property.Textures.splice(state.currentEditTexture, 1);
+	            }
+	            syncItemToServer(item);
+	            const C = CharacterGetCurrent();
+	            if (C) CharacterRefresh(C, false, false);
+	        }
+	    }
+	    state.currentEditTexture = -1;
+	    state.tempTextureData = null;
+	    state.originalEditTexture = null;
+	    state.originalOverridePriority = undefined;
+	    state.pendingDomainToAdd = null;
+	    resetDragState();
+	    state.currentView = "list";
+	}
+
+	const _resolvedAssetUrls = new Map();
+	function resolveFixedAssetUrl(filename) {
+	    if (_resolvedAssetUrls.has(filename)) {
+	        return _resolvedAssetUrls.get(filename);
+	    }
+	    const primaryUrl = `${ASSETS_CDN_PRIMARY}/${filename}`;
+	    const fallbackUrl = `${ASSETS_CDN_FALLBACK}/${filename}`;
+	    const entry = getCorsImage(primaryUrl);
+	    if (entry.failed) {
+	        _resolvedAssetUrls.set(filename, fallbackUrl);
+	        return fallbackUrl;
+	    }
+	    if (entry.loaded) {
+	        _resolvedAssetUrls.set(filename, primaryUrl);
+	    }
+	    return primaryUrl;
+	}
+
+	function renderTexture(data, originalFunction, drawData) {
+	    const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
+	    const item = CA;
+	    const layerIndex = LAYER_NAMES.indexOf(L);
+	    if (layerIndex === 0 && item?.Property) {
+	        updateHideArray(item);
+	        if (data.PersistentData && !data.PersistentData._cacheMigrated) {
+	            for (const key in data.PersistentData) {
+	                if (!key.startsWith("_")) {
+	                    delete data.PersistentData[key];
+	                }
+	            }
+	            data.PersistentData._cacheMigrated = true;
+	        }
+	    }
+	    if (layerIndex === -1) return;
+	    const textures = item?.Property?.Textures;
+	    if (!textures || layerIndex >= textures.length) return;
+	    const texture = textures[layerIndex];
+	    if (!texture || !texture.TextureURL) return;
+	    if (texture.Visible === false) return;
+	    const warnEnabled = getDomainWarningEnabled();
+	    let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity, mirrorH, mirrorV;
+	    if (warnEnabled && !isDomainInWhitelist(texture.TextureURL)) {
+	        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
+	        offsetX = 167;
+	        offsetY = -256;
+	        scale = 16 / 100;
+	        rotation = 0;
+	        displayOpacity = 1.0;
+	        mirrorH = false;
+	        mirrorV = false;
+	    } else if (!isUrlAllowed(texture.TextureURL)) {
+	        return;
+	    } else {
+	        imageUrl = texture.TextureURL;
+	        offsetX = texture.OffsetX || 0;
+	        offsetY = texture.OffsetY || 0;
+	        scale = (texture.Scale || 100) / 100;
+	        rotation = texture.Rotation || 0;
+	        displayOpacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
+	        mirrorH = texture.MirrorH === true;
+	        mirrorV = texture.MirrorV === true;
+	    }
+	    if (imageUrl.startsWith(ASSETS_CDN_PRIMARY + "/")) {
+	        imageUrl = resolveFixedAssetUrl(imageUrl.substring((ASSETS_CDN_PRIMARY + "/").length));
+	    }
+	    const imgEntry = getCorsImage(imageUrl);
+	    if (imgEntry.failed) return;
+	    const img = imgEntry.img;
+	    if (!img.complete || img.naturalWidth <= 0) return;
+	    const width = Math.round(img.naturalWidth * scale);
+	    const height = Math.round(img.naturalHeight * scale);
+	    const rad = rotation * Math.PI / 180;
+	    const cos = Math.abs(Math.cos(rad));
+	    const sin = Math.abs(Math.sin(rad));
+	    const bboxWidth = Math.round(width * cos + height * sin);
+	    const bboxHeight = Math.round(width * sin + height * cos);
+	    const layerCanvasKey = `_canvas_${layerIndex}`;
+	    const layerParamsKey = `_params_${layerIndex}`;
+	    const currentParams = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}_${mirrorH ? 1 : 0}_${mirrorV ? 1 : 0}`;
+	    let tempCanvas = data.PersistentData?.[layerCanvasKey];
+	    if (!tempCanvas) {
+	        tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
+	        if (!data.PersistentData) data.PersistentData = {};
+	        data.PersistentData[layerCanvasKey] = tempCanvas;
+	        data.PersistentData[layerParamsKey] = null;
+	    }
+	    if (data.PersistentData[layerParamsKey] !== currentParams) {
+	        if (tempCanvas.width !== bboxWidth || tempCanvas.height !== bboxHeight) {
+	            tempCanvas.width = bboxWidth;
+	            tempCanvas.height = bboxHeight;
+	        }
+	        const ctx = tempCanvas.getContext("2d");
+	        ctx.clearRect(0, 0, bboxWidth, bboxHeight);
+	        ctx.save();
+	        ctx.globalAlpha = displayOpacity;
+	        ctx.translate(bboxWidth / 2, bboxHeight / 2);
+	        ctx.rotate(rad);
+	        ctx.scale(mirrorH ? -1 : 1, mirrorV ? -1 : 1);
+	        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+	        ctx.restore();
+	        data.PersistentData[layerParamsKey] = currentParams;
+	    }
+	    const drawX = X + offsetX - (bboxWidth - width) / 2;
+	    const drawY = Y + offsetY - (bboxHeight - height) / 2;
+	    drawCanvas(tempCanvas, drawX, drawY);
+	    drawCanvasBlink(tempCanvas, drawX, drawY);
+	}
+
 	function setupLoginBadge(HookManager) {
 	    HookManager.progressiveHook("LoginDoNextThankYou")
 	        .next()
@@ -2309,48 +2427,178 @@
 	            next(args);
 	        });
 	}
-	function returnToListFromSubview() {
-	    if (currentEditTexture >= 0) {
-	        const item = DialogFocusItem;
-	        if (item) {
-	            if (!item.Property) item.Property = { Textures: [] };
-	            if (!item.Property.Textures) item.Property.Textures = [];
-	            if (originalEditTexture) {
-	                item.Property.Textures[currentEditTexture] = { ...originalEditTexture };
-	            } else {
-	                item.Property.Textures.splice(currentEditTexture, 1);
-	            }
-	            syncItemToServer(item);
-	            const C = CharacterGetCurrent();
-	            if (C) CharacterRefresh(C, false, false);
-	        }
-	    }
-	    currentEditTexture = -1;
-	    tempTextureData = null;
-	    originalEditTexture = null;
-	    originalOverridePriority = undefined;
-	    pendingDomainToAdd = null;
-	    currentView = "list";
-	    [INPUT_URL, INPUT_OFFSET_X, INPUT_OFFSET_Y, INPUT_SCALE, INPUT_ROTATION, INPUT_OPACITY, INPUT_PRIORITY].forEach(id => ElementRemove(id));
-	}
+
 	function setupDialogHooks(HookManager) {
 	    if (typeof DrawAssetGroupZone === "function") {
 	        HookManager.hookFunction("DrawAssetGroupZone", 0, (args, next) => {
-	            if (DialogFocusItem?.Asset?.Name === asset.Name) return;
+	            if (DialogFocusItem?.Asset?.Name === ASSET_NAME) return;
+	            return next(args);
+	        });
+	    }
+	    if (typeof DialogClickedInZone === "function") {
+	        HookManager.hookFunction("DialogClickedInZone", 0, (args, next) => {
+	            if (DialogFocusItem?.Asset?.Name === ASSET_NAME && state.currentEditTexture >= 0) {
+	                return false;
+	            }
 	            return next(args);
 	        });
 	    }
 	    if (typeof DialogLeaveFocusItem === "function") {
 	        HookManager.hookFunction("DialogLeaveFocusItem", 0, (args, next) => {
 	            const item = DialogFocusItem;
-	            const inSubview = currentEditTexture >= 0 || currentView !== "list";
-	            if (item?.Asset?.Name === asset.Name && inSubview) {
+	            const inSubview = state.currentEditTexture >= 0 || state.currentView !== "list";
+	            if (item?.Asset?.Name === ASSET_NAME && inSubview) {
 	                returnToListFromSubview();
 	                return;
 	            }
 	            return next(args);
 	        });
 	    }
+	}
+
+	const asset = {
+	    Name: ASSET_NAME,
+	    Random: false,
+	    Left: 125,
+	    Top: 225,
+	    ParentGroup: {},
+	    Priority: 50,
+	    PoseMapping: {},
+	    DynamicGroupName: "ItemMisc",
+	    AllowColorize: false,
+	    Extended: true,
+	    Layer: LAYER_NAMES.map(name => ({ Name: name, AllowColorize: false }))
+	};
+	const translation = {
+	    CN: "自定义贴图",
+	    EN: "Custom Texture"
+	};
+	const layerNames = {
+	    CN: Object.fromEntries(LAYER_NAMES.map((name, i) => [name, `图层${i + 1}`])),
+	    EN: Object.fromEntries(LAYER_NAMES.map(name => [name, name]))
+	};
+	const extended = {
+	    Archetype: "noarch",
+	    DrawImages: false,
+	    BaselineProperty: {
+	        Textures: [],
+	        HideEmoticon: false,
+	        HideCosplay: false,
+	        HideFacial: false,
+	        HideBody: false,
+	        HideClothing: false,
+	        HideItems: false,
+	        Hide: []
+	    },
+	    ScriptHooks: {
+	        Load: (data, originalFunction) => {
+	            originalFunction();
+	            const item = DialogFocusItem;
+	            if (!item) return;
+	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+	            if (!item.Property.Textures) item.Property.Textures = [];
+	            for (const cat of HIDE_CATEGORIES) {
+	                if (item.Property[cat.key] === undefined) item.Property[cat.key] = false;
+	            }
+	            updateHideArray(item);
+	            state.currentEditTexture = -1;
+	            state.tempTextureData = null;
+	            state.originalEditTexture = null;
+	            state.originalOverridePriority = undefined;
+	            state.currentListPage = 0;
+	            state.currentView = "list";
+	            state._pendingTextureRefresh = false;
+	            resetDragState();
+	            createEditPanelDomInputs();
+	            positionEditPanelInputs(false);
+	        },
+	        Draw: (data, originalFunction) => {
+	            originalFunction();
+	            const item = DialogFocusItem;
+	            if (!item) return;
+	            if (state.currentView === "addDomainConfirm") {
+	                drawAddDomainConfirm();
+	            } else if (state.currentEditTexture >= 0) {
+	                drawTextureEditPanel(item, state.currentEditTexture);
+	            } else if (state.currentView === "hide") {
+	                drawHideSettings(item);
+	            } else {
+	                drawTextureListMain(item);
+	            }
+	            positionEditPanelInputs(state.currentEditTexture >= 0);
+	        },
+	        Click: (data, originalFunction) => {
+	            originalFunction();
+	            const item = DialogFocusItem;
+	            if (!item) return;
+	            if (state.currentView === "addDomainConfirm") {
+	                handleAddDomainConfirmClick();
+	            } else if (state.currentEditTexture >= 0) {
+	                handleTextureEditClick(item, state.currentEditTexture);
+	            } else if (state.currentView === "hide") {
+	                handleHideSettingsClick(item);
+	            } else {
+	                handleTextureListClick(item, data);
+	            }
+	        },
+	        Exit: (data) => {
+	            if (state.currentEditTexture >= 0) {
+	                const item = DialogFocusItem;
+	                const originalTexture = data.PersistentData?._originalTexture;
+	                if (item && originalTexture) {
+	                    if (!item.Property) item.Property = { Textures: [] };
+	                    if (!item.Property.Textures) item.Property.Textures = [];
+	                    item.Property.Textures[state.currentEditTexture] = { ...originalTexture };
+	                    if (state.originalOverridePriority !== undefined) {
+	                        item.Property.OverridePriority = JSON.parse(JSON.stringify(state.originalOverridePriority));
+	                    } else {
+	                        delete item.Property.OverridePriority;
+	                    }
+	                    syncItemToServer(item);
+	                    const C = CharacterGetCurrent();
+	                    if (C) CharacterRefresh(C, false, false);
+	                }
+	            }
+	            state.currentEditTexture = -1;
+	            state.tempTextureData = null;
+	            state.originalEditTexture = null;
+	            state.originalOverridePriority = undefined;
+	            state.currentListPage = 0;
+	            state.currentView = "list";
+	            resetDragState();
+	            removeEditPanelInputs();
+	        },
+	        AfterDraw: (data, originalFunction, drawData) => {
+	            renderTexture(data, originalFunction, drawData);
+	        }
+	    }
+	};
+	function register(AssetManager) {
+	    AssetManager.addAssetWithConfig(ALL_ITEM_GROUPS, asset, {
+	        layerNames,
+	        extended,
+	        translation,
+	        assetStrings
+	    });
+	    const previewMappings = {};
+	    for (const group of ALL_ITEM_GROUPS) {
+	        previewMappings[`Assets/Female3DCG/${group}/Preview/${asset.Name}.png`] = BADGE_IMAGE_URL;
+	    }
+	    AssetManager.addImageMapping(previewMappings);
+	    const allAllowHide = ALL_HIDEABLE_GROUPS;
+	    AssetManager.afterLoad(() => {
+	        for (const group of ALL_ITEM_GROUPS) {
+	            const assetObj = AssetGet("Female3DCG", group, asset.Name);
+	            if (assetObj) {
+	                assetObj.AllowHide = allAllowHide;
+	                if (assetObj.Wear === undefined) assetObj.Wear = true;
+	                if (assetObj.Enable === undefined) assetObj.Enable = true;
+	            }
+	        }
+	        if (typeof CraftingAssetsPopulate === "function") {
+	            CraftingAssets = CraftingAssetsPopulate();
+	        }
+	    });
 	}
 
 	const assets = [
