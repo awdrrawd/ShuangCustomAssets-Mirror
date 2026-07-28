@@ -13,12 +13,203 @@ import {
     URL_INPUT_ID, OPACITY_SLIDER_ID, OPACITY_SLIDER_X, OPACITY_SLIDER_W,
     INPUT_OPACITY,
     TEXTURE_REFRESH_INTERVAL, TEXTURE_DRAG_REFRESH_INTERVAL,
-    stepperPress
+    stepperPress,
+    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_TOGGLE_X, POSE_TOGGLE_W, POSE_TOGGLE_H
 } from "./constants.js";
 import { state, resetDragState } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
 import { L, isChineseLang, getCorsImage, Logger } from "@lib/utils.js";
 import { isUrlAllowed, isDomainInWhitelist, extractDomain } from "./settings.js";
+
+/**
+ * 获取当前编辑目标对象（全局配置或姿势独立配置）
+ * 这是姿势感知编辑的核心抽象：根据 state.poseEditing 决定读写哪个对象
+ * - poseEditing 非 null 且对应 PoseSettings 存在：返回该姿势的独立配置对象
+ * - 否则：返回 tempTextureData（全局配置）
+ * @returns {object|null}
+ */
+export function getEditTarget() {
+    if (state.poseEditing && state.tempTextureData?.PoseSettings?.[state.poseEditing]) {
+        return state.tempTextureData.PoseSettings[state.poseEditing];
+    }
+    return state.tempTextureData;
+}
+
+/**
+ * 刷新所有 DOM 输入框（贴图网址、6 个数值字段、透明度滑桿）以反映当前编辑目标
+ * 在切换姿势编辑模式时调用，确保界面显示正确的值
+ */
+export function refreshEditInputs() {
+    const target = getEditTarget();
+    if (!target) return;
+
+    // 贴图网址输入框
+    const urlInput = document.getElementById(URL_INPUT_ID);
+    if (urlInput) urlInput.value = target.TextureURL || "";
+
+    // 6 个数值输入框（图层优先级不随姿势变化，始终读取 tempPriority）
+    for (const field of STEPPER_FIELDS) {
+        const input = document.getElementById(field.id);
+        if (input) input.value = String(getFieldValue(field));
+    }
+
+    // 透明度滑桿
+    const opacitySlider = document.getElementById(OPACITY_SLIDER_ID);
+    if (opacitySlider) {
+        const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
+        opacitySlider.value = String(getFieldValue(opacityField));
+    }
+
+    state._fieldsDirty = true;
+}
+
+/**
+ * 从全局配置继承所有字段，生成姿势独立配置的初始对象
+ * @returns {object}
+ */
+function inheritGlobalFields() {
+    const g = state.tempTextureData;
+    return {
+        enabled: true,
+        TextureURL: g?.TextureURL || "",
+        OffsetX: g?.OffsetX ?? 1,
+        OffsetY: g?.OffsetY ?? 1,
+        Scale: g?.Scale ?? 100,
+        Rotation: g?.Rotation ?? 0,
+        Opacity: g?.Opacity ?? 100,
+        MirrorH: g?.MirrorH === true,
+        MirrorV: g?.MirrorV === true
+    };
+}
+
+/**
+ * 进入姿势独立配置编辑模式
+ * 如果该姿势的 PoseSettings 不存在，则从全局配置继承创建
+ * @param {string} poseKey - 姿势键名（如 "Yoked" 或 "Yoked+Kneel"）
+ */
+export function enterPoseEditing(poseKey) {
+    if (!state.tempTextureData) return;
+    if (!state.tempTextureData.PoseSettings) {
+        state.tempTextureData.PoseSettings = {};
+    }
+    if (!state.tempTextureData.PoseSettings[poseKey]) {
+        state.tempTextureData.PoseSettings[poseKey] = inheritGlobalFields();
+    }
+    state.poseEditing = poseKey;
+    refreshEditInputs();
+}
+
+/**
+ * 退出姿势独立配置编辑模式（仅切回全局视图，不删除已编辑的姿势配置）
+ * 姿势配置在 tempTextureData 中保留，直到玩家点击保存（提交）或取消（还原原始数据）
+ */
+export function exitPoseEditing() {
+    state.poseEditing = null;
+    refreshEditInputs();
+}
+
+/**
+ * 禁用并删除某个姿势的独立配置（点击开关"关"时调用）
+ * @param {string} poseKey - 要删除的姿势键名
+ */
+export function deletePoseEditing(poseKey) {
+    if (state.tempTextureData?.PoseSettings?.[poseKey]) {
+        delete state.tempTextureData.PoseSettings[poseKey];
+    }
+    if (state.poseEditing === poseKey) {
+        state.poseEditing = null;
+    }
+    refreshEditInputs();
+}
+
+/**
+ * 切换到另一个姿势的编辑视图
+ * - 如果新姿势已有 enabled 的独立配置：切换到编辑该姿势配置
+ * - 如果新姿势没有独立配置：切回全局编辑模式（保留旧姿势的配置不删除）
+ * - newPoseKey 为 null（基础站姿）：切回全局编辑模式
+ * @param {string|null} newPoseKey - 新姿势键名
+ */
+export function switchPose(newPoseKey) {
+    if (!newPoseKey) {
+        exitPoseEditing();
+        return;
+    }
+    if (state.poseEditing === newPoseKey) return;
+    if (!state.tempTextureData) return;
+
+    // 仅当新姿势已有 enabled 的独立配置时才切换到姿势编辑模式
+    const ps = state.tempTextureData.PoseSettings?.[newPoseKey];
+    if (ps && ps.enabled === true) {
+        state.poseEditing = newPoseKey;
+    } else {
+        // 新姿势没有独立配置，切回全局编辑（旧姿势配置保留在 tempTextureData 中）
+        state.poseEditing = null;
+    }
+    refreshEditInputs();
+}
+
+/**
+ * 绘制姿势信息栏：显示当前角色姿势名称 + 独立配置开关按钮
+ * 位于编辑面板底部（POSE_BAR_Y=835），在图层优先级字段下方
+ */
+export function drawPoseBar() {
+    const C = CharacterGetCurrent();
+    const poseKey = getPoseKey(C?.DrawPose);
+
+    // 显示当前姿势名称（所有姿势统一逻辑：拆分组合键，逐个翻译后用 " + " 连接）
+    let poseText;
+    if (poseKey) {
+        const labels = poseKey.split("+").map(p => {
+            const label = POSE_LABELS[p];
+            return label ? L(label.cn, label.en) : p;
+        });
+        poseText = L("当前姿势: ", "Current pose: ") + labels.join(" + ");
+    } else {
+        poseText = L("当前姿势: 未知", "Current pose: Unknown");
+    }
+    DrawText(poseText, 1100, POSE_BAR_Y, "White", "Gray");
+
+    // 始终显示独立配置开关按钮（包括基础站姿）
+    if (poseKey) {
+        // 开关状态：当前正在编辑此姿势 OR 此姿势已有 enabled 的独立配置
+        const ps = state.tempTextureData?.PoseSettings?.[poseKey];
+        const isEnabled = state.poseEditing === poseKey || (ps && ps.enabled === true);
+        const btnText = isEnabled
+            ? L("独立配置: 开", "Pose Override: On")
+            : L("独立配置: 关", "Pose Override: Off");
+        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+            POSE_TOGGLE_W, POSE_TOGGLE_H,
+            btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
+    }
+
+    // 姿势编辑模式下显示提示文字
+    if (state.poseEditing) {
+        DrawText(L("[编辑姿势配置]", "[Editing Pose Override]"),
+            1100, POSE_BAR_Y + 25, "Yellow", "Black");
+    }
+}
+
+/**
+ * 处理姿势信息栏的点击：切换独立配置开关
+ * @returns {boolean} 是否命中并处理了开关按钮
+ */
+export function handlePoseBarClick() {
+    const C = CharacterGetCurrent();
+    const poseKey = getPoseKey(C?.DrawPose);
+
+    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+            POSE_TOGGLE_W, POSE_TOGGLE_H)) {
+        if (state.poseEditing === poseKey) {
+            // 当前正在编辑此姿势的独立配置 -> 关闭并删除配置
+            deletePoseEditing(poseKey);
+        } else {
+            // 开启此姿势的独立配置（从全局继承）
+            enterPoseEditing(poseKey);
+        }
+        return true;
+    }
+    return false;
+}
 
 /**
  * 步进按钮：初始化鼠标/触摸事件监听器（仅执行一次）
@@ -56,7 +247,8 @@ export function setupStepperListeners() {
  */
 export function getFieldValue(field) {
     if (field.prop === null) return state.tempPriority;
-    const v = state.tempTextureData ? state.tempTextureData[field.prop] : undefined;
+    const target = getEditTarget();
+    const v = target ? target[field.prop] : undefined;
     return typeof v === "number" && !isNaN(v) ? v : field.def;
 }
 
@@ -75,10 +267,13 @@ export function setFieldValue(field, value) {
             state.tempPriority = value;
             state._fieldsDirty = true;
         }
-    } else if (state.tempTextureData) {
-        if (state.tempTextureData[field.prop] !== value) {
-            state.tempTextureData[field.prop] = value;
-            state._fieldsDirty = true;
+    } else {
+        const target = getEditTarget();
+        if (target) {
+            if (target[field.prop] !== value) {
+                target[field.prop] = value;
+                state._fieldsDirty = true;
+            }
         }
     }
 
@@ -113,8 +308,9 @@ export function applyStepperChange(field, delta) {
 export function drawMirrorRow() {
     DrawText(L("镜像", "Mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
 
-    const mirrorH = state.tempTextureData?.MirrorH === true;
-    const mirrorV = state.tempTextureData?.MirrorV === true;
+    const target = getEditTarget();
+    const mirrorH = target?.MirrorH === true;
+    const mirrorV = target?.MirrorV === true;
 
     DrawButton(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
         L("水平", "H-Flip"), mirrorH ? "#4CAF50" : "White", null,
@@ -130,16 +326,17 @@ export function drawMirrorRow() {
  * @returns {boolean} 是否命中并处理了某个按钮
  */
 export function handleMirrorRowClick() {
-    if (!state.tempTextureData) return false;
+    const target = getEditTarget();
+    if (!target) return false;
 
     if (MouseIn(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
-        state.tempTextureData.MirrorH = !(state.tempTextureData.MirrorH === true);
+        target.MirrorH = !(target.MirrorH === true);
         state._fieldsDirty = true;
         return true;
     }
 
     if (MouseIn(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
-        state.tempTextureData.MirrorV = !(state.tempTextureData.MirrorV === true);
+        target.MirrorV = !(target.MirrorV === true);
         state._fieldsDirty = true;
         return true;
     }
@@ -187,7 +384,12 @@ export function handleMoveButtonClick() {
  * 拖动范围限制在角色预览区域（虚拟画布坐标 0~1000, 0~1000），避免与右侧功能面板冲突
  */
 export function updateDragMove() {
-    if (!state.isDragMode || !state.tempTextureData) {
+    if (!state.isDragMode) {
+        state.dragActive = false;
+        return;
+    }
+    const target = getEditTarget();
+    if (!target) {
         state.dragActive = false;
         return;
     }
@@ -204,17 +406,17 @@ export function updateDragMove() {
         state.dragActive = true;
         state.dragStartMouseX = MouseX;
         state.dragStartMouseY = MouseY;
-        state.dragStartOffsetX = parseInt(state.tempTextureData.OffsetX) || 0;
-        state.dragStartOffsetY = parseInt(state.tempTextureData.OffsetY) || 0;
+        state.dragStartOffsetX = parseInt(target.OffsetX) || 0;
+        state.dragStartOffsetY = parseInt(target.OffsetY) || 0;
         return;
     }
 
     // 持续拖拽中：按鼠标位移量实时更新偏移
     const newOffsetX = Math.round(state.dragStartOffsetX + (MouseX - state.dragStartMouseX));
     const newOffsetY = Math.round(state.dragStartOffsetY + (MouseY - state.dragStartMouseY));
-    if (state.tempTextureData.OffsetX !== newOffsetX || state.tempTextureData.OffsetY !== newOffsetY) {
-        state.tempTextureData.OffsetX = newOffsetX;
-        state.tempTextureData.OffsetY = newOffsetY;
+    if (target.OffsetX !== newOffsetX || target.OffsetY !== newOffsetY) {
+        target.OffsetX = newOffsetX;
+        target.OffsetY = newOffsetY;
         state._fieldsDirty = true;
     }
 }
@@ -234,10 +436,11 @@ export function createEditPanelDomInputs() {
         const input = ElementCreateInput(URL_INPUT_ID, "text", "", 1000);
         input.placeholder = L("请输入贴图网址（需以 https:// 开头）", "Enter image URL (must start with https://)");
         input.addEventListener("input", () => {
-            if (!state.tempTextureData) return;
+            const target = getEditTarget();
+            if (!target) return;
             const newUrl = input.value.trim();
-            if (state.tempTextureData.TextureURL !== newUrl) {
-                state.tempTextureData.TextureURL = newUrl;
+            if (target.TextureURL !== newUrl) {
+                target.TextureURL = newUrl;
                 state._fieldsDirty = true;
             }
         });
@@ -258,9 +461,10 @@ export function createEditPanelDomInputs() {
                     state.tempPriority = parsed;
                     state._fieldsDirty = true;
                 }
-            } else if (state.tempTextureData) {
-                if (state.tempTextureData[field.prop] !== parsed) {
-                    state.tempTextureData[field.prop] = parsed;
+            } else {
+                const target = getEditTarget();
+                if (target && target[field.prop] !== parsed) {
+                    target[field.prop] = parsed;
                     state._fieldsDirty = true;
                 }
             }
@@ -278,10 +482,11 @@ export function createEditPanelDomInputs() {
     if (!document.getElementById(OPACITY_SLIDER_ID)) {
         const slider = ElementCreateRangeInput(OPACITY_SLIDER_ID, 100, 0, 100, 1);
         slider.addEventListener("input", () => {
-            if (!state.tempTextureData) return;
+            const target = getEditTarget();
+            if (!target) return;
             const v = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
-            if (state.tempTextureData.Opacity !== v) {
-                state.tempTextureData.Opacity = v;
+            if (target.Opacity !== v) {
+                target.Opacity = v;
                 state._fieldsDirty = true;
             }
             // 同步更新数值输入框
@@ -412,6 +617,10 @@ export function drawStepperButton(x, y, icon) {
  */
 export function createEditInputs(texture) {
     state._fieldsDirty = false;
+    // 重置姿势编辑状态：进入新图层编辑时始终从全局配置开始
+    state.poseEditing = null;
+    state.tempGlobalData = null;
+    state.lastPoseKey = null; // 下一帧 drawTextureEditPanel 会检测到变化并自动切换
 
     // 图层优先级：读取 item.Property.OverridePriority，与 BC 原生 Layering 界面同步
     const item = DialogFocusItem;
@@ -455,6 +664,17 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     // "移动"拖拽模式：每帧检测鼠标/触摸拖拽状态，实时更新 OffsetX/OffsetY
     updateDragMove();
 
+    // 检测姿势变化：角色姿势改变时自动切换编辑目标
+    // 用 lastPoseKey 追踪实际姿势变化，而非 poseEditing（poseEditing 为 null 时也需要检测）
+    const C = CharacterGetCurrent();
+    const currentPoseKey = getPoseKey(C?.DrawPose);
+    if (state.lastPoseKey !== currentPoseKey) {
+        state.lastPoseKey = currentPoseKey;
+        // switchPose 会检查新姿势是否有 enabled 的独立配置：
+        // 有则切换到姿势编辑，无则切回全局编辑
+        switchPose(currentPoseKey);
+    }
+
     if (state.tempTextureData) {
         // X偏移/Y偏移/缩放/旋转/透明度/图层优先级/贴图网址：均由 stepper 按钮或 prompt 点击
         // 直接写入 tempTextureData / tempPriority，并将 _fieldsDirty 置为 true，这里统一同步
@@ -468,7 +688,7 @@ export function drawTextureEditPanel(item, textureIndex, data) {
             const newUrl = state.tempTextureData.TextureURL || "";
             const urlChanged = previousUrl !== newUrl;
 
-            item.Property.Textures[textureIndex] = { ...state.tempTextureData };
+            item.Property.Textures[textureIndex] = JSON.parse(JSON.stringify(state.tempTextureData));
 
             // 图层优先级：写入 item.Property.OverridePriority，与 BC 原生 Layering 界面同步
             const layerName = LAYER_NAMES[textureIndex];
@@ -508,6 +728,9 @@ export function drawTextureEditPanel(item, textureIndex, data) {
             }
         }
     }
+
+    // 姿势信息栏：显示当前姿势 + 独立配置开关
+    drawPoseBar();
 
     // 标题：id1 (1430,340,140,39.65) -> 中心点 (1500,360)
     DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
@@ -556,6 +779,11 @@ export function drawTextureEditPanel(item, textureIndex, data) {
 export function handleTextureEditClick(item, textureIndex, data) {
     // 贴图网址框现为真实 DOM <input>，点击/输入由浏览器原生处理，不再需要 canvas 点击检测
 
+    // 姿势信息栏：独立配置开关
+    if (handlePoseBarClick()) {
+        return;
+    }
+
     // 可信域名按钮（与贴图 URL 同一行，固定位置，不随其他字段变化）
     const currentUrl = state.tempTextureData?.TextureURL || "";
     if (currentUrl && !isDomainInWhitelist(currentUrl)) {
@@ -567,6 +795,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
             state.tempTextureData = null;
             state.originalOverridePriority = undefined;
             state._pendingTextureRefresh = false;
+            state.poseEditing = null;
+            state.tempGlobalData = null;
             resetDragState();
             return;
         }
@@ -593,6 +823,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
         state.originalOverridePriority = undefined;
         state._pendingTextureRefresh = false;
         state.currentListPage = 0;
+        state.poseEditing = null;
+        state.tempGlobalData = null;
         resetDragState();
         syncItemToServer(item);
         const C = CharacterGetCurrent();
@@ -602,27 +834,24 @@ export function handleTextureEditClick(item, textureIndex, data) {
 
     // 确认保存（右上角图标按钮）
     if (MouseIn(1885, 135, 90, 90)) {
-        const finalTexture = {
-            TextureURL: state.tempTextureData?.TextureURL?.trim() || "",
-            OffsetX: parseInt(state.tempTextureData?.OffsetX) || 0,
-            OffsetY: parseInt(state.tempTextureData?.OffsetY) || 0,
-            Scale: parseInt(state.tempTextureData?.Scale) || 100,
-            Rotation: parseInt(state.tempTextureData?.Rotation) || 0,
-            Opacity: Math.max(0, Math.min(100, parseInt(state.tempTextureData?.Opacity) || 100)),
-            MirrorH: state.tempTextureData?.MirrorH === true,
-            MirrorV: state.tempTextureData?.MirrorV === true
-        };
+        // 深拷贝 tempTextureData（保留 PoseSettings 结构），再逐字段清理类型
+        const finalTexture = JSON.parse(JSON.stringify(state.tempTextureData));
+        // Clean up: ensure numeric fields are numbers, booleans are booleans
+        finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
+        finalTexture.OffsetX = parseInt(state.tempTextureData?.OffsetX) || 0;
+        finalTexture.OffsetY = parseInt(state.tempTextureData?.OffsetY) || 0;
+        finalTexture.Scale = parseInt(state.tempTextureData?.Scale) || 100;
+        finalTexture.Rotation = parseInt(state.tempTextureData?.Rotation) || 0;
+        finalTexture.Opacity = Math.max(0, Math.min(100, parseInt(state.tempTextureData?.Opacity) || 100));
+        finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
+        finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
+        // Preserve Visible
+        const existing = item.Property.Textures[textureIndex];
+        finalTexture.Visible = (existing && existing.Visible !== undefined) ? existing.Visible : true;
+        // PoseSettings is already in finalTexture from the deep copy
 
         if (!item.Property) item.Property = { Textures: [] };
         if (!item.Property.Textures) item.Property.Textures = [];
-
-        // 保留 Visible 字段
-        const existing = item.Property.Textures[textureIndex];
-        if (existing && existing.Visible !== undefined) {
-            finalTexture.Visible = existing.Visible;
-        } else {
-            finalTexture.Visible = true;
-        }
 
         item.Property.Textures[textureIndex] = finalTexture;
 
@@ -641,6 +870,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
         state.originalOverridePriority = undefined;
         state._pendingTextureRefresh = false;
         state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
+        state.poseEditing = null;
+        state.tempGlobalData = null;
         resetDragState();
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false, false);

@@ -284,10 +284,11 @@ export function handleTextureListClick(item, data) {
         // 编辑按钮
         if (MouseIn(1740, y, 100, 40)) {
             state.currentEditTexture = i;
-            state.tempTextureData = { ...textures[i] };
-            state.originalEditTexture = { ...textures[i] };
+            // 深拷贝：PoseSettings 是引用类型，浅拷贝会导致取消编辑时无法还原
+            state.tempTextureData = JSON.parse(JSON.stringify(textures[i]));
+            state.originalEditTexture = JSON.parse(JSON.stringify(textures[i]));
             if (!data.PersistentData) data.PersistentData = {};
-            data.PersistentData._originalTexture = { ...textures[i] };
+            data.PersistentData._originalTexture = JSON.parse(JSON.stringify(textures[i]));
             createEditInputs(textures[i]);
             resetDragState();
             return;
@@ -307,13 +308,14 @@ export function handleTextureListClick(item, data) {
     if (textures.length < MAX_TEXTURE_COUNT) {
         const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
         if (MouseIn(1450, addBtnY, 90, 90)) {
-            const newTexture = { ...DEFAULT_TEXTURE };
+            // 深拷贝 DEFAULT_TEXTURE，避免 PoseSettings 引用共享
+            const newTexture = JSON.parse(JSON.stringify(DEFAULT_TEXTURE));
             item.Property.Textures.push(newTexture);
             state.currentEditTexture = textures.length - 1;
-            state.tempTextureData = { ...newTexture };
+            state.tempTextureData = JSON.parse(JSON.stringify(newTexture));
             state.originalEditTexture = null; // 新增的图层没有「原始数据」，退出=删除该空图层
             if (!data.PersistentData) data.PersistentData = {};
-            data.PersistentData._originalTexture = { ...newTexture };
+            data.PersistentData._originalTexture = JSON.parse(JSON.stringify(newTexture));
             createEditInputs(newTexture);
             resetDragState();
             return;
@@ -390,8 +392,8 @@ export function returnToListFromSubview() {
             if (!item.Property) item.Property = { Textures: [] };
             if (!item.Property.Textures) item.Property.Textures = [];
             if (state.originalEditTexture) {
-                // 编辑已存在图层：还原
-                item.Property.Textures[state.currentEditTexture] = { ...state.originalEditTexture };
+                // 编辑已存在图层：深拷贝还原（避免 PoseSettings 引用共享）
+                item.Property.Textures[state.currentEditTexture] = JSON.parse(JSON.stringify(state.originalEditTexture));
             } else {
                 // 新增但未确认的图层：取消即移除
                 item.Property.Textures.splice(state.currentEditTexture, 1);

@@ -10,8 +10,10 @@ export const ASSET_NAME = "自定义贴图";
 
 /**
  * 单个贴图的默认属性
+ * 全局设置作为所有姿势的默认值，PoseSettings 按姿势独立开启覆盖
  */
 export const DEFAULT_TEXTURE = {
+    // === 全局设置（所有姿势共用）===
     TextureURL: "",
     OffsetX: 1,
     OffsetY: 1,
@@ -20,7 +22,12 @@ export const DEFAULT_TEXTURE = {
     Visible: true,   // 可见开关
     Opacity: 100,    // 透明度（0-100）
     MirrorH: false,  // 水平镜射
-    MirrorV: false   // 垂直镜射
+    MirrorV: false,  // 垂直镜射
+    // === 姿势设置 ===
+    // 每个姿势可独立开启，开启后其设置覆盖全局
+    // 未设置的字段自动回退到全局值
+    // 格式: { "Yoked": { enabled: true, OffsetX: 15, TextureURL: "..." }, ... }
+    PoseSettings: {}
 };
 
 /**
@@ -35,6 +42,82 @@ export const DEFAULT_PROPS = {
     HideClothing: false,   // 隐藏服饰
     HideItems: false       // 隐藏拘束道具
 };
+
+// === 姿势分类 ===
+// BC 的姿势系统按 Category 分为上半身(手臂)、下半身(腿)、全身三类
+// 手臂和腿部姿势可两两组合；全身姿势覆盖手臂和腿部姿势
+export const POSE_CATEGORIES = {
+    BodyUpper: {
+        label: "手部姿势",
+        labelEn: "Arm Pose",
+        poses: ["BaseUpper", "Yoked", "OverTheHead", "BackBoxTie", "BackElbowTouch", "BackCuffs"]
+    },
+    BodyLower: {
+        label: "腿部姿势",
+        labelEn: "Leg Pose",
+        poses: ["BaseLower", "Kneel", "KneelingSpread", "LegsClosed", "Spread"]
+    },
+    BodyFull: {
+        label: "全身姿势",
+        labelEn: "Full Body Pose",
+        poses: ["Hogtied", "AllFours"]
+    }
+};
+
+// 所有姿势名（扁平数组，用于快速查找）
+export const ALL_POSE_NAMES = Object.values(POSE_CATEGORIES).flatMap(c => c.poses);
+
+// 姿势中文/英文标签（用于 UI 显示）
+export const POSE_LABELS = {
+    BaseUpper:      { cn: "基础手势",   en: "Arms Down" },
+    Yoked:          { cn: "举手",       en: "Yoked" },
+    OverTheHead:    { cn: "高举双手",   en: "Over The Head" },
+    BackBoxTie:     { cn: "轻松背手",   en: "Box Tie" },
+    BackElbowTouch: { cn: "紧绷背手",   en: "Elbow Touch" },
+    BackCuffs:      { cn: "背后手铐",   en: "Back Cuffs" },
+    BaseLower:      { cn: "站立",       en: "Standing" },
+    Kneel:          { cn: "跪姿",       en: "Kneel" },
+    KneelingSpread: { cn: "跪地张腿",   en: "Kneeling Spread" },
+    LegsClosed:     { cn: "站立闭合",       en: "Legs Closed" },
+    Spread:         { cn: "站立张腿",       en: "Spread" },
+    Hogtied:        { cn: "仰卧",       en: "Hogtied" },
+    AllFours:       { cn: "四肢着地",   en: "All Fours" }
+};
+
+/**
+ * 根据角色当前姿势生成 PoseSettings 的键名
+ * - 全身姿势：直接返回姿势名（如 "Hogtied"）
+ * - 上身+下身组合：返回 "Upper+Lower"（如 "Yoked+Kneel"、"BaseUpper+BaseLower"）
+ * - 基础站姿也返回键名 "BaseUpper+BaseLower"，不区分特殊处理
+ * @param {string[]} drawPose - C.DrawPose 数组
+ * @returns {string|null}
+ */
+export function getPoseKey(drawPose) {
+    if (!drawPose || drawPose.length === 0) return null;
+
+    const fullPoses = POSE_CATEGORIES.BodyFull.poses;
+    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+
+    // 全身姿势优先
+    const fullPose = drawPose.find(p => fullPoses.includes(p));
+    if (fullPose) return fullPose;
+
+    // 上下身组合（包含 BaseUpper/BaseLower）
+    const upperPose = drawPose.find(p => upperPoses.includes(p));
+    const lowerPose = drawPose.find(p => lowerPoses.includes(p));
+
+    if (upperPose && lowerPose) return `${upperPose}+${lowerPose}`;
+    if (upperPose) return upperPose;
+    if (lowerPose) return lowerPose;
+    return null;
+}
+
+// 姿势信息栏 UI 坐标
+export const POSE_BAR_Y = 860;           // 姿势信息行 Y 坐标（底部，图层优先级字段下方）
+export const POSE_TOGGLE_X = 1435;       // 独立配置开关按钮 X 坐标
+export const POSE_TOGGLE_W = 180;        // 独立配置开关按钮宽度
+export const POSE_TOGGLE_H = 35;         // 独立配置开关按钮高度
 
 // 每页显示的贴图数量
 export const TEXTURES_PER_PAGE = 6;

@@ -3,11 +3,44 @@
  * 提取自 extended.AfterDraw hook，每图层渲染自定义贴图
  */
 
-import { LAYER_NAMES, ASSETS_CDN_PRIMARY } from "./constants.js";
+import { LAYER_NAMES, ASSETS_CDN_PRIMARY, POSE_CATEGORIES, getPoseKey } from "./constants.js";
 import { resolveFixedAssetUrl } from "./cdnFallback.js";
 import { updateHideArray } from "./hideArray.js";
 import { getCorsImage } from "@lib/utils.js";
 import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled } from "./settings.js";
+
+/**
+ * 解析当前姿势下的有效渲染参数
+ * 通过 getPoseKey 生成姿势组合键，在 PoseSettings 中查找对应的独立配置
+ * - 找到且 enabled=true：用独立配置覆盖全局（未设置的字段回退到全局）
+ * - 未找到或未启用：使用全局配置
+ * @param {object} texture - 贴图配置（含 PoseSettings）
+ * @param {string[]} drawPose - C.DrawPose 数组
+ * @returns {object} 合并后的渲染参数
+ */
+function resolvePoseParams(texture, drawPose) {
+    const base = {
+        TextureURL: texture.TextureURL ?? "",
+        Visible: texture.Visible ?? true,
+        OffsetX: texture.OffsetX ?? 1,
+        OffsetY: texture.OffsetY ?? 1,
+        Scale: texture.Scale ?? 100,
+        Rotation: texture.Rotation ?? 0,
+        Opacity: texture.Opacity ?? 100,
+        MirrorH: texture.MirrorH ?? false,
+        MirrorV: texture.MirrorV ?? false
+    };
+
+    const poseKey = getPoseKey(drawPose);
+    if (!poseKey) return base;
+
+    const ps = texture.PoseSettings?.[poseKey];
+    if (!ps || ps.enabled !== true) return base;
+
+    // 合并：全局基底 + 姿势覆盖（排除 enabled 字段）
+    const { enabled, ...overrides } = ps;
+    return { ...base, ...overrides };
+}
 
 /**
  * 渲染单个图层的自定义贴图（由 extended.AfterDraw hook 调用）
@@ -44,16 +77,19 @@ export function renderTexture(data, originalFunction, drawData) {
     if (!textures || layerIndex >= textures.length) return;
 
     const texture = textures[layerIndex];
-    if (!texture || !texture.TextureURL) return;
-    // 不可见则跳过
-    if (texture.Visible === false) return;
+    if (!texture) return;
 
-    // 域名警告处理
+    // 解析当前姿势下的有效参数（可能覆盖 TextureURL、Visible 及所有数值字段）
+    const params = resolvePoseParams(texture, C.DrawPose);
+    if (!params.TextureURL) return;
+    if (params.Visible === false) return;
+
+    // 域名警告处理（检查解析后的 URL，支持姿势级切换不同图片源）
     const warnEnabled = getDomainWarningEnabled();
 
     let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity, mirrorH, mirrorV;
 
-    if (warnEnabled && !isDomainInWhitelist(texture.TextureURL)) {
+    if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
         // 不可信域名：使用固定参数显示警告图片
         imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
         offsetX = 167;
@@ -63,19 +99,19 @@ export function renderTexture(data, originalFunction, drawData) {
         displayOpacity = 1.0;
         mirrorH = false;
         mirrorV = false;
-    } else if (!isUrlAllowed(texture.TextureURL)) {
+    } else if (!isUrlAllowed(params.TextureURL)) {
         // 域不可信提示关闭（或不限制模式）：跳过渲染
         return;
     } else {
-        // 正常显示
-        imageUrl = texture.TextureURL;
-        offsetX = texture.OffsetX || 0;
-        offsetY = texture.OffsetY || 0;
-        scale = (texture.Scale || 100) / 100;
-        rotation = texture.Rotation || 0;
-        displayOpacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
-        mirrorH = texture.MirrorH === true;
-        mirrorV = texture.MirrorV === true;
+        // 正常显示：使用姿势解析后的参数
+        imageUrl = params.TextureURL;
+        offsetX = params.OffsetX || 0;
+        offsetY = params.OffsetY || 0;
+        scale = (params.Scale || 100) / 100;
+        rotation = params.Rotation || 0;
+        displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
+        mirrorH = params.MirrorH === true;
+        mirrorV = params.MirrorV === true;
     }
 
     // 固定资源（插件自身 CDN）：主源加载失败时自动回退到 Netlify 备用源

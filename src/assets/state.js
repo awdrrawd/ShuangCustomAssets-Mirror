@@ -35,6 +35,14 @@ export const state = {
     // === 字段变更标记 ===
     _fieldsDirty: false,
 
+    // === 姿势独立配置编辑 ===
+    // null = 编辑全局配置；非 null（如 "Yoked" 或 "Yoked+Kneel"）= 编辑该姿势的独立配置
+    poseEditing: null,
+    // 进入姿势编辑模式前的全局 tempTextureData 备份（切换回全局时恢复）
+    tempGlobalData: null,
+    // 上一帧的角色姿势键名，用于检测姿势变化并自动切换编辑目标
+    lastPoseKey: null,
+
     // === 鼠标/触摸按下状态（由 document 事件监听器维护） ===
     _pointerDown: false,
     _stepperListenerReady: false,

@@ -85,17 +85,24 @@ export function importConfig(item, mode) {
             }
 
             // 验证并清理数据
-            const validTextures = config.textures.map(t => ({
-                TextureURL: String(t.TextureURL || ""),
-                OffsetX: parseInt(t.OffsetX) || 0,
-                OffsetY: parseInt(t.OffsetY) || 0,
-                Scale: parseInt(t.Scale) || 100,
-                Rotation: parseInt(t.Rotation) || 0,
-                Visible: t.Visible !== false,
-                Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100)),
-                MirrorH: t.MirrorH === true,
-                MirrorV: t.MirrorV === true
-            }));
+            const validTextures = config.textures.map(t => {
+                const cleaned = {
+                    TextureURL: String(t.TextureURL || ""),
+                    OffsetX: parseInt(t.OffsetX) || 0,
+                    OffsetY: parseInt(t.OffsetY) || 0,
+                    Scale: parseInt(t.Scale) || 100,
+                    Rotation: parseInt(t.Rotation) || 0,
+                    Visible: t.Visible !== false,
+                    Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100)),
+                    MirrorH: t.MirrorH === true,
+                    MirrorV: t.MirrorV === true
+                };
+                // 保留姿势设置（验证为纯对象）
+                if (t.PoseSettings && typeof t.PoseSettings === "object" && !Array.isArray(t.PoseSettings)) {
+                    cleaned.PoseSettings = t.PoseSettings;
+                }
+                return cleaned;
+            });
 
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             if (!item.Property.Textures) item.Property.Textures = [];
