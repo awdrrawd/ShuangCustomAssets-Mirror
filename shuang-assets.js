@@ -724,7 +724,8 @@
 	    Visible: true,
 	    Opacity: 100,
 	    MirrorH: false,
-	    MirrorV: false
+	    MirrorV: false,
+	    PoseSettings: {}
 	};
 	const DEFAULT_PROPS = {
 	    Textures: [],
@@ -735,6 +736,57 @@
 	    HideClothing: false,
 	    HideItems: false
 	};
+	const POSE_CATEGORIES = {
+	    BodyUpper: {
+	        label: "手部姿势",
+	        labelEn: "Arm Pose",
+	        poses: ["BaseUpper", "Yoked", "OverTheHead", "BackBoxTie", "BackElbowTouch", "BackCuffs"]
+	    },
+	    BodyLower: {
+	        label: "腿部姿势",
+	        labelEn: "Leg Pose",
+	        poses: ["BaseLower", "Kneel", "KneelingSpread", "LegsClosed", "Spread"]
+	    },
+	    BodyFull: {
+	        label: "全身姿势",
+	        labelEn: "Full Body Pose",
+	        poses: ["Hogtied", "AllFours"]
+	    }
+	};
+	Object.values(POSE_CATEGORIES).flatMap(c => c.poses);
+	const POSE_LABELS = {
+	    BaseUpper:      { cn: "基础手势",   en: "Arms Down" },
+	    Yoked:          { cn: "举手",       en: "Yoked" },
+	    OverTheHead:    { cn: "高举双手",   en: "Over The Head" },
+	    BackBoxTie:     { cn: "轻松背手",   en: "Box Tie" },
+	    BackElbowTouch: { cn: "紧绷背手",   en: "Elbow Touch" },
+	    BackCuffs:      { cn: "背后手铐",   en: "Back Cuffs" },
+	    BaseLower:      { cn: "站立",       en: "Standing" },
+	    Kneel:          { cn: "跪姿",       en: "Kneel" },
+	    KneelingSpread: { cn: "跪地张腿",   en: "Kneeling Spread" },
+	    LegsClosed:     { cn: "站立闭合",       en: "Legs Closed" },
+	    Spread:         { cn: "站立张腿",       en: "Spread" },
+	    Hogtied:        { cn: "仰卧",       en: "Hogtied" },
+	    AllFours:       { cn: "四肢着地",   en: "All Fours" }
+	};
+	function getPoseKey(drawPose) {
+	    if (!drawPose || drawPose.length === 0) return null;
+	    const fullPoses = POSE_CATEGORIES.BodyFull.poses;
+	    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+	    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+	    const fullPose = drawPose.find(p => fullPoses.includes(p));
+	    if (fullPose) return fullPose;
+	    const upperPose = drawPose.find(p => upperPoses.includes(p));
+	    const lowerPose = drawPose.find(p => lowerPoses.includes(p));
+	    if (upperPose && lowerPose) return `${upperPose}+${lowerPose}`;
+	    if (upperPose) return upperPose;
+	    if (lowerPose) return lowerPose;
+	    return null;
+	}
+	const POSE_BAR_Y = 860;
+	const POSE_TOGGLE_X = 1435;
+	const POSE_TOGGLE_W = 180;
+	const POSE_TOGGLE_H = 35;
 	const TEXTURES_PER_PAGE = 6;
 	const MAX_TEXTURE_COUNT = 16;
 	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
@@ -908,6 +960,9 @@
 	    statusMessage: null,
 	    statusMessageExpiry: 0,
 	    _fieldsDirty: false,
+	    poseEditing: null,
+	    tempGlobalData: null,
+	    lastPoseKey: null,
 	    _pointerDown: false,
 	    _stepperListenerReady: false,
 	};
@@ -1471,6 +1526,124 @@
 	    if (input) input.remove();
 	}
 
+	function getEditTarget() {
+	    if (state.poseEditing && state.tempTextureData?.PoseSettings?.[state.poseEditing]) {
+	        return state.tempTextureData.PoseSettings[state.poseEditing];
+	    }
+	    return state.tempTextureData;
+	}
+	function refreshEditInputs() {
+	    const target = getEditTarget();
+	    if (!target) return;
+	    const urlInput = document.getElementById(URL_INPUT_ID);
+	    if (urlInput) urlInput.value = target.TextureURL || "";
+	    for (const field of STEPPER_FIELDS) {
+	        const input = document.getElementById(field.id);
+	        if (input) input.value = String(getFieldValue(field));
+	    }
+	    const opacitySlider = document.getElementById(OPACITY_SLIDER_ID);
+	    if (opacitySlider) {
+	        const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
+	        opacitySlider.value = String(getFieldValue(opacityField));
+	    }
+	    state._fieldsDirty = true;
+	}
+	function inheritGlobalFields() {
+	    const g = state.tempTextureData;
+	    return {
+	        enabled: true,
+	        TextureURL: g?.TextureURL || "",
+	        OffsetX: g?.OffsetX ?? 1,
+	        OffsetY: g?.OffsetY ?? 1,
+	        Scale: g?.Scale ?? 100,
+	        Rotation: g?.Rotation ?? 0,
+	        Opacity: g?.Opacity ?? 100,
+	        MirrorH: g?.MirrorH === true,
+	        MirrorV: g?.MirrorV === true
+	    };
+	}
+	function enterPoseEditing(poseKey) {
+	    if (!state.tempTextureData) return;
+	    if (!state.tempTextureData.PoseSettings) {
+	        state.tempTextureData.PoseSettings = {};
+	    }
+	    if (!state.tempTextureData.PoseSettings[poseKey]) {
+	        state.tempTextureData.PoseSettings[poseKey] = inheritGlobalFields();
+	    }
+	    state.poseEditing = poseKey;
+	    refreshEditInputs();
+	}
+	function exitPoseEditing() {
+	    state.poseEditing = null;
+	    refreshEditInputs();
+	}
+	function deletePoseEditing(poseKey) {
+	    if (state.tempTextureData?.PoseSettings?.[poseKey]) {
+	        delete state.tempTextureData.PoseSettings[poseKey];
+	    }
+	    if (state.poseEditing === poseKey) {
+	        state.poseEditing = null;
+	    }
+	    refreshEditInputs();
+	}
+	function switchPose(newPoseKey) {
+	    if (!newPoseKey) {
+	        exitPoseEditing();
+	        return;
+	    }
+	    if (state.poseEditing === newPoseKey) return;
+	    if (!state.tempTextureData) return;
+	    const ps = state.tempTextureData.PoseSettings?.[newPoseKey];
+	    if (ps && ps.enabled === true) {
+	        state.poseEditing = newPoseKey;
+	    } else {
+	        state.poseEditing = null;
+	    }
+	    refreshEditInputs();
+	}
+	function drawPoseBar() {
+	    const C = CharacterGetCurrent();
+	    const poseKey = getPoseKey(C?.DrawPose);
+	    let poseText;
+	    if (poseKey) {
+	        const labels = poseKey.split("+").map(p => {
+	            const label = POSE_LABELS[p];
+	            return label ? L(label.cn, label.en) : p;
+	        });
+	        poseText = L("当前姿势: ", "Current pose: ") + labels.join(" + ");
+	    } else {
+	        poseText = L("当前姿势: 未知", "Current pose: Unknown");
+	    }
+	    DrawText(poseText, 1100, POSE_BAR_Y, "White", "Gray");
+	    if (poseKey) {
+	        const ps = state.tempTextureData?.PoseSettings?.[poseKey];
+	        const isEnabled = state.poseEditing === poseKey || (ps && ps.enabled === true);
+	        const btnText = isEnabled
+	            ? L("独立配置: 开", "Pose Override: On")
+	            : L("独立配置: 关", "Pose Override: Off");
+	        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	            POSE_TOGGLE_W, POSE_TOGGLE_H,
+	            btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
+	    }
+	    if (state.poseEditing) {
+	        DrawText(L("[编辑姿势配置]", "[Editing Pose Override]"),
+	            1100, POSE_BAR_Y + 25, "Yellow", "Black");
+	    }
+	}
+	function handlePoseBarClick() {
+	    const C = CharacterGetCurrent();
+	    const poseKey = getPoseKey(C?.DrawPose);
+	    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	            POSE_TOGGLE_W, POSE_TOGGLE_H)) {
+	        if (state.poseEditing === poseKey) {
+	            deletePoseEditing(poseKey);
+	        } else {
+	            enterPoseEditing(poseKey);
+	        }
+	        return true;
+	    }
+	    return false;
+	}
 	function setupStepperListeners() {
 	    if (state._stepperListenerReady) return;
 	    state._stepperListenerReady = true;
@@ -1494,7 +1667,8 @@
 	}
 	function getFieldValue(field) {
 	    if (field.prop === null) return state.tempPriority;
-	    const v = state.tempTextureData ? state.tempTextureData[field.prop] : undefined;
+	    const target = getEditTarget();
+	    const v = target ? target[field.prop] : undefined;
 	    return typeof v === "number" && !isNaN(v) ? v : field.def;
 	}
 	function setFieldValue(field, value) {
@@ -1506,10 +1680,13 @@
 	            state.tempPriority = value;
 	            state._fieldsDirty = true;
 	        }
-	    } else if (state.tempTextureData) {
-	        if (state.tempTextureData[field.prop] !== value) {
-	            state.tempTextureData[field.prop] = value;
-	            state._fieldsDirty = true;
+	    } else {
+	        const target = getEditTarget();
+	        if (target) {
+	            if (target[field.prop] !== value) {
+	                target[field.prop] = value;
+	                state._fieldsDirty = true;
+	            }
 	        }
 	    }
 	    const domInput = document.getElementById(field.id);
@@ -1528,8 +1705,9 @@
 	}
 	function drawMirrorRow() {
 	    DrawText(L("镜像", "Mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
-	    const mirrorH = state.tempTextureData?.MirrorH === true;
-	    const mirrorV = state.tempTextureData?.MirrorV === true;
+	    const target = getEditTarget();
+	    const mirrorH = target?.MirrorH === true;
+	    const mirrorV = target?.MirrorV === true;
 	    DrawButton(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
 	        L("水平", "H-Flip"), mirrorH ? "#4CAF50" : "White", null,
 	        L("水平镜像翻转图片", "Flip the image horizontally"), false);
@@ -1538,14 +1716,15 @@
 	        L("垂直镜像翻转图片", "Flip the image vertically"), false);
 	}
 	function handleMirrorRowClick() {
-	    if (!state.tempTextureData) return false;
+	    const target = getEditTarget();
+	    if (!target) return false;
 	    if (MouseIn(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
-	        state.tempTextureData.MirrorH = !(state.tempTextureData.MirrorH === true);
+	        target.MirrorH = !(target.MirrorH === true);
 	        state._fieldsDirty = true;
 	        return true;
 	    }
 	    if (MouseIn(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
-	        state.tempTextureData.MirrorV = !(state.tempTextureData.MirrorV === true);
+	        target.MirrorV = !(target.MirrorV === true);
 	        state._fieldsDirty = true;
 	        return true;
 	    }
@@ -1572,7 +1751,12 @@
 	    return true;
 	}
 	function updateDragMove() {
-	    if (!state.isDragMode || !state.tempTextureData) {
+	    if (!state.isDragMode) {
+	        state.dragActive = false;
+	        return;
+	    }
+	    const target = getEditTarget();
+	    if (!target) {
 	        state.dragActive = false;
 	        return;
 	    }
@@ -1585,15 +1769,15 @@
 	        state.dragActive = true;
 	        state.dragStartMouseX = MouseX;
 	        state.dragStartMouseY = MouseY;
-	        state.dragStartOffsetX = parseInt(state.tempTextureData.OffsetX) || 0;
-	        state.dragStartOffsetY = parseInt(state.tempTextureData.OffsetY) || 0;
+	        state.dragStartOffsetX = parseInt(target.OffsetX) || 0;
+	        state.dragStartOffsetY = parseInt(target.OffsetY) || 0;
 	        return;
 	    }
 	    const newOffsetX = Math.round(state.dragStartOffsetX + (MouseX - state.dragStartMouseX));
 	    const newOffsetY = Math.round(state.dragStartOffsetY + (MouseY - state.dragStartMouseY));
-	    if (state.tempTextureData.OffsetX !== newOffsetX || state.tempTextureData.OffsetY !== newOffsetY) {
-	        state.tempTextureData.OffsetX = newOffsetX;
-	        state.tempTextureData.OffsetY = newOffsetY;
+	    if (target.OffsetX !== newOffsetX || target.OffsetY !== newOffsetY) {
+	        target.OffsetX = newOffsetX;
+	        target.OffsetY = newOffsetY;
 	        state._fieldsDirty = true;
 	    }
 	}
@@ -1602,10 +1786,11 @@
 	        const input = ElementCreateInput(URL_INPUT_ID, "text", "", 1000);
 	        input.placeholder = L("请输入贴图网址（需以 https:// 开头）", "Enter image URL (must start with https://)");
 	        input.addEventListener("input", () => {
-	            if (!state.tempTextureData) return;
+	            const target = getEditTarget();
+	            if (!target) return;
 	            const newUrl = input.value.trim();
-	            if (state.tempTextureData.TextureURL !== newUrl) {
-	                state.tempTextureData.TextureURL = newUrl;
+	            if (target.TextureURL !== newUrl) {
+	                target.TextureURL = newUrl;
 	                state._fieldsDirty = true;
 	            }
 	        });
@@ -1624,9 +1809,10 @@
 	                    state.tempPriority = parsed;
 	                    state._fieldsDirty = true;
 	                }
-	            } else if (state.tempTextureData) {
-	                if (state.tempTextureData[field.prop] !== parsed) {
-	                    state.tempTextureData[field.prop] = parsed;
+	            } else {
+	                const target = getEditTarget();
+	                if (target && target[field.prop] !== parsed) {
+	                    target[field.prop] = parsed;
 	                    state._fieldsDirty = true;
 	                }
 	            }
@@ -1641,10 +1827,11 @@
 	    if (!document.getElementById(OPACITY_SLIDER_ID)) {
 	        const slider = ElementCreateRangeInput(OPACITY_SLIDER_ID, 100, 0, 100, 1);
 	        slider.addEventListener("input", () => {
-	            if (!state.tempTextureData) return;
+	            const target = getEditTarget();
+	            if (!target) return;
 	            const v = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
-	            if (state.tempTextureData.Opacity !== v) {
-	                state.tempTextureData.Opacity = v;
+	            if (target.Opacity !== v) {
+	                target.Opacity = v;
 	                state._fieldsDirty = true;
 	            }
 	            const opacityInput = document.getElementById(INPUT_OPACITY);
@@ -1723,6 +1910,9 @@
 	}
 	function createEditInputs(texture) {
 	    state._fieldsDirty = false;
+	    state.poseEditing = null;
+	    state.tempGlobalData = null;
+	    state.lastPoseKey = null;
 	    const item = DialogFocusItem;
 	    const layerName = LAYER_NAMES[state.currentEditTexture];
 	    const op = item?.Property?.OverridePriority;
@@ -1750,6 +1940,12 @@
 	    setupStepperListeners();
 	    updateSteppers();
 	    updateDragMove();
+	    const C = CharacterGetCurrent();
+	    const currentPoseKey = getPoseKey(C?.DrawPose);
+	    if (state.lastPoseKey !== currentPoseKey) {
+	        state.lastPoseKey = currentPoseKey;
+	        switchPose(currentPoseKey);
+	    }
 	    if (state.tempTextureData) {
 	        if (state._fieldsDirty) {
 	            state._fieldsDirty = false;
@@ -1758,7 +1954,7 @@
 	            const previousUrl = item.Property.Textures[textureIndex]?.TextureURL || "";
 	            const newUrl = state.tempTextureData.TextureURL || "";
 	            const urlChanged = previousUrl !== newUrl;
-	            item.Property.Textures[textureIndex] = { ...state.tempTextureData };
+	            item.Property.Textures[textureIndex] = JSON.parse(JSON.stringify(state.tempTextureData));
 	            const layerName = LAYER_NAMES[textureIndex];
 	            if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
 	                item.Property.OverridePriority = {};
@@ -1787,6 +1983,7 @@
 	            }
 	        }
 	    }
+	    drawPoseBar();
 	    DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
 	    DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press ✓ to return"), 1505, 405, "Yellow", "Black");
 	    DrawText(L("贴图", "Image"), 1100, 455, "White", "Gray");
@@ -1811,6 +2008,9 @@
 	        L("删除此图层", "Delete this layer"), false);
 	}
 	function handleTextureEditClick(item, textureIndex, data) {
+	    if (handlePoseBarClick()) {
+	        return;
+	    }
 	    const currentUrl = state.tempTextureData?.TextureURL || "";
 	    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
 	        const domain = extractDomain(currentUrl);
@@ -1821,6 +2021,8 @@
 	            state.tempTextureData = null;
 	            state.originalOverridePriority = undefined;
 	            state._pendingTextureRefresh = false;
+	            state.poseEditing = null;
+	            state.tempGlobalData = null;
 	            resetDragState();
 	            return;
 	        }
@@ -1838,6 +2040,8 @@
 	        state.originalOverridePriority = undefined;
 	        state._pendingTextureRefresh = false;
 	        state.currentListPage = 0;
+	        state.poseEditing = null;
+	        state.tempGlobalData = null;
 	        resetDragState();
 	        syncItemToServer(item);
 	        const C = CharacterGetCurrent();
@@ -1845,24 +2049,19 @@
 	        return;
 	    }
 	    if (MouseIn(1885, 135, 90, 90)) {
-	        const finalTexture = {
-	            TextureURL: state.tempTextureData?.TextureURL?.trim() || "",
-	            OffsetX: parseInt(state.tempTextureData?.OffsetX) || 0,
-	            OffsetY: parseInt(state.tempTextureData?.OffsetY) || 0,
-	            Scale: parseInt(state.tempTextureData?.Scale) || 100,
-	            Rotation: parseInt(state.tempTextureData?.Rotation) || 0,
-	            Opacity: Math.max(0, Math.min(100, parseInt(state.tempTextureData?.Opacity) || 100)),
-	            MirrorH: state.tempTextureData?.MirrorH === true,
-	            MirrorV: state.tempTextureData?.MirrorV === true
-	        };
+	        const finalTexture = JSON.parse(JSON.stringify(state.tempTextureData));
+	        finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
+	        finalTexture.OffsetX = parseInt(state.tempTextureData?.OffsetX) || 0;
+	        finalTexture.OffsetY = parseInt(state.tempTextureData?.OffsetY) || 0;
+	        finalTexture.Scale = parseInt(state.tempTextureData?.Scale) || 100;
+	        finalTexture.Rotation = parseInt(state.tempTextureData?.Rotation) || 0;
+	        finalTexture.Opacity = Math.max(0, Math.min(100, parseInt(state.tempTextureData?.Opacity) || 100));
+	        finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
+	        finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
+	        const existing = item.Property.Textures[textureIndex];
+	        finalTexture.Visible = (existing && existing.Visible !== undefined) ? existing.Visible : true;
 	        if (!item.Property) item.Property = { Textures: [] };
 	        if (!item.Property.Textures) item.Property.Textures = [];
-	        const existing = item.Property.Textures[textureIndex];
-	        if (existing && existing.Visible !== undefined) {
-	            finalTexture.Visible = existing.Visible;
-	        } else {
-	            finalTexture.Visible = true;
-	        }
 	        item.Property.Textures[textureIndex] = finalTexture;
 	        const layerName = LAYER_NAMES[textureIndex];
 	        if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
@@ -1875,6 +2074,8 @@
 	        state.originalOverridePriority = undefined;
 	        state._pendingTextureRefresh = false;
 	        state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
+	        state.poseEditing = null;
+	        state.tempGlobalData = null;
 	        resetDragState();
 	        const C = CharacterGetCurrent();
 	        if (C) CharacterRefresh(C, false, false);
@@ -1935,17 +2136,23 @@
 	            if (!Array.isArray(config.textures)) {
 	                throw new Error("配置格式错误");
 	            }
-	            const validTextures = config.textures.map(t => ({
-	                TextureURL: String(t.TextureURL || ""),
-	                OffsetX: parseInt(t.OffsetX) || 0,
-	                OffsetY: parseInt(t.OffsetY) || 0,
-	                Scale: parseInt(t.Scale) || 100,
-	                Rotation: parseInt(t.Rotation) || 0,
-	                Visible: t.Visible !== false,
-	                Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100)),
-	                MirrorH: t.MirrorH === true,
-	                MirrorV: t.MirrorV === true
-	            }));
+	            const validTextures = config.textures.map(t => {
+	                const cleaned = {
+	                    TextureURL: String(t.TextureURL || ""),
+	                    OffsetX: parseInt(t.OffsetX) || 0,
+	                    OffsetY: parseInt(t.OffsetY) || 0,
+	                    Scale: parseInt(t.Scale) || 100,
+	                    Rotation: parseInt(t.Rotation) || 0,
+	                    Visible: t.Visible !== false,
+	                    Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100)),
+	                    MirrorH: t.MirrorH === true,
+	                    MirrorV: t.MirrorV === true
+	                };
+	                if (t.PoseSettings && typeof t.PoseSettings === "object" && !Array.isArray(t.PoseSettings)) {
+	                    cleaned.PoseSettings = t.PoseSettings;
+	                }
+	                return cleaned;
+	            });
 	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
 	            if (!item.Property.Textures) item.Property.Textures = [];
 	            if (mode === "append") {
@@ -2195,10 +2402,10 @@
 	        }
 	        if (MouseIn(1740, y, 100, 40)) {
 	            state.currentEditTexture = i;
-	            state.tempTextureData = { ...textures[i] };
-	            state.originalEditTexture = { ...textures[i] };
+	            state.tempTextureData = JSON.parse(JSON.stringify(textures[i]));
+	            state.originalEditTexture = JSON.parse(JSON.stringify(textures[i]));
 	            if (!data.PersistentData) data.PersistentData = {};
-	            data.PersistentData._originalTexture = { ...textures[i] };
+	            data.PersistentData._originalTexture = JSON.parse(JSON.stringify(textures[i]));
 	            createEditInputs(textures[i]);
 	            resetDragState();
 	            return;
@@ -2215,13 +2422,13 @@
 	    if (textures.length < MAX_TEXTURE_COUNT) {
 	        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
 	        if (MouseIn(1450, addBtnY, 90, 90)) {
-	            const newTexture = { ...DEFAULT_TEXTURE };
+	            const newTexture = JSON.parse(JSON.stringify(DEFAULT_TEXTURE));
 	            item.Property.Textures.push(newTexture);
 	            state.currentEditTexture = textures.length - 1;
-	            state.tempTextureData = { ...newTexture };
+	            state.tempTextureData = JSON.parse(JSON.stringify(newTexture));
 	            state.originalEditTexture = null;
 	            if (!data.PersistentData) data.PersistentData = {};
-	            data.PersistentData._originalTexture = { ...newTexture };
+	            data.PersistentData._originalTexture = JSON.parse(JSON.stringify(newTexture));
 	            createEditInputs();
 	            resetDragState();
 	            return;
@@ -2274,7 +2481,7 @@
 	            if (!item.Property) item.Property = { Textures: [] };
 	            if (!item.Property.Textures) item.Property.Textures = [];
 	            if (state.originalEditTexture) {
-	                item.Property.Textures[state.currentEditTexture] = { ...state.originalEditTexture };
+	                item.Property.Textures[state.currentEditTexture] = JSON.parse(JSON.stringify(state.originalEditTexture));
 	            } else {
 	                item.Property.Textures.splice(state.currentEditTexture, 1);
 	            }
@@ -2310,6 +2517,25 @@
 	    return primaryUrl;
 	}
 
+	function resolvePoseParams(texture, drawPose) {
+	    const base = {
+	        TextureURL: texture.TextureURL ?? "",
+	        Visible: texture.Visible ?? true,
+	        OffsetX: texture.OffsetX ?? 1,
+	        OffsetY: texture.OffsetY ?? 1,
+	        Scale: texture.Scale ?? 100,
+	        Rotation: texture.Rotation ?? 0,
+	        Opacity: texture.Opacity ?? 100,
+	        MirrorH: texture.MirrorH ?? false,
+	        MirrorV: texture.MirrorV ?? false
+	    };
+	    const poseKey = getPoseKey(drawPose);
+	    if (!poseKey) return base;
+	    const ps = texture.PoseSettings?.[poseKey];
+	    if (!ps || ps.enabled !== true) return base;
+	    const { enabled, ...overrides } = ps;
+	    return { ...base, ...overrides };
+	}
 	function renderTexture(data, originalFunction, drawData) {
 	    const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
 	    const item = CA;
@@ -2329,11 +2555,13 @@
 	    const textures = item?.Property?.Textures;
 	    if (!textures || layerIndex >= textures.length) return;
 	    const texture = textures[layerIndex];
-	    if (!texture || !texture.TextureURL) return;
-	    if (texture.Visible === false) return;
+	    if (!texture) return;
+	    const params = resolvePoseParams(texture, C.DrawPose);
+	    if (!params.TextureURL) return;
+	    if (params.Visible === false) return;
 	    const warnEnabled = getDomainWarningEnabled();
 	    let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity, mirrorH, mirrorV;
-	    if (warnEnabled && !isDomainInWhitelist(texture.TextureURL)) {
+	    if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
 	        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
 	        offsetX = 167;
 	        offsetY = -256;
@@ -2342,17 +2570,17 @@
 	        displayOpacity = 1.0;
 	        mirrorH = false;
 	        mirrorV = false;
-	    } else if (!isUrlAllowed(texture.TextureURL)) {
+	    } else if (!isUrlAllowed(params.TextureURL)) {
 	        return;
 	    } else {
-	        imageUrl = texture.TextureURL;
-	        offsetX = texture.OffsetX || 0;
-	        offsetY = texture.OffsetY || 0;
-	        scale = (texture.Scale || 100) / 100;
-	        rotation = texture.Rotation || 0;
-	        displayOpacity = Math.max(0, Math.min(100, texture.Opacity ?? 100)) / 100;
-	        mirrorH = texture.MirrorH === true;
-	        mirrorV = texture.MirrorV === true;
+	        imageUrl = params.TextureURL;
+	        offsetX = params.OffsetX || 0;
+	        offsetY = params.OffsetY || 0;
+	        scale = (params.Scale || 100) / 100;
+	        rotation = params.Rotation || 0;
+	        displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
+	        mirrorH = params.MirrorH === true;
+	        mirrorV = params.MirrorV === true;
 	    }
 	    if (imageUrl.startsWith(ASSETS_CDN_PRIMARY + "/")) {
 	        imageUrl = resolveFixedAssetUrl(imageUrl.substring((ASSETS_CDN_PRIMARY + "/").length));
