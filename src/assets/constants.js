@@ -114,10 +114,19 @@ export function getPoseKey(drawPose) {
 }
 
 // 姿势信息栏 UI 坐标
-export const POSE_BAR_Y = 860;           // 姿势信息行 Y 坐标（底部，图层优先级字段下方）
-export const POSE_TOGGLE_X = 1435;       // 独立配置开关按钮 X 坐标
-export const POSE_TOGGLE_W = 180;        // 独立配置开关按钮宽度
+export const POSE_BAR_Y = 855;           // 姿势信息行 Y 坐标（底部，图层优先级字段下方）
+export const POSE_BTN_Y = 890;           // 独立配置开关和切换姿势按钮行 Y 坐标（姿势文字下方单独一行）
+export const POSE_TOGGLE_X = 1100;       // 独立配置开关按钮 X 坐标
+export const POSE_TOGGLE_W = 170;        // 独立配置开关按钮宽度
 export const POSE_TOGGLE_H = 35;         // 独立配置开关按钮高度
+export const POSE_SWITCH_X = 1520;       // 切换姿势按钮 X 坐标
+export const POSE_SWITCH_W = 130;        // 切换姿势按钮宽度
+
+// 姿势切换页面 UI 坐标
+export const POSE_PAGE_BTN_W = 150;      // 单个姿势按钮宽度
+export const POSE_PAGE_BTN_H = 40;       // 单个姿势按钮高度
+export const POSE_PAGE_BTN_GAP = 5;      // 按钮间距
+export const POSE_PAGE_START_X = 1010;   // 按钮起始 X 坐标
 
 // 每页显示的贴图数量
 export const TEXTURES_PER_PAGE = 6;

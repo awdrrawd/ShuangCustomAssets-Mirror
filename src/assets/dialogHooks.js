@@ -44,6 +44,11 @@ export function setupDialogHooks(HookManager) {
             const item = DialogFocusItem;
             const inSubview = state.currentEditTexture >= 0 || state.currentView !== "list";
             if (item?.Asset?.Name === ASSET_NAME && inSubview) {
+                // 姿势切换模式：退出姿势切换页面，返回编辑面板（不退出整个对话框）
+                if (state.poseSwitchMode) {
+                    state.poseSwitchMode = false;
+                    return;
+                }
                 returnToListFromSubview();
                 return; // 阻止关闭对话框
             }

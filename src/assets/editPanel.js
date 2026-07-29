@@ -14,7 +14,10 @@ import {
     INPUT_OPACITY,
     TEXTURE_REFRESH_INTERVAL, TEXTURE_DRAG_REFRESH_INTERVAL,
     stepperPress,
-    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_TOGGLE_X, POSE_TOGGLE_W, POSE_TOGGLE_H
+    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_BTN_Y, POSE_TOGGLE_X, POSE_TOGGLE_W, POSE_TOGGLE_H,
+    POSE_SWITCH_X, POSE_SWITCH_W,
+    POSE_PAGE_BTN_W, POSE_PAGE_BTN_H, POSE_PAGE_BTN_GAP, POSE_PAGE_START_X,
+    POSE_CATEGORIES
 } from "./constants.js";
 import { state, resetDragState } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
@@ -164,6 +167,9 @@ export function drawPoseBar() {
             return label ? L(label.cn, label.en) : p;
         });
         poseText = L("当前姿势: ", "Current pose: ") + labels.join(" + ");
+        if (state.poseEditing) {
+            poseText += L("  [编辑姿势配置]", "  [Editing Pose Override]");
+        }
     } else {
         poseText = L("当前姿势: 未知", "Current pose: Unknown");
     }
@@ -177,27 +183,34 @@ export function drawPoseBar() {
         const btnText = isEnabled
             ? L("独立配置: 开", "Pose Override: On")
             : L("独立配置: 关", "Pose Override: Off");
-        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+        DrawButton(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
             POSE_TOGGLE_W, POSE_TOGGLE_H,
             btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
     }
 
-    // 姿势编辑模式下显示提示文字
-    if (state.poseEditing) {
-        DrawText(L("[编辑姿势配置]", "[Editing Pose Override]"),
-            1100, POSE_BAR_Y + 25, "Yellow", "Black");
-    }
+    // 切换姿势按钮（始终显示，与独立配置开关同一行）
+    DrawButton(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+        POSE_SWITCH_W, POSE_TOGGLE_H,
+        L("切换姿势", "Switch Pose"), "White", null,
+        L("打开姿势切换页面", "Open pose switch page"), false);
 }
 
 /**
- * 处理姿势信息栏的点击：切换独立配置开关
- * @returns {boolean} 是否命中并处理了开关按钮
+ * 处理姿势信息栏的点击：切换独立配置开关 / 打开姿势切换页面
+ * @returns {boolean} 是否命中并处理了某个按钮
  */
 export function handlePoseBarClick() {
     const C = CharacterGetCurrent();
     const poseKey = getPoseKey(C?.DrawPose);
 
-    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+    // 切换姿势按钮
+    if (MouseIn(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+            POSE_SWITCH_W, POSE_TOGGLE_H)) {
+        state.poseSwitchMode = true;
+        return true;
+    }
+
+    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
             POSE_TOGGLE_W, POSE_TOGGLE_H)) {
         if (state.poseEditing === poseKey) {
             // 当前正在编辑此姿势的独立配置 -> 关闭并删除配置
@@ -208,6 +221,72 @@ export function handlePoseBarClick() {
         }
         return true;
     }
+    return false;
+}
+
+/**
+ * 绘制姿势切换页面：分三组显示所有可选手部/腿部/全身姿势
+ * 点击姿势按钮通过 PoseSetActive 切换角色姿势，实时预览
+ */
+export function drawPoseSwitchPage() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+
+    // 标题
+    DrawText(L("切换姿势", "Switch Pose"), 1500, 360, "White", "Gray");
+    DrawText(L("点击姿势按钮切换，左侧实时预览效果", "Click a pose to switch, preview on the left"),
+        1505, 390, "Yellow", "Black");
+
+    // 当前角色的渲染姿势映射（包含 previewPoseMapping 的覆盖）
+    const activeMapping = C.DrawPoseMapping || {};
+    let y = 430;
+
+    // 按分类绘制姿势按钮
+    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+        // 分类标题
+        DrawText(L(cat.label, cat.labelEn), 1100, y, "White", "Gray");
+        y += 25;
+
+        // 该分类下的姿势按钮
+        for (let i = 0; i < cat.poses.length; i++) {
+            const poseName = cat.poses[i];
+            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+            const isActive = activeMapping[catKey] === poseName;
+            const label = POSE_LABELS[poseName];
+            const btnText = label ? L(label.cn, label.en) : poseName;
+
+            DrawButton(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
+                btnText, isActive ? "#4CAF50" : "White", null, null, false);
+        }
+        y += POSE_PAGE_BTN_H + 30;
+    }
+}
+
+/**
+ * 处理姿势切换页面的点击
+ * @returns {boolean} 是否命中并处理了某个按钮
+ */
+export function handlePoseSwitchClick() {
+    const C = CharacterGetCurrent();
+    if (!C) return false;
+
+    // Y 坐标必须与 drawPoseSwitchPage 完全一致：每分类 = 25（标题）+ 40（按钮）+ 30（间距）
+    let y = 455; // 第一行按钮 Y（标题 430 + 25）
+
+    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+        for (let i = 0; i < cat.poses.length; i++) {
+            const poseName = cat.poses[i];
+            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+
+            if (MouseIn(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
+                // 本地预览姿势（仅修改 DrawPoseMapping，不同步服务器）
+                setPreviewPose(poseName);
+                return true;
+            }
+        }
+        y += POSE_PAGE_BTN_H + 30 + 25; // 按钮高度 + 间距 + 下一分类标题高度
+    }
+
     return false;
 }
 
@@ -615,12 +694,74 @@ export function drawStepperButton(x, y, icon) {
  * 这里需要把它们的显示值同步为当前图层的数据，因为 DOM 元素本身在整个对话框期间是复用的
  * （调用方已在调用本函数前将 tempTextureData 设为当前图层的数据副本）
  */
+/**
+ * BeforeSortLayers 钩子：在 CharacterLoadCanvas 时用 previewPoseMapping 覆盖 DrawPoseMapping
+ * 仅影响本地渲染，不修改 ActivePoseMapping，不同步服务器
+ */
+const POSE_HOOK_NAME = "SCA_PosePreview";
+
+export function registerPoseHook() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    state.previewPoseMapping = null;
+    C.RegisterHook("BeforeSortLayers", POSE_HOOK_NAME, () => {
+        if (state.previewPoseMapping) {
+            C.DrawPoseMapping = { ...C.DrawPoseMapping, ...state.previewPoseMapping };
+        }
+    });
+}
+
+export function unregisterPoseHook() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    C.UnregisterHook("BeforeSortLayers", POSE_HOOK_NAME);
+    state.previewPoseMapping = null;
+    // 重新加载画布以恢复原始姿势渲染
+    CharacterLoadCanvas(C);
+}
+
+/**
+ * 本地切换预览姿势：仅修改 previewPoseMapping，触发 CharacterLoadCanvas 重绘
+ * 不修改 ActivePoseMapping，不同步服务器
+ */
+export function setPreviewPose(poseName) {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    const newPose = PoseRecord[poseName];
+    if (!newPose) return;
+
+    if (newPose.Category === "BodyFull") {
+        // 全身姿势：替换整个映射
+        state.previewPoseMapping = { [newPose.Category]: newPose.Name };
+    } else {
+        // 非全身姿势：基于当前预览映射（保留其他分类的选择），清理 BodyFull
+        const current = state.previewPoseMapping || C.ActivePoseMapping || {};
+        const baseMapping = { ...current };
+        for (const [category, name] of Object.entries(baseMapping)) {
+            const pose = PoseRecord[name];
+            if (!pose || !pose.AllowMenu || pose.Category === "BodyFull") {
+                delete baseMapping[category];
+            }
+        }
+        baseMapping[newPose.Category] = newPose.Name;
+        state.previewPoseMapping = baseMapping;
+    }
+
+    // 触发重绘（BeforeSortLayers 钩子会应用 previewPoseMapping 到 DrawPoseMapping）
+    CharacterLoadCanvas(C);
+}
+
 export function createEditInputs(texture) {
     state._fieldsDirty = false;
     // 重置姿势编辑状态：进入新图层编辑时始终从全局配置开始
     state.poseEditing = null;
     state.tempGlobalData = null;
     state.lastPoseKey = null; // 下一帧 drawTextureEditPanel 会检测到变化并自动切换
+    state.poseSwitchMode = false;
+
+    // 注册 BeforeSortLayers 钩子：在 CharacterLoadCanvas 时覆盖 DrawPoseMapping
+    // 实现本地预览姿势（不修改 ActivePoseMapping，不同步服务器）
+    registerPoseHook();
 
     // 图层优先级：读取 item.Property.OverridePriority，与 BC 原生 Layering 界面同步
     const item = DialogFocusItem;
@@ -657,6 +798,12 @@ export function createEditInputs(texture) {
  * 绘制编辑面板
  */
 export function drawTextureEditPanel(item, textureIndex, data) {
+    // 姿势切换页面：优先绘制并跳过正常编辑面板
+    if (state.poseSwitchMode) {
+        drawPoseSwitchPage();
+        return;
+    }
+
     // 初始化步进按钮事件监听（仅一次），并在每帧检测长按状态
     // 放在最前面：先应用步进变更，再由下方的 tempTextureData 检测检测变更并刷新预览
     setupStepperListeners();
@@ -777,9 +924,15 @@ export function drawTextureEditPanel(item, textureIndex, data) {
  * 处理编辑点击
  */
 export function handleTextureEditClick(item, textureIndex, data) {
+    // 姿势切换页面：优先处理点击并跳过正常编辑面板
+    if (state.poseSwitchMode) {
+        handlePoseSwitchClick();
+        return;
+    }
+
     // 贴图网址框现为真实 DOM <input>，点击/输入由浏览器原生处理，不再需要 canvas 点击检测
 
-    // 姿势信息栏：独立配置开关
+    // 姿势信息栏：独立配置开关 / 切换姿势按钮
     if (handlePoseBarClick()) {
         return;
     }
@@ -797,6 +950,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
             state._pendingTextureRefresh = false;
             state.poseEditing = null;
             state.tempGlobalData = null;
+            state.poseSwitchMode = false;
+            unregisterPoseHook();
             resetDragState();
             return;
         }
@@ -825,6 +980,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
         state.currentListPage = 0;
         state.poseEditing = null;
         state.tempGlobalData = null;
+        state.poseSwitchMode = false;
+        unregisterPoseHook();
         resetDragState();
         syncItemToServer(item);
         const C = CharacterGetCurrent();
@@ -872,6 +1029,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
         state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
         state.poseEditing = null;
         state.tempGlobalData = null;
+        state.poseSwitchMode = false;
+        unregisterPoseHook();
         resetDragState();
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false, false);

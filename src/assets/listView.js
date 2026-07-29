@@ -10,7 +10,7 @@ import {
 import { state, resetDragState, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
 import { updateHideArray } from "./hideArray.js";
-import { createEditInputs } from "./editPanel.js";
+import { createEditInputs, unregisterPoseHook } from "./editPanel.js";
 import { exportConfig, importConfig } from "./importExport.js";
 import { L, isChineseLang, Logger } from "@lib/utils.js";
 import { isDomainInWhitelist, extractDomain, addDomainToWhitelist } from "./settings.js";
@@ -408,6 +408,8 @@ export function returnToListFromSubview() {
     state.originalEditTexture = null;
     state.originalOverridePriority = undefined;
     state.pendingDomainToAdd = null;
+    state.poseSwitchMode = false;
+    unregisterPoseHook();
     resetDragState();
     state.currentView = "list";
 }

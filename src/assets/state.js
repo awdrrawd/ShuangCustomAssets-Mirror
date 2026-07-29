@@ -42,6 +42,10 @@ export const state = {
     tempGlobalData: null,
     // 上一帧的角色姿势键名，用于检测姿势变化并自动切换编辑目标
     lastPoseKey: null,
+    // 是否显示姿势切换页面（在编辑面板中点击"切换姿势"按钮进入）
+    poseSwitchMode: false,
+    // 预览姿势映射（仅修改 DrawPoseMapping，不影响 ActivePoseMapping，不同步服务器）
+    previewPoseMapping: null,
 
     // === 鼠标/触摸按下状态（由 document 事件监听器维护） ===
     _pointerDown: false,

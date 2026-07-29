@@ -17,7 +17,8 @@ import { updateHideArray } from "./hideArray.js";
 import { syncItemToServer } from "./serverSync.js";
 import {
     createEditPanelDomInputs, positionEditPanelInputs, removeEditPanelInputs,
-    drawTextureEditPanel, handleTextureEditClick
+    drawTextureEditPanel, handleTextureEditClick,
+    unregisterPoseHook
 } from "./editPanel.js";
 import {
     drawAddDomainConfirm, handleAddDomainConfirmClick,
@@ -122,8 +123,8 @@ const extended = {
                 drawTextureListMain(item);
             }
 
-            // 贴图网址输入框 / 数值输入框 / 透明度滑桿：仅在编辑图层面板时可见，其余页面统一移出画面外
-            positionEditPanelInputs(state.currentEditTexture >= 0);
+            // 贴图网址输入框 / 数值输入框 / 透明度滑桿：仅在编辑图层面板时可见，其余页面（含姿势切换页）统一移出画面外
+            positionEditPanelInputs(state.currentEditTexture >= 0 && !state.poseSwitchMode);
         },
 
         Click: (data, originalFunction) => {
@@ -169,6 +170,7 @@ const extended = {
             state.currentListPage = 0;
             state.currentView = "list";
             resetDragState();
+            unregisterPoseHook();
 
             // 道具对话框完全关闭，真正移除贴图网址输入框 / 数值输入框 / 透明度滑桿等 DOM 元素
             removeEditPanelInputs();
