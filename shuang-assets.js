@@ -783,10 +783,17 @@
 	    if (lowerPose) return lowerPose;
 	    return null;
 	}
-	const POSE_BAR_Y = 860;
-	const POSE_TOGGLE_X = 1435;
-	const POSE_TOGGLE_W = 180;
+	const POSE_BAR_Y = 855;
+	const POSE_BTN_Y = 890;
+	const POSE_TOGGLE_X = 1100;
+	const POSE_TOGGLE_W = 170;
 	const POSE_TOGGLE_H = 35;
+	const POSE_SWITCH_X = 1520;
+	const POSE_SWITCH_W = 130;
+	const POSE_PAGE_BTN_W = 150;
+	const POSE_PAGE_BTN_H = 40;
+	const POSE_PAGE_BTN_GAP = 5;
+	const POSE_PAGE_START_X = 1010;
 	const TEXTURES_PER_PAGE = 6;
 	const MAX_TEXTURE_COUNT = 16;
 	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
@@ -963,6 +970,8 @@
 	    poseEditing: null,
 	    tempGlobalData: null,
 	    lastPoseKey: null,
+	    poseSwitchMode: false,
+	    previewPoseMapping: null,
 	    _pointerDown: false,
 	    _stepperListenerReady: false,
 	};
@@ -1611,6 +1620,9 @@
 	            return label ? L(label.cn, label.en) : p;
 	        });
 	        poseText = L("当前姿势: ", "Current pose: ") + labels.join(" + ");
+	        if (state.poseEditing) {
+	            poseText += L("  [编辑姿势配置]", "  [Editing Pose Override]");
+	        }
 	    } else {
 	        poseText = L("当前姿势: 未知", "Current pose: Unknown");
 	    }
@@ -1621,19 +1633,24 @@
 	        const btnText = isEnabled
 	            ? L("独立配置: 开", "Pose Override: On")
 	            : L("独立配置: 关", "Pose Override: Off");
-	        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	        DrawButton(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
 	            POSE_TOGGLE_W, POSE_TOGGLE_H,
 	            btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
 	    }
-	    if (state.poseEditing) {
-	        DrawText(L("[编辑姿势配置]", "[Editing Pose Override]"),
-	            1100, POSE_BAR_Y + 25, "Yellow", "Black");
-	    }
+	    DrawButton(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+	        POSE_SWITCH_W, POSE_TOGGLE_H,
+	        L("切换姿势", "Switch Pose"), "White", null,
+	        L("打开姿势切换页面", "Open pose switch page"), false);
 	}
 	function handlePoseBarClick() {
 	    const C = CharacterGetCurrent();
 	    const poseKey = getPoseKey(C?.DrawPose);
-	    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	    if (MouseIn(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+	            POSE_SWITCH_W, POSE_TOGGLE_H)) {
+	        state.poseSwitchMode = true;
+	        return true;
+	    }
+	    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
 	            POSE_TOGGLE_W, POSE_TOGGLE_H)) {
 	        if (state.poseEditing === poseKey) {
 	            deletePoseEditing(poseKey);
@@ -1641,6 +1658,46 @@
 	            enterPoseEditing(poseKey);
 	        }
 	        return true;
+	    }
+	    return false;
+	}
+	function drawPoseSwitchPage() {
+	    const C = CharacterGetCurrent();
+	    if (!C) return;
+	    DrawText(L("切换姿势", "Switch Pose"), 1500, 360, "White", "Gray");
+	    DrawText(L("点击姿势按钮切换，左侧实时预览效果", "Click a pose to switch, preview on the left"),
+	        1505, 390, "Yellow", "Black");
+	    const activeMapping = C.DrawPoseMapping || {};
+	    let y = 430;
+	    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+	        DrawText(L(cat.label, cat.labelEn), 1100, y, "White", "Gray");
+	        y += 25;
+	        for (let i = 0; i < cat.poses.length; i++) {
+	            const poseName = cat.poses[i];
+	            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+	            const isActive = activeMapping[catKey] === poseName;
+	            const label = POSE_LABELS[poseName];
+	            const btnText = label ? L(label.cn, label.en) : poseName;
+	            DrawButton(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
+	                btnText, isActive ? "#4CAF50" : "White", null, null, false);
+	        }
+	        y += POSE_PAGE_BTN_H + 30;
+	    }
+	}
+	function handlePoseSwitchClick() {
+	    const C = CharacterGetCurrent();
+	    if (!C) return false;
+	    let y = 455;
+	    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+	        for (let i = 0; i < cat.poses.length; i++) {
+	            const poseName = cat.poses[i];
+	            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+	            if (MouseIn(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
+	                setPreviewPose(poseName);
+	                return true;
+	            }
+	        }
+	        y += POSE_PAGE_BTN_H + 30 + 25;
 	    }
 	    return false;
 	}
@@ -1908,11 +1965,52 @@
 	    DrawButton(x, y, STEPPER_BTN_W, STEPPER_BTN_H, "", "White", null, null);
 	    DrawImageResize(icon, x + 2, y + 2, STEPPER_BTN_W - 4, STEPPER_BTN_H - 4);
 	}
+	const POSE_HOOK_NAME = "SCA_PosePreview";
+	function registerPoseHook() {
+	    const C = CharacterGetCurrent();
+	    if (!C) return;
+	    state.previewPoseMapping = null;
+	    C.RegisterHook("BeforeSortLayers", POSE_HOOK_NAME, () => {
+	        if (state.previewPoseMapping) {
+	            C.DrawPoseMapping = { ...C.DrawPoseMapping, ...state.previewPoseMapping };
+	        }
+	    });
+	}
+	function unregisterPoseHook() {
+	    const C = CharacterGetCurrent();
+	    if (!C) return;
+	    C.UnregisterHook("BeforeSortLayers", POSE_HOOK_NAME);
+	    state.previewPoseMapping = null;
+	    CharacterLoadCanvas(C);
+	}
+	function setPreviewPose(poseName) {
+	    const C = CharacterGetCurrent();
+	    if (!C) return;
+	    const newPose = PoseRecord[poseName];
+	    if (!newPose) return;
+	    if (newPose.Category === "BodyFull") {
+	        state.previewPoseMapping = { [newPose.Category]: newPose.Name };
+	    } else {
+	        const current = state.previewPoseMapping || C.ActivePoseMapping || {};
+	        const baseMapping = { ...current };
+	        for (const [category, name] of Object.entries(baseMapping)) {
+	            const pose = PoseRecord[name];
+	            if (!pose || !pose.AllowMenu || pose.Category === "BodyFull") {
+	                delete baseMapping[category];
+	            }
+	        }
+	        baseMapping[newPose.Category] = newPose.Name;
+	        state.previewPoseMapping = baseMapping;
+	    }
+	    CharacterLoadCanvas(C);
+	}
 	function createEditInputs(texture) {
 	    state._fieldsDirty = false;
 	    state.poseEditing = null;
 	    state.tempGlobalData = null;
 	    state.lastPoseKey = null;
+	    state.poseSwitchMode = false;
+	    registerPoseHook();
 	    const item = DialogFocusItem;
 	    const layerName = LAYER_NAMES[state.currentEditTexture];
 	    const op = item?.Property?.OverridePriority;
@@ -1937,6 +2035,10 @@
 	    }
 	}
 	function drawTextureEditPanel(item, textureIndex, data) {
+	    if (state.poseSwitchMode) {
+	        drawPoseSwitchPage();
+	        return;
+	    }
 	    setupStepperListeners();
 	    updateSteppers();
 	    updateDragMove();
@@ -2008,6 +2110,10 @@
 	        L("删除此图层", "Delete this layer"), false);
 	}
 	function handleTextureEditClick(item, textureIndex, data) {
+	    if (state.poseSwitchMode) {
+	        handlePoseSwitchClick();
+	        return;
+	    }
 	    if (handlePoseBarClick()) {
 	        return;
 	    }
@@ -2023,6 +2129,8 @@
 	            state._pendingTextureRefresh = false;
 	            state.poseEditing = null;
 	            state.tempGlobalData = null;
+	            state.poseSwitchMode = false;
+	            unregisterPoseHook();
 	            resetDragState();
 	            return;
 	        }
@@ -2042,6 +2150,8 @@
 	        state.currentListPage = 0;
 	        state.poseEditing = null;
 	        state.tempGlobalData = null;
+	        state.poseSwitchMode = false;
+	        unregisterPoseHook();
 	        resetDragState();
 	        syncItemToServer(item);
 	        const C = CharacterGetCurrent();
@@ -2076,6 +2186,8 @@
 	        state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
 	        state.poseEditing = null;
 	        state.tempGlobalData = null;
+	        state.poseSwitchMode = false;
+	        unregisterPoseHook();
 	        resetDragState();
 	        const C = CharacterGetCurrent();
 	        if (C) CharacterRefresh(C, false, false);
@@ -2495,6 +2607,8 @@
 	    state.originalEditTexture = null;
 	    state.originalOverridePriority = undefined;
 	    state.pendingDomainToAdd = null;
+	    state.poseSwitchMode = false;
+	    unregisterPoseHook();
 	    resetDragState();
 	    state.currentView = "list";
 	}
@@ -2676,6 +2790,10 @@
 	            const item = DialogFocusItem;
 	            const inSubview = state.currentEditTexture >= 0 || state.currentView !== "list";
 	            if (item?.Asset?.Name === ASSET_NAME && inSubview) {
+	                if (state.poseSwitchMode) {
+	                    state.poseSwitchMode = false;
+	                    return;
+	                }
 	                returnToListFromSubview();
 	                return;
 	            }
@@ -2753,7 +2871,7 @@
 	            } else {
 	                drawTextureListMain(item);
 	            }
-	            positionEditPanelInputs(state.currentEditTexture >= 0);
+	            positionEditPanelInputs(state.currentEditTexture >= 0 && !state.poseSwitchMode);
 	        },
 	        Click: (data, originalFunction) => {
 	            originalFunction();
@@ -2794,6 +2912,7 @@
 	            state.currentListPage = 0;
 	            state.currentView = "list";
 	            resetDragState();
+	            unregisterPoseHook();
 	            removeEditPanelInputs();
 	        },
 	        AfterDraw: (data, originalFunction, drawData) => {
