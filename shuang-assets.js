@@ -1,4 +1,4 @@
-(function () {
+(function (gifuctJs) {
 	'use strict';
 
 	/**
@@ -648,6 +648,38 @@
 	    repository: "https://github.com/yourname/ShuangCustomAssets"
 	};
 
+	const CLEANUP_INTERVAL_MS = 60 * 1000;
+	const STALE_ENTRY_TIMEOUT_MS = 5 * 60 * 1000;
+	const _prunableCaches = [];
+	let _timerStarted$1 = false;
+	function pruneAll() {
+	    const now = Date.now();
+	    for (const { cache, name } of _prunableCaches) {
+	        let pruned = 0;
+	        for (const [key, entry] of cache) {
+	            if (entry?.loaded && now - (entry.lastUsed || 0) > STALE_ENTRY_TIMEOUT_MS) {
+	                cache.delete(key);
+	                pruned++;
+	            }
+	        }
+	        if (pruned > 0) {
+	            console.log(`[ShuangAssets] 已释放 ${pruned} 个不再使用的${name}缓存（画面上已经看不到的图片）`);
+	        }
+	    }
+	}
+	function ensureTimerStarted$1() {
+	    if (_timerStarted$1) return;
+	    _timerStarted$1 = true;
+	    setInterval(pruneAll, CLEANUP_INTERVAL_MS);
+	}
+	function pruneCachesNow() {
+	    pruneAll();
+	}
+	function registerPrunableCache(cache, name) {
+	    _prunableCaches.push({ cache, name });
+	    ensureTimerStarted$1();
+	}
+
 	const Logger = {
 	    prefix: "[ShuangAssets]",
 	    info(...args) {
@@ -668,11 +700,12 @@
 	    return isChineseLang() ? cn : en;
 	}
 	const _corsImageCache = new Map();
+	registerPrunableCache(_corsImageCache, L("静态图片", "static image"));
 	function getCorsImage(url) {
 	    let entry = _corsImageCache.get(url);
 	    if (!entry) {
 	        const img = new Image();
-	        entry = { img, loaded: false, failed: false };
+	        entry = { img, loaded: false, failed: false, lastUsed: Date.now() };
 	        img.addEventListener("load", () => { entry.loaded = true; });
 	        img.addEventListener("error", () => {
 	            entry.failed = true;
@@ -684,6 +717,8 @@
 	        img.crossOrigin = "anonymous";
 	        img.src = url;
 	        _corsImageCache.set(url, entry);
+	    } else {
+	        entry.lastUsed = Date.now();
 	    }
 	    return entry;
 	}
@@ -695,7 +730,6 @@
 	        return;
 	    }
 	    registeredAssets.set(name, registerFn);
-	    Logger.info(`道具 "${name}" 注册成功`);
 	}
 	function registerAssets(assets) {
 	    for (const [name, registerFn] of assets) {
@@ -703,15 +737,78 @@
 	    }
 	}
 	function initAssets() {
-	    Logger.info(`开始初始化 ${registeredAssets.size} 个道具`);
 	    for (const [name, registerFn] of registeredAssets) {
 	        try {
 	            registerFn(mt);
-	            Logger.info(`道具 "${name}" 初始化完成`);
 	        } catch (e) {
 	            Logger.error(`道具 "${name}" 初始化失败:`, e);
 	        }
 	    }
+	}
+
+	const GIF_POLL_INTERVAL_MS = 100;
+	const STALE_CHARACTER_TIMEOUT_MS = 5 * 60 * 1000;
+	const _knownAnimatedCharacters = new Map();
+	let _timerStarted = false;
+	function forceRefresh(C) {
+	    try {
+	        if (typeof CharacterRefresh === "function") {
+	            CharacterRefresh(C, false, false);
+	        }
+	    } catch (err) {
+	        Logger.error("[ShuangAssets] GIF 动画刷新失败", err);
+	    }
+	}
+	function kickAllKnownAnimated() {
+	    if (_knownAnimatedCharacters.size === 0) return;
+	    for (const C of _knownAnimatedCharacters.keys()) forceRefresh(C);
+	}
+	function pruneStaleCharacters() {
+	    const now = Date.now();
+	    for (const [C, lastSeen] of _knownAnimatedCharacters) {
+	        if (now - lastSeen > STALE_CHARACTER_TIMEOUT_MS) {
+	            _knownAnimatedCharacters.delete(C);
+	        }
+	    }
+	}
+	function ensureTimerStarted() {
+	    if (_timerStarted) return;
+	    _timerStarted = true;
+	    setInterval(() => {
+	        pruneStaleCharacters();
+	        kickAllKnownAnimated();
+	    }, GIF_POLL_INTERVAL_MS);
+	    if (typeof document !== "undefined") {
+	        document.addEventListener("visibilitychange", () => {
+	            if (document.visibilityState !== "visible") return;
+	            kickAllKnownAnimated();
+	        });
+	    }
+	}
+	function setupGifAnimationHooks(HookManager) {
+	    if (!HookManager || typeof HookManager.hookFunction !== "function") return;
+	    try {
+	        HookManager.hookFunction("CommonSetScreen", 0, (args, next) => {
+	            const ret = next(args);
+	            setTimeout(kickAllKnownAnimated, 0);
+	            pruneCachesNow();
+	            return ret;
+	        });
+	    } catch (err) {
+	        Logger.error("[ShuangAssets] 注册画面切换动图钩子失败", err);
+	    }
+	    if (typeof HookManager.afterPlayerLogin === "function") {
+	        try {
+	            HookManager.afterPlayerLogin(() => setTimeout(kickAllKnownAnimated, 0));
+	        } catch (err) {
+	            Logger.error("[ShuangAssets] 注册登入动图钩子失败", err);
+	        }
+	    }
+	}
+	function notifyGifFrame(C, layerIndex, frameIndex) {
+	    if (!C || frameIndex < 0) return;
+	    ensureTimerStarted();
+	    _knownAnimatedCharacters.set(C, Date.now());
 	}
 
 	const ASSET_NAME = "自定义贴图";
@@ -1054,6 +1151,7 @@
 	            urlLoadMode: "whitelist",
 	            allowedDomains: [...DEFAULT_ALLOWED_DOMAINS],
 	            domainWarningEnabled: true,
+	            animatedImageEnabled: true,
 	        };
 	    }
 	    return Player.ExtensionSettings[EXTENSION_ID];
@@ -1066,6 +1164,10 @@
 	function getDomainWarningEnabled() {
 	    const settings = getSettings();
 	    return settings.domainWarningEnabled !== false;
+	}
+	function getAnimatedImageEnabled() {
+	    const settings = getSettings();
+	    return settings.animatedImageEnabled !== false;
 	}
 	function extractDomain(url) {
 	    try {
@@ -1205,6 +1307,13 @@
 	        isWarnOn ? "#4CAF50" : "#666666",
 	        isWarnOn ? "#66BB6A" : "#999999", false,
 	        L("是否对不在白名单的域名显示警告图片", "Whether to show a warning image for non-whitelisted domains"));
+	    const animY = warnY + 70;
+	    const isAnimOn = settings.animatedImageEnabled !== false;
+	    DrawText(L("启用动态图片", "Enable animated images"), 800, animY + 22, "Black", "White");
+	    DrawButton(1150, animY - 5, 80, 35, isAnimOn ? L("开", "On") : L("关", "Off"),
+	        isAnimOn ? "#4CAF50" : "#666666",
+	        isAnimOn ? "#66BB6A" : "#999999", false,
+	        L("关闭后动图（GIF）只显示第一帧，不再播放动画", "When off, animated GIFs only show their first frame and won't play"));
 	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 	}
 	function _drawModeSelectPage() {
@@ -1330,6 +1439,12 @@
 	    const warnY = settings.urlLoadMode === "whitelist" ? 500 : 360;
 	    if (MouseIn(1150, warnY - 5, 80, 35)) {
 	        settings.domainWarningEnabled = !(settings.domainWarningEnabled !== false);
+	        saveSettings();
+	        return;
+	    }
+	    const animY = warnY + 70;
+	    if (MouseIn(1150, animY - 5, 80, 35)) {
+	        settings.animatedImageEnabled = !(settings.animatedImageEnabled !== false);
 	        saveSettings();
 	        return;
 	    }
@@ -2631,6 +2746,110 @@
 	    return primaryUrl;
 	}
 
+	const _gifCache = new Map();
+	registerPrunableCache(_gifCache, L("动图", "animated image"));
+	function getAnimatedImage(url) {
+	    let entry = _gifCache.get(url);
+	    if (entry) {
+	        entry.lastUsed = Date.now();
+	        return entry;
+	    }
+	    entry = {
+	        loaded: false,
+	        failed: false,
+	        isAnimated: false,
+	        frames: [],
+	        totalDuration: 0,
+	        width: 0,
+	        height: 0,
+	        lastUsed: Date.now()
+	    };
+	    _gifCache.set(url, entry);
+	    fetch(url, { mode: "cors", credentials: "omit" })
+	        .then((res) => {
+	            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	            return res.arrayBuffer();
+	        })
+	        .then((buffer) => {
+	            const header = new Uint8Array(buffer, 0, 3);
+	            const isGifHeader = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46;
+	            if (!isGifHeader) {
+	                entry.failed = true;
+	                entry.loaded = true;
+	                return;
+	            }
+	            const gif = gifuctJs.parseGIF(buffer);
+	            const rawFrames = gifuctJs.decompressFrames(gif, true);
+	            entry.width = gif.lsd.width;
+	            entry.height = gif.lsd.height;
+	            entry.isAnimated = rawFrames.length > 1;
+	            const composeCanvas = document.createElement("canvas");
+	            composeCanvas.width = entry.width || 1;
+	            composeCanvas.height = entry.height || 1;
+	            const composeCtx = composeCanvas.getContext("2d");
+	            const patchCanvas = document.createElement("canvas");
+	            const patchCtx = patchCanvas.getContext("2d");
+	            let lastDisposalType = null;
+	            let lastDims = null;
+	            let disposalRestoreFromIdx = null;
+	            rawFrames.forEach((frame, currIdx) => {
+	                const { dims } = frame;
+	                if (currIdx > 0) {
+	                    if (lastDisposalType === 3) {
+	                        if (disposalRestoreFromIdx !== null) {
+	                            composeCtx.clearRect(0, 0, entry.width, entry.height);
+	                            composeCtx.drawImage(entry.frames[disposalRestoreFromIdx].canvas, 0, 0);
+	                        } else if (lastDims) {
+	                            composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
+	                        }
+	                    } else {
+	                        disposalRestoreFromIdx = currIdx - 1;
+	                    }
+	                    if (lastDisposalType === 2 && lastDims) {
+	                        composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
+	                    }
+	                }
+	                patchCanvas.width = dims.width || 1;
+	                patchCanvas.height = dims.height || 1;
+	                const patchImageData = patchCtx.createImageData(patchCanvas.width, patchCanvas.height);
+	                patchImageData.data.set(frame.patch);
+	                patchCtx.putImageData(patchImageData, 0, 0);
+	                composeCtx.drawImage(patchCanvas, dims.left, dims.top);
+	                const frameCanvas = document.createElement("canvas");
+	                frameCanvas.width = entry.width || 1;
+	                frameCanvas.height = entry.height || 1;
+	                frameCanvas.getContext("2d").drawImage(composeCanvas, 0, 0);
+	                const delay = frame.delay > 10 ? frame.delay : 100;
+	                entry.frames.push({ canvas: frameCanvas, delay });
+	                entry.totalDuration += delay;
+	                lastDisposalType = frame.disposalType;
+	                lastDims = dims;
+	            });
+	            entry.loaded = true;
+	        })
+	        .catch((err) => {
+	            entry.failed = true;
+	            entry.loaded = true;
+	            Logger.warn(L(
+	                `GIF 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
+	                `Failed to parse GIF (the host may not support CORS, or the file is corrupted): ${url}`
+	            ), err);
+	        });
+	    return entry;
+	}
+	function getCurrentGifFrameIndex(entry, elapsedMs) {
+	    if (!entry.loaded || entry.failed || entry.frames.length === 0 || entry.totalDuration <= 0) {
+	        return -1;
+	    }
+	    let t = elapsedMs % entry.totalDuration;
+	    for (let i = 0; i < entry.frames.length; i++) {
+	        const delay = entry.frames[i].delay;
+	        if (t < delay) return i;
+	        t -= delay;
+	    }
+	    return entry.frames.length - 1;
+	}
+
 	function resolvePoseParams(texture, drawPose) {
 	    const base = {
 	        TextureURL: texture.TextureURL ?? "",
@@ -2699,12 +2918,43 @@
 	    if (imageUrl.startsWith(ASSETS_CDN_PRIMARY + "/")) {
 	        imageUrl = resolveFixedAssetUrl(imageUrl.substring((ASSETS_CDN_PRIMARY + "/").length));
 	    }
-	    const imgEntry = getCorsImage(imageUrl);
-	    if (imgEntry.failed) return;
-	    const img = imgEntry.img;
-	    if (!img.complete || img.naturalWidth <= 0) return;
-	    const width = Math.round(img.naturalWidth * scale);
-	    const height = Math.round(img.naturalHeight * scale);
+	    const gifEntry = getAnimatedImage(imageUrl);
+	    let img, sourceWidth, sourceHeight, gifFrameIndex = -1;
+	    if (!gifEntry.loaded) {
+	        return;
+	    } else if (!gifEntry.failed && gifEntry.isAnimated) {
+	        if (getAnimatedImageEnabled()) {
+	            const layerGifStartKey = `_gifStart_${layerIndex}`;
+	            if (!data.PersistentData) data.PersistentData = {};
+	            if (data.PersistentData[layerGifStartKey] == null) {
+	                data.PersistentData[layerGifStartKey] = Date.now();
+	            }
+	            const elapsed = Date.now() - data.PersistentData[layerGifStartKey];
+	            gifFrameIndex = getCurrentGifFrameIndex(gifEntry, elapsed);
+	            if (gifFrameIndex < 0) return;
+	            notifyGifFrame(C, layerIndex, gifFrameIndex);
+	        } else {
+	            gifFrameIndex = 0;
+	        }
+	        img = gifEntry.frames[gifFrameIndex].canvas;
+	        sourceWidth = gifEntry.width;
+	        sourceHeight = gifEntry.height;
+	    } else if (!gifEntry.failed && !gifEntry.isAnimated) {
+	        const onlyFrame = gifEntry.frames[0];
+	        if (!onlyFrame) return;
+	        img = onlyFrame.canvas;
+	        sourceWidth = gifEntry.width;
+	        sourceHeight = gifEntry.height;
+	    } else {
+	        const imgEntry = getCorsImage(imageUrl);
+	        if (imgEntry.failed) return;
+	        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) return;
+	        img = imgEntry.img;
+	        sourceWidth = img.naturalWidth;
+	        sourceHeight = img.naturalHeight;
+	    }
+	    const width = Math.round(sourceWidth * scale);
+	    const height = Math.round(sourceHeight * scale);
 	    const rad = rotation * Math.PI / 180;
 	    const cos = Math.abs(Math.cos(rad));
 	    const sin = Math.abs(Math.sin(rad));
@@ -2712,9 +2962,10 @@
 	    const bboxHeight = Math.round(width * sin + height * cos);
 	    const layerCanvasKey = `_canvas_${layerIndex}`;
 	    const layerParamsKey = `_params_${layerIndex}`;
-	    const currentParams = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}_${mirrorH ? 1 : 0}_${mirrorV ? 1 : 0}`;
+	    const currentParams = `${imageUrl}_${gifFrameIndex}_${width}_${height}_${rotation}_${displayOpacity}_${mirrorH ? 1 : 0}_${mirrorV ? 1 : 0}`;
 	    let tempCanvas = data.PersistentData?.[layerCanvasKey];
-	    if (!tempCanvas) {
+	    const paramsChanged = data.PersistentData?.[layerParamsKey] !== currentParams;
+	    if (!tempCanvas || (gifEntry.isAnimated && paramsChanged)) {
 	        tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
 	        if (!data.PersistentData) data.PersistentData = {};
 	        data.PersistentData[layerCanvasKey] = tempCanvas;
@@ -2833,8 +3084,7 @@
 	        HideFacial: false,
 	        HideBody: false,
 	        HideClothing: false,
-	        HideItems: false,
-	        Hide: []
+	        HideItems: false
 	    },
 	    ScriptHooks: {
 	        Load: (data, originalFunction) => {
@@ -2925,7 +3175,8 @@
 	        layerNames,
 	        extended,
 	        translation,
-	        assetStrings
+	        assetStrings,
+	        noMirror: true
 	    });
 	    const previewMappings = {};
 	    for (const group of ALL_ITEM_GROUPS) {
@@ -2954,36 +3205,31 @@
 
 	console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
 	function init() {
-	    Logger.info(`${ModInfo.fullName} v${ModInfo.version} 正在初始化...`);
 	    registerAssets(assets);
 	    mt.afterLoad(() => {
 	        initAssets();
 	        setupLoginBadge(u$1);
 	        setupDialogHooks(u$1);
+	        setupGifAnimationHooks(u$1);
 	        u$1.afterPlayerLogin(() => {
 	            registerExtensionSetting();
 	        });
-	        Logger.info("所有道具初始化完成");
+	        Logger.info(`${ModInfo.fullName} v${ModInfo.version} 初始化完成`);
 	    });
 	}
 	function setup() {
 	    init();
 	}
 	n(ModInfo.name, async () => {
-	    console.log(`[ShuangAssets] once 函数开始执行...`);
 	    try {
-	        console.log(`[ShuangAssets] 正在加载 SDK...`);
 	        await import('https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0');
-	        console.log(`[ShuangAssets] SDK 加载完成`);
 	        const mod =  (globalThis).bcModSdk.registerMod({
 	            name: ModInfo.name,
 	            fullName: ModInfo.fullName,
 	            version: ModInfo.version,
 	            repository: ModInfo.repository
 	        });
-	        console.log(`[ShuangAssets] 模组已注册: ${mod.name}`);
 	        u$1.initWithMod(mod);
-	        console.log(`[ShuangAssets] HookManager 已初始化`);
 	        u$1.hookFunction("CraftingDeserialize", 0, (args, next) => {
 	            const craftString = args[0];
 	            if (typeof craftString === "string" && craftString.length > 0) {
@@ -3012,10 +3258,9 @@
 	        });
 	        mt.setLogger(Logger);
 	        mt.init(setup);
-	        console.log(`[ShuangAssets] AssetManager.init 已调用`);
 	    } catch (error) {
 	        console.error(`[ShuangAssets] 初始化失败:`, error);
 	    }
 	});
 
-})();
+})(gifuctJs);
