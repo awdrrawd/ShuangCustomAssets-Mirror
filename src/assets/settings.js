@@ -8,6 +8,7 @@ import { BADGE_IMAGE_URL } from "./constants.js";
 
 // === 常量 ===
 const EXTENSION_ID = "ShuangCustomAssets";
+const GIF_FPS_INPUT_ID = "ShuangTextureGifFpsInput";
 
 /**
  * 插件自身服务域名，始终允许（不依赖玩家设置）
@@ -57,6 +58,8 @@ export function getSettings() {
             allowedDomains: [...DEFAULT_ALLOWED_DOMAINS],
             domainWarningEnabled: true,
             animatedImageEnabled: true,
+            gifFrameRate: 100,
+            gifFpsSyncGame: false,
         };
     }
     return Player.ExtensionSettings[EXTENSION_ID];
@@ -89,6 +92,24 @@ export function getDomainWarningEnabled() {
 export function getAnimatedImageEnabled() {
     const settings = getSettings();
     return settings.animatedImageEnabled !== false; // 默认开启
+}
+
+/**
+ * 获取动图帧率间隔（毫秒）
+ * 值越小刷新越快（越流畅），但 CPU 开销越大
+ * 开启 gifFpsSyncGame 时跟随游戏帧率（Player.GraphicsSettings.MaxFPS）
+ * @returns {number} 毫秒间隔
+ */
+export function getGifFrameRate() {
+    const settings = getSettings();
+    if (settings.gifFpsSyncGame) {
+        const gameFps = Player?.GraphicsSettings?.MaxFPS ?? 60;
+        // 0 表示无限制，用 60fps（约16ms）作为安全上限
+        const fps = gameFps === 0 ? 60 : gameFps;
+        return Math.max(16, Math.round(1000 / fps));
+    }
+    const v = settings.gifFrameRate;
+    return (typeof v === "number" && v >= 33) ? v : 100; // 最小 33ms（约 30fps），默认 100ms
 }
 
 // === URL 检查 ===
@@ -209,6 +230,7 @@ export function registerExtensionSetting() {
             settingsPage = "main";
             whitelistPage = 0;
             _createDomainInput();
+            _createGifFpsInput();
         },
         run: () => {
             MainCanvas.textAlign = "center";
@@ -237,12 +259,14 @@ export function registerExtensionSetting() {
         },
         exit: () => {
             _removeDomainInput();
+            _removeGifFpsInput();
             settingsPage = "main";
             whitelistPage = 0;
             return true;
         },
         unload: () => {
             _removeDomainInput();
+            _removeGifFpsInput();
             settingsPage = "main";
             whitelistPage = 0;
         },
@@ -303,6 +327,20 @@ function _drawMainPage() {
         isAnimOn ? "#4CAF50" : "#666666",
         isAnimOn ? "#66BB6A" : "#999999", false,
         L("关闭后动图（GIF）只显示第一帧，不再播放动画", "When off, animated GIFs only show their first frame and won't play"));
+
+    // 动图帧率调整（仅启用动态图片时生效）
+    // 数值框为真实 DOM <input type="number">（由 _updateInputPosition 定位），直接输入帧率 fps
+    const fpsY = animY + 70;
+    const isSyncGame = settings.gifFpsSyncGame === true;
+    DrawText(L("动图帧率", "GIF Frame Rate"), 800, fpsY + 22, "Black", "White");
+    // 单位提示（DOM 输入框右侧）
+    DrawText("fps", 1290, fpsY + 22, "Gray", "White");
+    // 与游戏帧率同步开关
+    DrawButton(1360, fpsY - 5, 200, 35,
+        L(`同步游戏帧率: ${isSyncGame ? "开" : "关"}`, `Game FPS sync: ${isSyncGame ? "On" : "Off"}`),
+        isSyncGame ? "#4CAF50" : "#666666",
+        isSyncGame ? "#66BB6A" : "#999999", false,
+        L("勾选后动图帧率跟随游戏帧率设置", "Sync GIF frame rate with game FPS setting"));
 
     DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 }
@@ -477,6 +515,19 @@ function _clickMainPage() {
     if (MouseIn(1150, animY - 5, 80, 35)) {
         settings.animatedImageEnabled = !(settings.animatedImageEnabled !== false);
         saveSettings();
+        return;
+    }
+
+    // 动图帧率与游戏同步开关
+    const fpsY = animY + 70;
+    if (MouseIn(1360, fpsY - 5, 200, 35)) {
+        settings.gifFpsSyncGame = !(settings.gifFpsSyncGame === true);
+        saveSettings();
+        // 取消勾选时恢复用户手动帧率到输入框
+        if (!settings.gifFpsSyncGame) {
+            const input = document.getElementById(GIF_FPS_INPUT_ID);
+            if (input) input.value = String(Math.round(1000 / getGifFrameRate()));
+        }
         return;
     }
 }
@@ -718,9 +769,77 @@ function _updateInputPosition() {
         // 非白名单页面时隐藏输入框
         ElementPosition("ShuangTextureDomainInput", -999, -999, 0, 0);
     }
+
+    // 帧率输入框：仅在主页面且动态图片开启时显示
+    const fpsInput = document.getElementById(GIF_FPS_INPUT_ID);
+    if (fpsInput) {
+        const s = getSettings();
+        const animEnabled = s.animatedImageEnabled !== false;
+        if (settingsPage === "main" && animEnabled) {
+            const warnY = s.urlLoadMode === "whitelist" ? 500 : 360;
+            const animY = warnY + 70;
+            const fpsY = animY + 70;
+            ElementPosition(GIF_FPS_INPUT_ID, 1200, fpsY + 12, 120, 35);
+            // 同步游戏帧率时禁用输入框并显示游戏帧率值
+            const syncGame = s.gifFpsSyncGame === true;
+            fpsInput.disabled = syncGame;
+            if (syncGame) {
+                const gameFps = Player?.GraphicsSettings?.MaxFPS ?? 60;
+                const displayFps = gameFps === 0 ? 60 : gameFps;
+                if (fpsInput.value !== String(displayFps)) {
+                    fpsInput.value = String(displayFps);
+                }
+            }
+        } else {
+            ElementPosition(GIF_FPS_INPUT_ID, -999, -999, 0, 0);
+        }
+    }
 }
 
 function _removeDomainInput() {
     const input = document.getElementById("ShuangTextureDomainInput");
+    if (input) input.remove();
+}
+
+// === 帧率输入框管理 ===
+
+/**
+ * 创建动图帧率 DOM 输入框（<input type="number">）
+ * 直接输入帧率 fps（范围 2~30），内部转换为 ms 间隔存储到 settings.gifFrameRate
+ */
+function _createGifFpsInput() {
+    const initialFps = Math.round(1000 / getGifFrameRate());
+    const input = ElementCreateInput(GIF_FPS_INPUT_ID, "number", String(initialFps), "10");
+    input.min = "2";
+    input.max = "30";
+    input.step = "1";
+    input.addEventListener("input", () => {
+        const parsed = parseInt(input.value);
+        if (isNaN(parsed)) return; // 允许临时空值，change 时再修正
+        const clampedFps = Math.max(2, Math.min(30, parsed));
+        const ms = Math.round(1000 / clampedFps);
+        const settings = getSettings();
+        if (settings.gifFrameRate !== ms) {
+            settings.gifFrameRate = ms;
+            saveSettings();
+        }
+    });
+    input.addEventListener("change", () => {
+        // 失焦时修正非法值并回填
+        let parsed = parseInt(input.value);
+        if (isNaN(parsed)) parsed = 10;
+        const clampedFps = Math.max(2, Math.min(30, parsed));
+        input.value = String(clampedFps);
+        const ms = Math.round(1000 / clampedFps);
+        const settings = getSettings();
+        if (settings.gifFrameRate !== ms) {
+            settings.gifFrameRate = ms;
+            saveSettings();
+        }
+    });
+}
+
+function _removeGifFpsInput() {
+    const input = document.getElementById(GIF_FPS_INPUT_ID);
     if (input) input.remove();
 }

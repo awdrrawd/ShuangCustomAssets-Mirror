@@ -34,13 +34,11 @@
  */
 import { Logger } from "./utils.js";
 import { pruneCachesNow } from "./cacheGC.js";
+import { getGifFrameRate } from "../assets/settings.js";
 
-/** 轮询间隔（毫秒）：每个已知在播放动图的角色，固定以这个间隔无条件强制刷新一次。
- *  100ms（约 10 次/秒）足以覆盖绝大多数 GIF 的帧率，同时不会像逐帧渲染一样过于频繁。
- *  代价是：即使某个角色当下这一帧的 delay 很长（例如 2 秒），也会照样每 100ms 刷新
- *  一次（只是 render.js 重新算出来的还是同一帧、不会产生新的 canvas/贴图上传），
- *  换取的是播放不会中途卡死。*/
-const GIF_POLL_INTERVAL_MS = 100;
+/** 轮询间隔的默认值（毫秒）。实际运行时通过 getGifFrameRate() 读取玩家设置，
+ *  用 setTimeout 递归而非 setInterval，这样每次 tick 都能拿到最新的设置值 */
+const GIF_POLL_INTERVAL_DEFAULT_MS = 100;
 
 /** 超过这么久没有被 notifyGifFrame 呼叫到的角色，视为「场上已经看不到了」
  *  （道具移除、角色离开聊天室等），从追踪名单中清掉，避免名单无限增长 */
@@ -94,10 +92,13 @@ function ensureTimerStarted() {
     if (_timerStarted) return;
     _timerStarted = true;
 
-    setInterval(() => {
+    // 用 setTimeout 递归而非 setInterval，每次 tick 都读取最新的帧率设置
+    const tick = () => {
         pruneStaleCharacters();
         kickAllKnownAnimated();
-    }, GIF_POLL_INTERVAL_MS);
+        setTimeout(tick, getGifFrameRate());
+    };
+    setTimeout(tick, GIF_POLL_INTERVAL_DEFAULT_MS);
 
     if (typeof document !== "undefined") {
         document.addEventListener("visibilitychange", () => {
