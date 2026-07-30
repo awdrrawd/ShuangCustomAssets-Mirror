@@ -43,5 +43,8 @@
     "bugs": {
         "url": "https://github.com/yourname/ShuangCustomAssets/issues"
     },
-    "homepage": "https://github.com/yourname/ShuangCustomAssets#readme"
+    "homepage": "https://github.com/yourname/ShuangCustomAssets#readme",
+    "dependencies": {
+        "gifuct-js": "^2.1.2"
+    }
 }
