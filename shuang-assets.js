@@ -1,4 +1,4 @@
-(function (gifuctJs) {
+(function () {
 	'use strict';
 
 	/**
@@ -746,71 +746,6 @@
 	    }
 	}
 
-	const GIF_POLL_INTERVAL_MS = 100;
-	const STALE_CHARACTER_TIMEOUT_MS = 5 * 60 * 1000;
-	const _knownAnimatedCharacters = new Map();
-	let _timerStarted = false;
-	function forceRefresh(C) {
-	    try {
-	        if (typeof CharacterRefresh === "function") {
-	            CharacterRefresh(C, false, false);
-	        }
-	    } catch (err) {
-	        Logger.error("[ShuangAssets] GIF 动画刷新失败", err);
-	    }
-	}
-	function kickAllKnownAnimated() {
-	    if (_knownAnimatedCharacters.size === 0) return;
-	    for (const C of _knownAnimatedCharacters.keys()) forceRefresh(C);
-	}
-	function pruneStaleCharacters() {
-	    const now = Date.now();
-	    for (const [C, lastSeen] of _knownAnimatedCharacters) {
-	        if (now - lastSeen > STALE_CHARACTER_TIMEOUT_MS) {
-	            _knownAnimatedCharacters.delete(C);
-	        }
-	    }
-	}
-	function ensureTimerStarted() {
-	    if (_timerStarted) return;
-	    _timerStarted = true;
-	    setInterval(() => {
-	        pruneStaleCharacters();
-	        kickAllKnownAnimated();
-	    }, GIF_POLL_INTERVAL_MS);
-	    if (typeof document !== "undefined") {
-	        document.addEventListener("visibilitychange", () => {
-	            if (document.visibilityState !== "visible") return;
-	            kickAllKnownAnimated();
-	        });
-	    }
-	}
-	function setupGifAnimationHooks(HookManager) {
-	    if (!HookManager || typeof HookManager.hookFunction !== "function") return;
-	    try {
-	        HookManager.hookFunction("CommonSetScreen", 0, (args, next) => {
-	            const ret = next(args);
-	            setTimeout(kickAllKnownAnimated, 0);
-	            pruneCachesNow();
-	            return ret;
-	        });
-	    } catch (err) {
-	        Logger.error("[ShuangAssets] 注册画面切换动图钩子失败", err);
-	    }
-	    if (typeof HookManager.afterPlayerLogin === "function") {
-	        try {
-	            HookManager.afterPlayerLogin(() => setTimeout(kickAllKnownAnimated, 0));
-	        } catch (err) {
-	            Logger.error("[ShuangAssets] 注册登入动图钩子失败", err);
-	        }
-	    }
-	}
-	function notifyGifFrame(C, layerIndex, frameIndex) {
-	    if (!C || frameIndex < 0) return;
-	    ensureTimerStarted();
-	    _knownAnimatedCharacters.set(C, Date.now());
-	}
-
 	const ASSET_NAME = "自定义贴图";
 	const DEFAULT_TEXTURE = {
 	    TextureURL: "",
@@ -1044,84 +979,8 @@
 	    EN: { SelectBase: "Texture Manager" }
 	};
 
-	const state = {
-	    currentEditTexture: -1,
-	    tempTextureData: null,
-	    currentListPage: 0,
-	    currentView: "list",
-	    pendingDomainToAdd: null,
-	    originalEditTexture: null,
-	    tempPriority: 50,
-	    originalOverridePriority: undefined,
-	    isDragMode: false,
-	    dragActive: false,
-	    dragStartMouseX: 0,
-	    dragStartMouseY: 0,
-	    dragStartOffsetX: 0,
-	    dragStartOffsetY: 0,
-	    _lastTextureRefresh: 0,
-	    _pendingTextureRefresh: false,
-	    statusMessage: null,
-	    statusMessageExpiry: 0,
-	    _fieldsDirty: false,
-	    poseEditing: null,
-	    tempGlobalData: null,
-	    lastPoseKey: null,
-	    poseSwitchMode: false,
-	    previewPoseMapping: null,
-	    _pointerDown: false,
-	    _stepperListenerReady: false,
-	};
-	function resetDragState() {
-	    state.isDragMode = false;
-	    state.dragActive = false;
-	}
-	function showStatus(text, color = "#4CAF50", durationMs = 5000) {
-	    state.statusMessage = { text, color };
-	    state.statusMessageExpiry = Date.now() + durationMs;
-	}
-
-	function updateHideArray(item) {
-	    if (!item || !item.Property) return false;
-	    const hide = [];
-	    const currentGroup = item.Asset?.Group?.Name;
-	    for (const cat of HIDE_CATEGORIES) {
-	        if (item.Property[cat.key] === true) {
-	            for (const g of cat.groups) {
-	                if (cat.key === "HideItems" && g === currentGroup) continue;
-	                hide.push(g);
-	            }
-	        }
-	    }
-	    const oldHide = item.Property.Hide || [];
-	    const newHideStr = [...hide].sort().join(",");
-	    const oldHideStr = [...oldHide].sort().join(",");
-	    const needsRefresh = newHideStr !== oldHideStr;
-	    if (hide.length > 0) {
-	        item.Property.Hide = hide;
-	    } else {
-	        delete item.Property.Hide;
-	    }
-	    return needsRefresh;
-	}
-
-	function syncItemToServer(item) {
-	    if (CurrentScreen === "Crafting") return;
-	    const C = CharacterGetCurrent();
-	    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
-	    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
-	    if (C.IsPlayer()) {
-	        if (typeof ChatRoomCharacterUpdate === "function") {
-	            ChatRoomCharacterUpdate(C);
-	        }
-	        if (typeof ServerPlayerAppearanceSync === "function") {
-	            ServerPlayerAppearanceSync();
-	        }
-	    }
-	    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
-	}
-
 	const EXTENSION_ID = "ShuangCustomAssets";
+	const GIF_FPS_INPUT_ID = "ShuangTextureGifFpsInput";
 	const ALWAYS_ALLOWED_DOMAINS = [
 	    "shuang-custom-assets.pages.dev"
 	];
@@ -1152,6 +1011,8 @@
 	            allowedDomains: [...DEFAULT_ALLOWED_DOMAINS],
 	            domainWarningEnabled: true,
 	            animatedImageEnabled: true,
+	            gifFrameRate: 100,
+	            gifFpsSyncGame: false,
 	        };
 	    }
 	    return Player.ExtensionSettings[EXTENSION_ID];
@@ -1168,6 +1029,16 @@
 	function getAnimatedImageEnabled() {
 	    const settings = getSettings();
 	    return settings.animatedImageEnabled !== false;
+	}
+	function getGifFrameRate() {
+	    const settings = getSettings();
+	    if (settings.gifFpsSyncGame) {
+	        const gameFps = Player?.GraphicsSettings?.MaxFPS ?? 60;
+	        const fps = gameFps === 0 ? 60 : gameFps;
+	        return Math.max(16, Math.round(1000 / fps));
+	    }
+	    const v = settings.gifFrameRate;
+	    return (typeof v === "number" && v >= 33) ? v : 100;
 	}
 	function extractDomain(url) {
 	    try {
@@ -1236,6 +1107,7 @@
 	            settingsPage = "main";
 	            whitelistPage = 0;
 	            _createDomainInput();
+	            _createGifFpsInput();
 	        },
 	        run: () => {
 	            MainCanvas.textAlign = "center";
@@ -1264,12 +1136,14 @@
 	        },
 	        exit: () => {
 	            _removeDomainInput();
+	            _removeGifFpsInput();
 	            settingsPage = "main";
 	            whitelistPage = 0;
 	            return true;
 	        },
 	        unload: () => {
 	            _removeDomainInput();
+	            _removeGifFpsInput();
 	            settingsPage = "main";
 	            whitelistPage = 0;
 	        },
@@ -1314,6 +1188,15 @@
 	        isAnimOn ? "#4CAF50" : "#666666",
 	        isAnimOn ? "#66BB6A" : "#999999", false,
 	        L("关闭后动图（GIF）只显示第一帧，不再播放动画", "When off, animated GIFs only show their first frame and won't play"));
+	    const fpsY = animY + 70;
+	    const isSyncGame = settings.gifFpsSyncGame === true;
+	    DrawText(L("动图帧率", "GIF Frame Rate"), 800, fpsY + 22, "Black", "White");
+	    DrawText("fps", 1290, fpsY + 22, "Gray", "White");
+	    DrawButton(1360, fpsY - 5, 200, 35,
+	        L(`同步游戏帧率: ${isSyncGame ? "开" : "关"}`, `Game FPS sync: ${isSyncGame ? "On" : "Off"}`),
+	        isSyncGame ? "#4CAF50" : "#666666",
+	        isSyncGame ? "#66BB6A" : "#999999", false,
+	        L("勾选后动图帧率跟随游戏帧率设置", "Sync GIF frame rate with game FPS setting"));
 	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 	}
 	function _drawModeSelectPage() {
@@ -1446,6 +1329,16 @@
 	    if (MouseIn(1150, animY - 5, 80, 35)) {
 	        settings.animatedImageEnabled = !(settings.animatedImageEnabled !== false);
 	        saveSettings();
+	        return;
+	    }
+	    const fpsY = animY + 70;
+	    if (MouseIn(1360, fpsY - 5, 200, 35)) {
+	        settings.gifFpsSyncGame = !(settings.gifFpsSyncGame === true);
+	        saveSettings();
+	        if (!settings.gifFpsSyncGame) {
+	            const input = document.getElementById(GIF_FPS_INPUT_ID);
+	            if (input) input.value = String(Math.round(1000 / getGifFrameRate()));
+	        }
 	        return;
 	    }
 	}
@@ -1644,10 +1537,210 @@
 	    } else if (input) {
 	        ElementPosition("ShuangTextureDomainInput", -999, -999, 0, 0);
 	    }
+	    const fpsInput = document.getElementById(GIF_FPS_INPUT_ID);
+	    if (fpsInput) {
+	        const s = getSettings();
+	        const animEnabled = s.animatedImageEnabled !== false;
+	        if (settingsPage === "main" && animEnabled) {
+	            const warnY = s.urlLoadMode === "whitelist" ? 500 : 360;
+	            const animY = warnY + 70;
+	            const fpsY = animY + 70;
+	            ElementPosition(GIF_FPS_INPUT_ID, 1200, fpsY + 12, 120, 35);
+	            const syncGame = s.gifFpsSyncGame === true;
+	            fpsInput.disabled = syncGame;
+	            if (syncGame) {
+	                const gameFps = Player?.GraphicsSettings?.MaxFPS ?? 60;
+	                const displayFps = gameFps === 0 ? 60 : gameFps;
+	                if (fpsInput.value !== String(displayFps)) {
+	                    fpsInput.value = String(displayFps);
+	                }
+	            }
+	        } else {
+	            ElementPosition(GIF_FPS_INPUT_ID, -999, -999, 0, 0);
+	        }
+	    }
 	}
 	function _removeDomainInput() {
 	    const input = document.getElementById("ShuangTextureDomainInput");
 	    if (input) input.remove();
+	}
+	function _createGifFpsInput() {
+	    const initialFps = Math.round(1000 / getGifFrameRate());
+	    const input = ElementCreateInput(GIF_FPS_INPUT_ID, "number", String(initialFps), "10");
+	    input.min = "2";
+	    input.max = "30";
+	    input.step = "1";
+	    input.addEventListener("input", () => {
+	        const parsed = parseInt(input.value);
+	        if (isNaN(parsed)) return;
+	        const clampedFps = Math.max(2, Math.min(30, parsed));
+	        const ms = Math.round(1000 / clampedFps);
+	        const settings = getSettings();
+	        if (settings.gifFrameRate !== ms) {
+	            settings.gifFrameRate = ms;
+	            saveSettings();
+	        }
+	    });
+	    input.addEventListener("change", () => {
+	        let parsed = parseInt(input.value);
+	        if (isNaN(parsed)) parsed = 10;
+	        const clampedFps = Math.max(2, Math.min(30, parsed));
+	        input.value = String(clampedFps);
+	        const ms = Math.round(1000 / clampedFps);
+	        const settings = getSettings();
+	        if (settings.gifFrameRate !== ms) {
+	            settings.gifFrameRate = ms;
+	            saveSettings();
+	        }
+	    });
+	}
+	function _removeGifFpsInput() {
+	    const input = document.getElementById(GIF_FPS_INPUT_ID);
+	    if (input) input.remove();
+	}
+
+	const GIF_POLL_INTERVAL_DEFAULT_MS = 100;
+	const STALE_CHARACTER_TIMEOUT_MS = 5 * 60 * 1000;
+	const _knownAnimatedCharacters = new Map();
+	let _timerStarted = false;
+	function forceRefresh(C) {
+	    try {
+	        if (typeof CharacterRefresh === "function") {
+	            CharacterRefresh(C, false, false);
+	        }
+	    } catch (err) {
+	        Logger.error("[ShuangAssets] GIF 动画刷新失败", err);
+	    }
+	}
+	function kickAllKnownAnimated() {
+	    if (_knownAnimatedCharacters.size === 0) return;
+	    for (const C of _knownAnimatedCharacters.keys()) forceRefresh(C);
+	}
+	function pruneStaleCharacters() {
+	    const now = Date.now();
+	    for (const [C, lastSeen] of _knownAnimatedCharacters) {
+	        if (now - lastSeen > STALE_CHARACTER_TIMEOUT_MS) {
+	            _knownAnimatedCharacters.delete(C);
+	        }
+	    }
+	}
+	function ensureTimerStarted() {
+	    if (_timerStarted) return;
+	    _timerStarted = true;
+	    const tick = () => {
+	        pruneStaleCharacters();
+	        kickAllKnownAnimated();
+	        setTimeout(tick, getGifFrameRate());
+	    };
+	    setTimeout(tick, GIF_POLL_INTERVAL_DEFAULT_MS);
+	    if (typeof document !== "undefined") {
+	        document.addEventListener("visibilitychange", () => {
+	            if (document.visibilityState !== "visible") return;
+	            kickAllKnownAnimated();
+	        });
+	    }
+	}
+	function setupGifAnimationHooks(HookManager) {
+	    if (!HookManager || typeof HookManager.hookFunction !== "function") return;
+	    try {
+	        HookManager.hookFunction("CommonSetScreen", 0, (args, next) => {
+	            const ret = next(args);
+	            setTimeout(kickAllKnownAnimated, 0);
+	            pruneCachesNow();
+	            return ret;
+	        });
+	    } catch (err) {
+	        Logger.error("[ShuangAssets] 注册画面切换动图钩子失败", err);
+	    }
+	    if (typeof HookManager.afterPlayerLogin === "function") {
+	        try {
+	            HookManager.afterPlayerLogin(() => setTimeout(kickAllKnownAnimated, 0));
+	        } catch (err) {
+	            Logger.error("[ShuangAssets] 注册登入动图钩子失败", err);
+	        }
+	    }
+	}
+	function notifyGifFrame(C, layerIndex, frameIndex) {
+	    if (!C || frameIndex < 0) return;
+	    ensureTimerStarted();
+	    _knownAnimatedCharacters.set(C, Date.now());
+	}
+
+	const state = {
+	    currentEditTexture: -1,
+	    tempTextureData: null,
+	    currentListPage: 0,
+	    currentView: "list",
+	    pendingDomainToAdd: null,
+	    originalEditTexture: null,
+	    tempPriority: 50,
+	    originalOverridePriority: undefined,
+	    isDragMode: false,
+	    dragActive: false,
+	    dragStartMouseX: 0,
+	    dragStartMouseY: 0,
+	    dragStartOffsetX: 0,
+	    dragStartOffsetY: 0,
+	    _lastTextureRefresh: 0,
+	    _pendingTextureRefresh: false,
+	    statusMessage: null,
+	    statusMessageExpiry: 0,
+	    _fieldsDirty: false,
+	    poseEditing: null,
+	    tempGlobalData: null,
+	    lastPoseKey: null,
+	    poseSwitchMode: false,
+	    previewPoseMapping: null,
+	    _pointerDown: false,
+	    _stepperListenerReady: false,
+	};
+	function resetDragState() {
+	    state.isDragMode = false;
+	    state.dragActive = false;
+	}
+	function showStatus(text, color = "#4CAF50", durationMs = 5000) {
+	    state.statusMessage = { text, color };
+	    state.statusMessageExpiry = Date.now() + durationMs;
+	}
+
+	function updateHideArray(item) {
+	    if (!item || !item.Property) return false;
+	    const hide = [];
+	    const currentGroup = item.Asset?.Group?.Name;
+	    for (const cat of HIDE_CATEGORIES) {
+	        if (item.Property[cat.key] === true) {
+	            for (const g of cat.groups) {
+	                if (cat.key === "HideItems" && g === currentGroup) continue;
+	                hide.push(g);
+	            }
+	        }
+	    }
+	    const oldHide = item.Property.Hide || [];
+	    const newHideStr = [...hide].sort().join(",");
+	    const oldHideStr = [...oldHide].sort().join(",");
+	    const needsRefresh = newHideStr !== oldHideStr;
+	    if (hide.length > 0) {
+	        item.Property.Hide = hide;
+	    } else {
+	        delete item.Property.Hide;
+	    }
+	    return needsRefresh;
+	}
+
+	function syncItemToServer(item) {
+	    if (CurrentScreen === "Crafting") return;
+	    const C = CharacterGetCurrent();
+	    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
+	    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+	    if (C.IsPlayer()) {
+	        if (typeof ChatRoomCharacterUpdate === "function") {
+	            ChatRoomCharacterUpdate(C);
+	        }
+	        if (typeof ServerPlayerAppearanceSync === "function") {
+	            ServerPlayerAppearanceSync();
+	        }
+	    }
+	    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
 	}
 
 	function getEditTarget() {
@@ -2746,6 +2839,582 @@
 	    return primaryUrl;
 	}
 
+	var lib$1 = {};
+
+	var gif = {};
+
+	var lib = {};
+
+	var hasRequiredLib$1;
+	function requireLib$1 () {
+		if (hasRequiredLib$1) return lib;
+		hasRequiredLib$1 = 1;
+		Object.defineProperty(lib, "__esModule", {
+		  value: true
+		});
+		lib.loop = lib.conditional = lib.parse = void 0;
+		var parse = function parse(stream, schema) {
+		  var result = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+		  var parent = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : result;
+		  if (Array.isArray(schema)) {
+		    schema.forEach(function (partSchema) {
+		      return parse(stream, partSchema, result, parent);
+		    });
+		  } else if (typeof schema === 'function') {
+		    schema(stream, result, parent, parse);
+		  } else {
+		    var key = Object.keys(schema)[0];
+		    if (Array.isArray(schema[key])) {
+		      parent[key] = {};
+		      parse(stream, schema[key], result, parent[key]);
+		    } else {
+		      parent[key] = schema[key](stream, result, parent, parse);
+		    }
+		  }
+		  return result;
+		};
+		lib.parse = parse;
+		var conditional = function conditional(schema, conditionFunc) {
+		  return function (stream, result, parent, parse) {
+		    if (conditionFunc(stream, result, parent)) {
+		      parse(stream, schema, result, parent);
+		    }
+		  };
+		};
+		lib.conditional = conditional;
+		var loop = function loop(schema, continueFunc) {
+		  return function (stream, result, parent, parse) {
+		    var arr = [];
+		    var lastStreamPos = stream.pos;
+		    while (continueFunc(stream, result, parent)) {
+		      var newParent = {};
+		      parse(stream, schema, result, newParent);
+		      if (stream.pos === lastStreamPos) {
+		        break;
+		      }
+		      lastStreamPos = stream.pos;
+		      arr.push(newParent);
+		    }
+		    return arr;
+		  };
+		};
+		lib.loop = loop;
+		return lib;
+	}
+
+	var uint8 = {};
+
+	var hasRequiredUint8;
+	function requireUint8 () {
+		if (hasRequiredUint8) return uint8;
+		hasRequiredUint8 = 1;
+		Object.defineProperty(uint8, "__esModule", {
+		  value: true
+		});
+		uint8.readBits = uint8.readArray = uint8.readUnsigned = uint8.readString = uint8.peekBytes = uint8.readBytes = uint8.peekByte = uint8.readByte = uint8.buildStream = void 0;
+		var buildStream = function buildStream(uint8Data) {
+		  return {
+		    data: uint8Data,
+		    pos: 0
+		  };
+		};
+		uint8.buildStream = buildStream;
+		var readByte = function readByte() {
+		  return function (stream) {
+		    return stream.data[stream.pos++];
+		  };
+		};
+		uint8.readByte = readByte;
+		var peekByte = function peekByte() {
+		  var offset = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+		  return function (stream) {
+		    return stream.data[stream.pos + offset];
+		  };
+		};
+		uint8.peekByte = peekByte;
+		var readBytes = function readBytes(length) {
+		  return function (stream) {
+		    return stream.data.subarray(stream.pos, stream.pos += length);
+		  };
+		};
+		uint8.readBytes = readBytes;
+		var peekBytes = function peekBytes(length) {
+		  return function (stream) {
+		    return stream.data.subarray(stream.pos, stream.pos + length);
+		  };
+		};
+		uint8.peekBytes = peekBytes;
+		var readString = function readString(length) {
+		  return function (stream) {
+		    return Array.from(readBytes(length)(stream)).map(function (value) {
+		      return String.fromCharCode(value);
+		    }).join('');
+		  };
+		};
+		uint8.readString = readString;
+		var readUnsigned = function readUnsigned(littleEndian) {
+		  return function (stream) {
+		    var bytes = readBytes(2)(stream);
+		    return littleEndian ? (bytes[1] << 8) + bytes[0] : (bytes[0] << 8) + bytes[1];
+		  };
+		};
+		uint8.readUnsigned = readUnsigned;
+		var readArray = function readArray(byteSize, totalOrFunc) {
+		  return function (stream, result, parent) {
+		    var total = typeof totalOrFunc === 'function' ? totalOrFunc(stream, result, parent) : totalOrFunc;
+		    var parser = readBytes(byteSize);
+		    var arr = new Array(total);
+		    for (var i = 0; i < total; i++) {
+		      arr[i] = parser(stream);
+		    }
+		    return arr;
+		  };
+		};
+		uint8.readArray = readArray;
+		var subBitsTotal = function subBitsTotal(bits, startIndex, length) {
+		  var result = 0;
+		  for (var i = 0; i < length; i++) {
+		    result += bits[startIndex + i] && Math.pow(2, length - i - 1);
+		  }
+		  return result;
+		};
+		var readBits = function readBits(schema) {
+		  return function (stream) {
+		    var _byte = readByte()(stream);
+		    var bits = new Array(8);
+		    for (var i = 0; i < 8; i++) {
+		      bits[7 - i] = !!(_byte & 1 << i);
+		    }
+		    return Object.keys(schema).reduce(function (res, key) {
+		      var def = schema[key];
+		      if (def.length) {
+		        res[key] = subBitsTotal(bits, def.index, def.length);
+		      } else {
+		        res[key] = bits[def.index];
+		      }
+		      return res;
+		    }, {});
+		  };
+		};
+		uint8.readBits = readBits;
+		return uint8;
+	}
+
+	var hasRequiredGif;
+	function requireGif () {
+		if (hasRequiredGif) return gif;
+		hasRequiredGif = 1;
+		(function (exports) {
+			Object.defineProperty(exports, "__esModule", {
+			  value: true
+			});
+			exports["default"] = void 0;
+			var _ = requireLib$1();
+			var _uint = requireUint8();
+			var subBlocksSchema = {
+			  blocks: function blocks(stream) {
+			    var terminator = 0x00;
+			    var chunks = [];
+			    var streamSize = stream.data.length;
+			    var total = 0;
+			    for (var size = (0, _uint.readByte)()(stream); size !== terminator; size = (0, _uint.readByte)()(stream)) {
+			      if (!size) break;
+			      if (stream.pos + size >= streamSize) {
+			        var availableSize = streamSize - stream.pos;
+			        chunks.push((0, _uint.readBytes)(availableSize)(stream));
+			        total += availableSize;
+			        break;
+			      }
+			      chunks.push((0, _uint.readBytes)(size)(stream));
+			      total += size;
+			    }
+			    var result = new Uint8Array(total);
+			    var offset = 0;
+			    for (var i = 0; i < chunks.length; i++) {
+			      result.set(chunks[i], offset);
+			      offset += chunks[i].length;
+			    }
+			    return result;
+			  }
+			};
+			var gceSchema = (0, _.conditional)({
+			  gce: [{
+			    codes: (0, _uint.readBytes)(2)
+			  }, {
+			    byteSize: (0, _uint.readByte)()
+			  }, {
+			    extras: (0, _uint.readBits)({
+			      future: {
+			        index: 0,
+			        length: 3
+			      },
+			      disposal: {
+			        index: 3,
+			        length: 3
+			      },
+			      userInput: {
+			        index: 6
+			      },
+			      transparentColorGiven: {
+			        index: 7
+			      }
+			    })
+			  }, {
+			    delay: (0, _uint.readUnsigned)(true)
+			  }, {
+			    transparentColorIndex: (0, _uint.readByte)()
+			  }, {
+			    terminator: (0, _uint.readByte)()
+			  }]
+			}, function (stream) {
+			  var codes = (0, _uint.peekBytes)(2)(stream);
+			  return codes[0] === 0x21 && codes[1] === 0xf9;
+			});
+			var imageSchema = (0, _.conditional)({
+			  image: [{
+			    code: (0, _uint.readByte)()
+			  }, {
+			    descriptor: [{
+			      left: (0, _uint.readUnsigned)(true)
+			    }, {
+			      top: (0, _uint.readUnsigned)(true)
+			    }, {
+			      width: (0, _uint.readUnsigned)(true)
+			    }, {
+			      height: (0, _uint.readUnsigned)(true)
+			    }, {
+			      lct: (0, _uint.readBits)({
+			        exists: {
+			          index: 0
+			        },
+			        interlaced: {
+			          index: 1
+			        },
+			        sort: {
+			          index: 2
+			        },
+			        future: {
+			          index: 3,
+			          length: 2
+			        },
+			        size: {
+			          index: 5,
+			          length: 3
+			        }
+			      })
+			    }]
+			  }, (0, _.conditional)({
+			    lct: (0, _uint.readArray)(3, function (stream, result, parent) {
+			      return Math.pow(2, parent.descriptor.lct.size + 1);
+			    })
+			  }, function (stream, result, parent) {
+			    return parent.descriptor.lct.exists;
+			  }), {
+			    data: [{
+			      minCodeSize: (0, _uint.readByte)()
+			    }, subBlocksSchema]
+			  }]
+			}, function (stream) {
+			  return (0, _uint.peekByte)()(stream) === 0x2c;
+			});
+			var textSchema = (0, _.conditional)({
+			  text: [{
+			    codes: (0, _uint.readBytes)(2)
+			  }, {
+			    blockSize: (0, _uint.readByte)()
+			  }, {
+			    preData: function preData(stream, result, parent) {
+			      return (0, _uint.readBytes)(parent.text.blockSize)(stream);
+			    }
+			  }, subBlocksSchema]
+			}, function (stream) {
+			  var codes = (0, _uint.peekBytes)(2)(stream);
+			  return codes[0] === 0x21 && codes[1] === 0x01;
+			});
+			var applicationSchema = (0, _.conditional)({
+			  application: [{
+			    codes: (0, _uint.readBytes)(2)
+			  }, {
+			    blockSize: (0, _uint.readByte)()
+			  }, {
+			    id: function id(stream, result, parent) {
+			      return (0, _uint.readString)(parent.blockSize)(stream);
+			    }
+			  }, subBlocksSchema]
+			}, function (stream) {
+			  var codes = (0, _uint.peekBytes)(2)(stream);
+			  return codes[0] === 0x21 && codes[1] === 0xff;
+			});
+			var commentSchema = (0, _.conditional)({
+			  comment: [{
+			    codes: (0, _uint.readBytes)(2)
+			  }, subBlocksSchema]
+			}, function (stream) {
+			  var codes = (0, _uint.peekBytes)(2)(stream);
+			  return codes[0] === 0x21 && codes[1] === 0xfe;
+			});
+			var schema = [{
+			  header: [{
+			    signature: (0, _uint.readString)(3)
+			  }, {
+			    version: (0, _uint.readString)(3)
+			  }]
+			}, {
+			  lsd: [{
+			    width: (0, _uint.readUnsigned)(true)
+			  }, {
+			    height: (0, _uint.readUnsigned)(true)
+			  }, {
+			    gct: (0, _uint.readBits)({
+			      exists: {
+			        index: 0
+			      },
+			      resolution: {
+			        index: 1,
+			        length: 3
+			      },
+			      sort: {
+			        index: 4
+			      },
+			      size: {
+			        index: 5,
+			        length: 3
+			      }
+			    })
+			  }, {
+			    backgroundColorIndex: (0, _uint.readByte)()
+			  }, {
+			    pixelAspectRatio: (0, _uint.readByte)()
+			  }]
+			}, (0, _.conditional)({
+			  gct: (0, _uint.readArray)(3, function (stream, result) {
+			    return Math.pow(2, result.lsd.gct.size + 1);
+			  })
+			}, function (stream, result) {
+			  return result.lsd.gct.exists;
+			}),
+			{
+			  frames: (0, _.loop)([gceSchema, applicationSchema, commentSchema, imageSchema, textSchema], function (stream) {
+			    var nextCode = (0, _uint.peekByte)()(stream);
+			    return nextCode === 0x21 || nextCode === 0x2c;
+			  })
+			}];
+			var _default = schema;
+			exports["default"] = _default;
+		} (gif));
+		return gif;
+	}
+
+	var deinterlace = {};
+
+	var hasRequiredDeinterlace;
+	function requireDeinterlace () {
+		if (hasRequiredDeinterlace) return deinterlace;
+		hasRequiredDeinterlace = 1;
+		Object.defineProperty(deinterlace, "__esModule", {
+		  value: true
+		});
+		deinterlace.deinterlace = void 0;
+		var deinterlace$1 = function deinterlace(pixels, width) {
+		  var newPixels = new Array(pixels.length);
+		  var rows = pixels.length / width;
+		  var cpRow = function cpRow(toRow, fromRow) {
+		    var fromPixels = pixels.slice(fromRow * width, (fromRow + 1) * width);
+		    newPixels.splice.apply(newPixels, [toRow * width, width].concat(fromPixels));
+		  };
+		  var offsets = [0, 4, 2, 1];
+		  var steps = [8, 8, 4, 2];
+		  var fromRow = 0;
+		  for (var pass = 0; pass < 4; pass++) {
+		    for (var toRow = offsets[pass]; toRow < rows; toRow += steps[pass]) {
+		      cpRow(toRow, fromRow);
+		      fromRow++;
+		    }
+		  }
+		  return newPixels;
+		};
+		deinterlace.deinterlace = deinterlace$1;
+		return deinterlace;
+	}
+
+	var lzw = {};
+
+	var hasRequiredLzw;
+	function requireLzw () {
+		if (hasRequiredLzw) return lzw;
+		hasRequiredLzw = 1;
+		Object.defineProperty(lzw, "__esModule", {
+		  value: true
+		});
+		lzw.lzw = void 0;
+		var lzw$1 = function lzw(minCodeSize, data, pixelCount) {
+		  var MAX_STACK_SIZE = 4096;
+		  var nullCode = -1;
+		  var npix = pixelCount;
+		  var available, clear, code_mask, code_size, end_of_information, in_code, old_code, bits, code, i, datum, data_size, first, top, bi, pi;
+		  var dstPixels = new Array(pixelCount);
+		  var prefix = new Array(MAX_STACK_SIZE);
+		  var suffix = new Array(MAX_STACK_SIZE);
+		  var pixelStack = new Array(MAX_STACK_SIZE + 1);
+		  data_size = minCodeSize;
+		  clear = 1 << data_size;
+		  end_of_information = clear + 1;
+		  available = clear + 2;
+		  old_code = nullCode;
+		  code_size = data_size + 1;
+		  code_mask = (1 << code_size) - 1;
+		  for (code = 0; code < clear; code++) {
+		    prefix[code] = 0;
+		    suffix[code] = code;
+		  }
+		  var datum, bits, first, top, pi, bi;
+		  datum = bits = first = top = pi = bi = 0;
+		  for (i = 0; i < npix;) {
+		    if (top === 0) {
+		      if (bits < code_size) {
+		        datum += data[bi] << bits;
+		        bits += 8;
+		        bi++;
+		        continue;
+		      }
+		      code = datum & code_mask;
+		      datum >>= code_size;
+		      bits -= code_size;
+		      if (code > available || code == end_of_information) {
+		        break;
+		      }
+		      if (code == clear) {
+		        code_size = data_size + 1;
+		        code_mask = (1 << code_size) - 1;
+		        available = clear + 2;
+		        old_code = nullCode;
+		        continue;
+		      }
+		      if (old_code == nullCode) {
+		        pixelStack[top++] = suffix[code];
+		        old_code = code;
+		        first = code;
+		        continue;
+		      }
+		      in_code = code;
+		      if (code == available) {
+		        pixelStack[top++] = first;
+		        code = old_code;
+		      }
+		      while (code > clear) {
+		        pixelStack[top++] = suffix[code];
+		        code = prefix[code];
+		      }
+		      first = suffix[code] & 0xff;
+		      pixelStack[top++] = first;
+		      if (available < MAX_STACK_SIZE) {
+		        prefix[available] = old_code;
+		        suffix[available] = first;
+		        available++;
+		        if ((available & code_mask) === 0 && available < MAX_STACK_SIZE) {
+		          code_size++;
+		          code_mask += available;
+		        }
+		      }
+		      old_code = in_code;
+		    }
+		    top--;
+		    dstPixels[pi++] = pixelStack[top];
+		    i++;
+		  }
+		  for (i = pi; i < npix; i++) {
+		    dstPixels[i] = 0;
+		  }
+		  return dstPixels;
+		};
+		lzw.lzw = lzw$1;
+		return lzw;
+	}
+
+	var hasRequiredLib;
+	function requireLib () {
+		if (hasRequiredLib) return lib$1;
+		hasRequiredLib = 1;
+		Object.defineProperty(lib$1, "__esModule", {
+		  value: true
+		});
+		lib$1.decompressFrames = lib$1.decompressFrame = lib$1.parseGIF = void 0;
+		var _gif = _interopRequireDefault(requireGif());
+		var _jsBinarySchemaParser = requireLib$1();
+		var _uint = requireUint8();
+		var _deinterlace = requireDeinterlace();
+		var _lzw = requireLzw();
+		function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
+		var parseGIF = function parseGIF(arrayBuffer) {
+		  var byteData = new Uint8Array(arrayBuffer);
+		  return (0, _jsBinarySchemaParser.parse)((0, _uint.buildStream)(byteData), _gif["default"]);
+		};
+		lib$1.parseGIF = parseGIF;
+		var generatePatch = function generatePatch(image) {
+		  var totalPixels = image.pixels.length;
+		  var patchData = new Uint8ClampedArray(totalPixels * 4);
+		  for (var i = 0; i < totalPixels; i++) {
+		    var pos = i * 4;
+		    var colorIndex = image.pixels[i];
+		    var color = image.colorTable[colorIndex] || [0, 0, 0];
+		    patchData[pos] = color[0];
+		    patchData[pos + 1] = color[1];
+		    patchData[pos + 2] = color[2];
+		    patchData[pos + 3] = colorIndex !== image.transparentIndex ? 255 : 0;
+		  }
+		  return patchData;
+		};
+		var decompressFrame = function decompressFrame(frame, gct, buildImagePatch) {
+		  if (!frame.image) {
+		    console.warn('gif frame does not have associated image.');
+		    return;
+		  }
+		  var image = frame.image;
+		  var totalPixels = image.descriptor.width * image.descriptor.height;
+		  var pixels = (0, _lzw.lzw)(image.data.minCodeSize, image.data.blocks, totalPixels);
+		  if (image.descriptor.lct.interlaced) {
+		    pixels = (0, _deinterlace.deinterlace)(pixels, image.descriptor.width);
+		  }
+		  var resultImage = {
+		    pixels: pixels,
+		    dims: {
+		      top: frame.image.descriptor.top,
+		      left: frame.image.descriptor.left,
+		      width: frame.image.descriptor.width,
+		      height: frame.image.descriptor.height
+		    }
+		  };
+		  if (image.descriptor.lct && image.descriptor.lct.exists) {
+		    resultImage.colorTable = image.lct;
+		  } else {
+		    resultImage.colorTable = gct;
+		  }
+		  if (frame.gce) {
+		    resultImage.delay = (frame.gce.delay || 10) * 10;
+		    resultImage.disposalType = frame.gce.extras.disposal;
+		    if (frame.gce.extras.transparentColorGiven) {
+		      resultImage.transparentIndex = frame.gce.transparentColorIndex;
+		    }
+		  }
+		  if (buildImagePatch) {
+		    resultImage.patch = generatePatch(resultImage);
+		  }
+		  return resultImage;
+		};
+		lib$1.decompressFrame = decompressFrame;
+		var decompressFrames = function decompressFrames(parsedGif, buildImagePatches) {
+		  return parsedGif.frames.filter(function (f) {
+		    return f.image;
+		  }).map(function (f) {
+		    return decompressFrame(f, parsedGif.gct, buildImagePatches);
+		  });
+		};
+		lib$1.decompressFrames = decompressFrames;
+		return lib$1;
+	}
+
+	var libExports = requireLib();
+
 	const _gifCache = new Map();
 	registerPrunableCache(_gifCache, L("动图", "animated image"));
 	function getAnimatedImage(url) {
@@ -2778,8 +3447,8 @@
 	                entry.loaded = true;
 	                return;
 	            }
-	            const gif = gifuctJs.parseGIF(buffer);
-	            const rawFrames = gifuctJs.decompressFrames(gif, true);
+	            const gif = libExports.parseGIF(buffer);
+	            const rawFrames = libExports.decompressFrames(gif, true);
 	            entry.width = gif.lsd.width;
 	            entry.height = gif.lsd.height;
 	            entry.isAnimated = rawFrames.length > 1;
@@ -3263,4 +3932,4 @@
 	    }
 	});
 
-})(gifuctJs);
+})();
