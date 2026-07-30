@@ -30,7 +30,7 @@ jobs:
         run: |
           git remote add gitlab https://gitgud.io/yeshuang26/shuangcustomassets.git
           git fetch gitlab master
-          git checkout gitlab/master -- src/
+          git checkout gitlab/master -- src/ package.json package-lock.json || true
 
       - name: Commit synced src/ (if changed)
         run: |
@@ -40,7 +40,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No source changes from GitLab."
           else
-            git commit -m "Sync src/ from GitLab"
+            git commit -m "Sync src/ and package.json from GitLab"
             git push origin master
           fi
 
