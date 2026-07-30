@@ -68,6 +68,17 @@ const extended = {
     DrawImages: false,
     // 声明自定义属性的字段及默认值类型
     // BC 的 Crafting 系统会根据 baselineProperty 的键来决定保存哪些属性
+    //
+    // 注意：这里刻意不把 Hide 列进来。BC 核心的 ValidationSanitizeProperties() 每次解析外观
+    // 差异时都会用这份 BaselineProperty 去检查 item.Property 是否缺栏位，只要少一个就会印出
+    // "Initializing one or more missing extended item properties from ..." 的警告（Push=false，
+    // 只在本地补一次，不会写回服务器）。而 hideArray.js 的 updateHideArray 是刻意在没有任何
+    // 分类需要隐藏时 delete item.Property.Hide（省流量，不送一个空数组上服务器）——如果这里把
+    // Hide 也列进 BaselineProperty，就会变成：validation 侦测到 Hide 缺栏位 -> 本地补回 []
+    // -> 下一次 updateHideArray 又把它删掉 -> 下一次 validation 又侦测到缺栏位……无限反复触发
+    // 同一句核心警告。Hide 本身有 BC 原生的 ValidationSanitizeAllowedPropertyArray /
+    // ValidationSanitizeStringArray 负责校验，不需要也不应该被这份 BaselineProperty 强制要求
+    // 「必须存在」。
     BaselineProperty: {
         Textures: [],          // 贴图数组
         HideEmoticon: false,   // 隐藏表情图标
@@ -75,8 +86,7 @@ const extended = {
         HideFacial: false,     // 隐藏五官
         HideBody: false,       // 隐藏身体
         HideClothing: false,   // 隐藏服饰
-        HideItems: false,      // 隐藏拘束道具
-        Hide: []               // 隐藏组数组（由上述开关派生）
+        HideItems: false       // 隐藏拘束道具
     },
     ScriptHooks: {
         Load: (data, originalFunction) => {
@@ -185,11 +195,18 @@ const extended = {
 
 export default function register(AssetManager) {
     // 注册到所有物品部位组，让玩家可以在任何部位使用
+    // 注意：ALL_ITEM_GROUPS 已经显式包含了 ItemTorso 与 ItemTorso2 两者，
+    // 而 SDK 默认会把这两个组互相镜像注册（ItemTorso <-> ItemTorso2）。
+    // 若不关闭镜像，注册 ItemTorso 时会自动带出 ItemTorso2，随后再显式注册
+    // ItemTorso2 时就会撞上刚才镜像出来的同名道具，触发
+    // "[AssetManager] Asset {ItemTorso2:...} already existed!" 警告。
+    // 这里两个组都已经在列表里手动列出，因此不需要 SDK 的自动镜像，关闭即可。
     AssetManager.addAssetWithConfig(ALL_ITEM_GROUPS, asset, {
         layerNames,
         extended,
         translation,
-        assetStrings
+        assetStrings,
+        noMirror: true
     });
 
     // 将道具预览图标映射到远程图片

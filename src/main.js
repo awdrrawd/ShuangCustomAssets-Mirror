@@ -9,22 +9,21 @@ import { once } from "@sugarch/bc-mod-utility";
 import ModInfo from "./modInfo.js";
 import { registerAssets, initAssets } from "./lib/assetManager.js";
 import { Logger } from "./lib/utils.js";
+import { setupGifAnimationHooks } from "./lib/gifAnimationLoop.js";
 import assets from "./assets/index.js";
 import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
 import { registerExtensionSetting } from "./assets/settings.js";
 
-// 立即输出日志，确认脚本已执行
+// 立即输出日志，确认脚本已被 Toolbox / 加载器成功执行到（不代表初始化已完成）
 console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
 
 /**
  * 初始化插件
  */
 function init() {
-    Logger.info(`${ModInfo.fullName} v${ModInfo.version} 正在初始化...`);
-    
     // 注册所有道具
     registerAssets(assets);
-    
+
     // 初始化道具（在 AssetManager.afterLoad 中执行）
     AssetManager.afterLoad(() => {
         initAssets();
@@ -32,11 +31,13 @@ function init() {
         setupLoginBadge(HookManager);
         // 注册对话框交互 hook（编辑退出返回列表、隐藏互动格线）
         setupDialogHooks(HookManager);
+        // 注册画面切换 / 登入时的动图续播钩子
+        setupGifAnimationHooks(HookManager);
         // 注册扩展设置页面（玩家登录后可用）
         HookManager.afterPlayerLogin(() => {
             registerExtensionSetting();
         });
-        Logger.info("所有道具初始化完成");
+        Logger.info(`${ModInfo.fullName} v${ModInfo.version} 初始化完成`);
     });
 }
 
@@ -47,16 +48,12 @@ function setup() {
     init();
 }
 
-// 使用 once 确保只初始化一次
+// 使用 once 确保只初始化一次（防重复加载：见文件末尾说明）
 once(ModInfo.name, async () => {
-    console.log(`[ShuangAssets] once 函数开始执行...`);
-    
     try {
         // 加载 SDK
-        console.log(`[ShuangAssets] 正在加载 SDK...`);
         await import("https://cdn.jsdelivr.net/npm/bondage-club-mod-sdk@1.2.0");
-        console.log(`[ShuangAssets] SDK 加载完成`);
-        
+
         // 注册模组
         const mod = /** @type {any} */ (globalThis).bcModSdk.registerMod({
             name: ModInfo.name,
@@ -64,11 +61,9 @@ once(ModInfo.name, async () => {
             version: ModInfo.version,
             repository: ModInfo.repository
         });
-        console.log(`[ShuangAssets] 模组已注册: ${mod.name}`);
-        
+
         // 初始化 HookManager
         HookManager.initWithMod(mod);
-        console.log(`[ShuangAssets] HookManager 已初始化`);
 
         // Hook CraftingDeserialize：修复空名称的自制道具被丢弃的问题
         // BC 的 CraftingDeserialize 在 Name 为空时返回 null，导致无名称的自制道具在重新登录后丢失
@@ -113,11 +108,12 @@ once(ModInfo.name, async () => {
 
         // 设置 AssetManager 日志
         AssetManager.setLogger(Logger);
-        
+
         // ⚠️ 关键：调用 AssetManager.init 并传入 setup 函数
         AssetManager.init(setup);
-        console.log(`[ShuangAssets] AssetManager.init 已调用`);
     } catch (error) {
+        // 保留错误抛出：初始化过程中任何一步失败都会在这里被捕获并打印完整堆栈，
+        // 方便排查问题；正常流程不会打印额外的过程日志
         console.error(`[ShuangAssets] 初始化失败:`, error);
     }
 });

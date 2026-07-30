@@ -1,6 +1,6 @@
 /**
  * 自定义贴图 - 安全设置模块
- * 提供贴图 URL 加载模式控制和域名白名单管理
+ * 提供贴图 URL 加载模式控制、域名白名单管理，以及动态图片（GIF 动图播放）开关
  */
 
 import { Logger, L, isChineseLang } from "@lib/utils.js";
@@ -56,6 +56,7 @@ export function getSettings() {
             urlLoadMode: "whitelist",
             allowedDomains: [...DEFAULT_ALLOWED_DOMAINS],
             domainWarningEnabled: true,
+            animatedImageEnabled: true,
         };
     }
     return Player.ExtensionSettings[EXTENSION_ID];
@@ -77,6 +78,17 @@ export function saveSettings() {
 export function getDomainWarningEnabled() {
     const settings = getSettings();
     return settings.domainWarningEnabled !== false; // 默认开启
+}
+
+/**
+ * 获取动态图片（GIF 动图播放）开关状态
+ * 关闭时，多帧 GIF 只固定显示第一帧（当成静态图处理），不会推进播放时间轴，
+ * 也不会把角色登记进 gifAnimationLoop 的共用刷新计时器，省下持续轮询的开销
+ * @returns {boolean}
+ */
+export function getAnimatedImageEnabled() {
+    const settings = getSettings();
+    return settings.animatedImageEnabled !== false; // 默认开启
 }
 
 // === URL 检查 ===
@@ -283,6 +295,15 @@ function _drawMainPage() {
         isWarnOn ? "#66BB6A" : "#999999", false,
         L("是否对不在白名单的域名显示警告图片", "Whether to show a warning image for non-whitelisted domains"));
 
+    // 动态图片开关（始终显示）：关闭时 GIF 只显示第一帧，不播放动画
+    const animY = warnY + 70;
+    const isAnimOn = settings.animatedImageEnabled !== false;
+    DrawText(L("启用动态图片", "Enable animated images"), 800, animY + 22, "Black", "White");
+    DrawButton(1150, animY - 5, 80, 35, isAnimOn ? L("开", "On") : L("关", "Off"),
+        isAnimOn ? "#4CAF50" : "#666666",
+        isAnimOn ? "#66BB6A" : "#999999", false,
+        L("关闭后动图（GIF）只显示第一帧，不再播放动画", "When off, animated GIFs only show their first frame and won't play"));
+
     DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 }
 
@@ -447,6 +468,14 @@ function _clickMainPage() {
     const warnY = settings.urlLoadMode === "whitelist" ? 500 : 360;
     if (MouseIn(1150, warnY - 5, 80, 35)) {
         settings.domainWarningEnabled = !(settings.domainWarningEnabled !== false);
+        saveSettings();
+        return;
+    }
+
+    // 动态图片开关
+    const animY = warnY + 70;
+    if (MouseIn(1150, animY - 5, 80, 35)) {
+        settings.animatedImageEnabled = !(settings.animatedImageEnabled !== false);
         saveSettings();
         return;
     }

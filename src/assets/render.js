@@ -7,7 +7,9 @@ import { LAYER_NAMES, ASSETS_CDN_PRIMARY, POSE_CATEGORIES, getPoseKey } from "./
 import { resolveFixedAssetUrl } from "./cdnFallback.js";
 import { updateHideArray } from "./hideArray.js";
 import { getCorsImage } from "@lib/utils.js";
-import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled } from "./settings.js";
+import { getAnimatedImage, getCurrentGifFrameIndex } from "@lib/gifPlayer.js";
+import { notifyGifFrame } from "@lib/gifAnimationLoop.js";
+import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled, getAnimatedImageEnabled } from "./settings.js";
 
 /**
  * 解析当前姿势下的有效渲染参数
@@ -119,15 +121,65 @@ export function renderTexture(data, originalFunction, drawData) {
         imageUrl = resolveFixedAssetUrl(imageUrl.substring((ASSETS_CDN_PRIMARY + "/").length));
     }
 
-    // 使用 CORS 安全加载器：仅渲染服务器正确返回 Access-Control-Allow-Origin 的图片，
-    // 加载失败（如 r2.dev 未开启 CORS）直接跳过，避免污染 canvas 导致 WebGL 黑框
-    const imgEntry = getCorsImage(imageUrl);
-    if (imgEntry.failed) return;
-    const img = imgEntry.img;
-    if (!img.complete || img.naturalWidth <= 0) return;
+    // 内容导向的 GIF 检测：不管网址后缀写什么，一律先看档案实际内容是不是 GIF、
+    // 解压后实际帧数是否 > 1，而不是用 .gif 副檔名去猜
+    const gifEntry = getAnimatedImage(imageUrl);
 
-    const width = Math.round(img.naturalWidth * scale);
-    const height = Math.round(img.naturalHeight * scale);
+    let img, sourceWidth, sourceHeight, gifFrameIndex = -1;
+
+    if (!gifEntry.loaded) {
+        // 内容还在下载 / 解析中，这一帧先不绘制，解析完成后自然会补上
+        return;
+    } else if (!gifEntry.failed && gifEntry.isAnimated) {
+        if (getAnimatedImageEnabled()) {
+            // 内容确实是多帧 GIF：从预先解码好的帧数组中，依「实际经过的时间 + 该 GIF 自带的每帧延迟」
+            // 选出目前该显示的帧，不会重复下载或重复解码
+            const layerGifStartKey = `_gifStart_${layerIndex}`;
+            if (!data.PersistentData) data.PersistentData = {};
+            if (data.PersistentData[layerGifStartKey] == null) {
+                data.PersistentData[layerGifStartKey] = Date.now();
+            }
+            const elapsed = Date.now() - data.PersistentData[layerGifStartKey];
+            gifFrameIndex = getCurrentGifFrameIndex(gifEntry, elapsed);
+            if (gifFrameIndex < 0) return;
+            // AfterDraw 只会在 BC 重新生成角色外观画布（CharacterRefresh）时才被调用，
+            // 不会随动画帧自动触发；这里登记「这一帧该显示第几帧」，一旦帧索引真的换了，
+            // gifAnimationLoop 的计时器就会在下一次 tick 主动帮我们叫一次 CharacterRefresh，
+            // 让新的一帧真正被重绘、上传成贴图，而不是停在最后一次「顺便」刷新时的那一帧。
+            // 所有正在播放动图的角色共用同一个计时器（见 gifAnimationLoop.js），
+            // 不会为每张动图各自开一个独立计时器。
+            notifyGifFrame(C, layerIndex, gifFrameIndex);
+        } else {
+            // 偏好设置关闭了「启用动态图片」：固定显示第一帧，当成静态图处理，
+            // 不推进时间轴、也不呼叫 notifyGifFrame——不会把这个角色登记进共用刷新
+            // 计时器，画面不会再因为这个图层持续被 CharacterRefresh
+            gifFrameIndex = 0;
+        }
+        img = gifEntry.frames[gifFrameIndex].canvas;
+        sourceWidth = gifEntry.width;
+        sourceHeight = gifEntry.height;
+    } else if (!gifEntry.failed && !gifEntry.isAnimated) {
+        // 档案内容确实是 GIF，但解压后只有 1 帧：当成静态图处理，直接用已经解码好的那一帧，
+        // 不用再额外发一次 <img> 请求重复下载同一个档案
+        const onlyFrame = gifEntry.frames[0];
+        if (!onlyFrame) return;
+        img = onlyFrame.canvas;
+        sourceWidth = gifEntry.width;
+        sourceHeight = gifEntry.height;
+    } else {
+        // 内容不是 GIF（不论网址后缀），交还给原本的静态图片管线：
+        // 仅渲染服务器正确返回 Access-Control-Allow-Origin 的图片，
+        // 加载失败（如 r2.dev 未开启 CORS）直接跳过，避免污染 canvas 导致 WebGL 黑框
+        const imgEntry = getCorsImage(imageUrl);
+        if (imgEntry.failed) return;
+        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) return;
+        img = imgEntry.img;
+        sourceWidth = img.naturalWidth;
+        sourceHeight = img.naturalHeight;
+    }
+
+    const width = Math.round(sourceWidth * scale);
+    const height = Math.round(sourceHeight * scale);
 
     // 计算旋转后的包围盒，避免旋转后图像被裁剪
     const rad = rotation * Math.PI / 180;
@@ -136,24 +188,41 @@ export function renderTexture(data, originalFunction, drawData) {
     const bboxWidth = Math.round(width * cos + height * sin);
     const bboxHeight = Math.round(width * sin + height * cos);
 
-    // 缓存策略：每个图层只保留一个 canvas，参数变化时重绘（而非创建新 canvas）
+    // 缓存策略：静态贴图每个图层只保留一个 canvas，参数变化时原地重绘（而非创建新 canvas）
     // 旧策略按 url_width_height_rotation_opacity 做 cacheKey，步进按钮每次调值都产生新 key，
     // 旧 canvas 永远不释放，累积导致 GPU 内存耗尽 -> WebGL Context Lost
+    // 动图另外处理：见下方，帧真的换了的时候会换一个新 canvas，理由见下方注释
     const layerCanvasKey = `_canvas_${layerIndex}`;
     const layerParamsKey = `_params_${layerIndex}`;
-    const currentParams = `${imageUrl}_${width}_${height}_${rotation}_${displayOpacity}_${mirrorH ? 1 : 0}_${mirrorV ? 1 : 0}`;
+    // 把目前该显示的 GIF 帧索引也纳入缓存 key：帧没换就不会跟 rotation/opacity 等其他参数一样触发重绘，
+    // 帧真正换了（由该 GIF 自己的每帧延迟决定，而不是固定的轮询间隔）才会重绘一次，
+    // 不会有「每隔固定时间就强制刷新」的持续开销
+    const currentParams = `${imageUrl}_${gifFrameIndex}_${width}_${height}_${rotation}_${displayOpacity}_${mirrorH ? 1 : 0}_${mirrorV ? 1 : 0}`;
 
     let tempCanvas = data.PersistentData?.[layerCanvasKey];
+    const paramsChanged = data.PersistentData?.[layerParamsKey] !== currentParams;
 
-    if (!tempCanvas) {
-        // 首次创建 canvas
+    // 动图帧真正切换时，改用一个全新的 canvas 元素来放新帧，而不是在原本那个 canvas 上就地重绘。
+    //
+    // 背景：gifAnimationLoop 靠反复调用 CharacterRefresh 来让 BC 重新执行 AfterDraw、
+    // 重新把这段代码跑一次；但即使这段代码确实重新执行、tempCanvas 的像素内容也确实换成了
+    // 新的一帧，画面在实机测试中仍常常卡住不动，只有道具/服装真的变动过一次之后才会跳一下。
+    // 这与「同一个 canvas 元素重绘新内容后，BC 端的 WebGL 贴图不会跟着自动重新上传，
+    // 只有出现一个全新的 canvas/img 元素时才会触发重新上传」这个猜测吻合：BC 大概率是用
+    // canvas/img 元素本身的身份（而不是像素内容）来判断贴图要不要重新上传的。
+    // 静态贴图（不是动图）不受影响，继续维持原本「同一图层只留一个 canvas」的省内存策略，
+    // 只有动图、且这一帧真的换了的时候，才换一个新的 canvas 元素。
+    // main.js 里已经修了 GLDraw2DCanvas 替换贴图时的显存泄漏（旧贴图会在被替换时正确
+    // gl.deleteTexture()），所以这里按帧换 canvas 不会重新引入当初「WebGL Context Lost」
+    // 的那个泄漏问题。
+    if (!tempCanvas || (gifEntry.isAnimated && paramsChanged)) {
         tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
         if (!data.PersistentData) data.PersistentData = {};
         data.PersistentData[layerCanvasKey] = tempCanvas;
-        data.PersistentData[layerParamsKey] = null; // 标记需要首次绘制
+        data.PersistentData[layerParamsKey] = null; // 标记需要（重新）绘制
     }
 
-    // 参数变化时重绘 canvas（复用同一个 canvas 元素，避免内存泄漏）
+    // 参数变化时重绘 canvas
     if (data.PersistentData[layerParamsKey] !== currentParams) {
         // 包围盒尺寸变化时调整 canvas 大小（设置 width/height 会清空 canvas）
         if (tempCanvas.width !== bboxWidth || tempCanvas.height !== bboxHeight) {
