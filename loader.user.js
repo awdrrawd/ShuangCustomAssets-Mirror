@@ -34,6 +34,10 @@ const MIRROR_SOURCES = [
     {
         name: 'Netlify',
         getUrl: (timestamp) => `https://shuang-custom-assets.netlify.app/shuang-assets.js?t=${timestamp}`
+    },
+    {
+        name: 'GitHub Pages',
+        getUrl: (timestamp) => `https://awdrrawd.github.io/ShuangCustomAssets-Mirror/shuang-assets.js?t=${timestamp}`
     }
 ];
 
