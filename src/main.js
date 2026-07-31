@@ -83,7 +83,19 @@ once(ModInfo.name, async () => {
                     args[0] = parts.join(sep);
                 }
             }
-            return next(args);
+            const craft = next(args);
+            // 兼容 v5 及以前自制道具：v6 把单一 HideBody 拆为 头部/上半身/下半身 三个开关，
+            // 老自制道具反序列化出的 ItemProperty 里仍带 HideBody。这里在反序列化后立即把
+            // HideBody=true 迁移到三个新字段，让老道具的「隐藏身体」设置在新版本自动生效
+            // （否则 updateHideArray 不再读取 HideBody，隐藏会失效）。
+            // 注意：不删除 HideBody 字段本身——保留它让 BC 的 CraftingValidate (typeof 校验) 通过，
+            // 避免整个 ItemProperty 被判废导致 Textures 连带丢失。
+            if (craft && craft.ItemProperty && typeof craft.ItemProperty === "object" && craft.ItemProperty.HideBody === true) {
+                craft.ItemProperty.HideHead = true;
+                craft.ItemProperty.HideBodyUpper = true;
+                craft.ItemProperty.HideBodyLower = true;
+            }
+            return craft;
         });
 
         // Hook GLDraw2DCanvas：修复 BC WebGL 纹理泄漏

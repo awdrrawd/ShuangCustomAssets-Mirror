@@ -86,8 +86,10 @@ export function L(cn, en) {
  * 从而避免污染(tainted) canvas 导致 WebGL texImage2D 报错、贴图变黑框。
  * 只有服务器正确返回 Access-Control-Allow-Origin 的图片才会被渲染。
  * lastUsed 记录该 entry 最近一次被 getCorsImage 读取到的时间戳，
- * 用来让 cacheGC 判断这张图片是否已经「画面上看不到了」，进而释放内存
- * @type {Map<string, {img: HTMLImageElement, loaded: boolean, failed: boolean, lastUsed: number}>}
+ * 用来让 cacheGC 判断这张图片是否已经「画面上看不到了」，进而释放内存。
+ * _waiters 记录「图片还没加载完成前，想在它就绪时被通知一次」的回调，
+ * 用途见下方 getCorsImage 的 onReady 参数说明
+ * @type {Map<string, {img: HTMLImageElement, loaded: boolean, failed: boolean, lastUsed: number, _waiters: Set<Function>}>}
  */
 const _corsImageCache = new Map();
 registerPrunableCache(_corsImageCache, L("静态图片", "static image"));
@@ -96,17 +98,30 @@ registerPrunableCache(_corsImageCache, L("静态图片", "static image"));
  * 获取一张 CORS 安全的图片
  * 每次被呼叫（不论是新建还是命中既有缓存）都会刷新该 entry 的 lastUsed 戳记；
  * 长时间没有任何图层再引用到某个网址时，该条目会被 cacheGC 自动清理释放
+ *
  * @param {string} url
+ * @param {() => void} [onReady] - 可选：如果这张图片此刻还没加载完成，
+ *   注册一个「加载完成（成功或失败）时呼叫一次」的回调。用于渲染逻辑第一次
+ *   读到「还没准备好，这一帧先跳过」时，顺便请求「准备好了通知我补画一次」，
+ *   而不是被动等待下一次「刚好」发生的重绘（换装、聊天讯息等），
+ *   避免图片明明已经下载完成、却因为没人触发重绘而一直不显示。
+ *   加载已完成（或失败）时不会注册，因为已经没有「等待」的必要
  * @returns {{img: HTMLImageElement, loaded: boolean, failed: boolean}}
  */
-export function getCorsImage(url) {
+export function getCorsImage(url, onReady) {
     let entry = _corsImageCache.get(url);
     if (!entry) {
         const img = new Image();
-        entry = { img, loaded: false, failed: false, lastUsed: Date.now() };
-        img.addEventListener("load", () => { entry.loaded = true; });
+        entry = { img, loaded: false, failed: false, lastUsed: Date.now(), _waiters: new Set() };
+        img.addEventListener("load", () => {
+            entry.loaded = true;
+            entry._waiters.forEach((fn) => { try { fn(); } catch (err) { Logger.error("[ShuangAssets] 图片就绪回调执行失败", err); } });
+            entry._waiters.clear();
+        });
         img.addEventListener("error", () => {
             entry.failed = true;
+            entry._waiters.forEach((fn) => { try { fn(); } catch (err) { Logger.error("[ShuangAssets] 图片就绪回调执行失败", err); } });
+            entry._waiters.clear();
             Logger.warn(L(
                 `图片加载失败（很可能是图床未开启跨域 CORS，无 Access-Control-Allow-Origin 响应头）: ${url}`,
                 `Failed to load image (the host likely has no CORS / Access-Control-Allow-Origin header): ${url}`
@@ -118,6 +133,9 @@ export function getCorsImage(url) {
         _corsImageCache.set(url, entry);
     } else {
         entry.lastUsed = Date.now();
+    }
+    if (onReady && !entry.loaded && !entry.failed) {
+        entry._waiters.add(onReady);
     }
     return entry;
 }

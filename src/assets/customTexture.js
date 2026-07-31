@@ -84,9 +84,14 @@ const extended = {
         HideEmoticon: false,   // 隐藏表情图标
         HideCosplay: false,    // 隐藏 cosplay 部位
         HideFacial: false,     // 隐藏五官
-        HideBody: false,       // 隐藏身体
+        HideHead: false,       // 隐藏头部
+        HideBodyUpper: false,  // 隐藏上半身
+        HideBodyLower: false,  // 隐藏下半身
         HideClothing: false,   // 隐藏服饰
-        HideItems: false       // 隐藏拘束道具
+        HideItems: false,      // 隐藏拘束道具
+        // 兼容字段：保留 HideBody 让老自制道具(v5)的 ItemProperty 能通过 CraftingValidate，
+        // 避免 Textures 被连带丢弃。详见 DEFAULT_PROPS 中同样位置的注释。
+        HideBody: false
     },
     ScriptHooks: {
         Load: (data, originalFunction) => {
@@ -96,6 +101,14 @@ const extended = {
 
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             if (!item.Property.Textures) item.Property.Textures = [];
+            // 兼容旧数据：v5 及以前用单一 HideBody 开关，v6 拆为 头部/上半身/下半身 三个
+            // 旧 HideBody=true 时，三个新分类全部置 true（等价于原来的「隐藏整个身体」），然后删除旧字段
+            if (item.Property.HideBody === true) {
+                item.Property.HideHead = true;
+                item.Property.HideBodyUpper = true;
+                item.Property.HideBodyLower = true;
+                delete item.Property.HideBody;
+            }
             // 兼容旧数据：补齐分类开关字段
             for (const cat of HIDE_CATEGORIES) {
                 if (item.Property[cat.key] === undefined) item.Property[cat.key] = false;

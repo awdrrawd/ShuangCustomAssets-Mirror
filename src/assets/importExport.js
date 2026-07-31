@@ -18,7 +18,7 @@ export function exportConfig(item) {
         : {};
     const config = {
         type: "ShuangCustomAssets",
-        version: 5,
+        version: 6,
         textures: textures,
         overridePriority: overridePriority, // 图层优先级（键为 LayerN，值为 -99~99）
     };
@@ -85,15 +85,21 @@ export function importConfig(item, mode) {
             }
 
             // 验证并清理数据
+            // 用 Number.isFinite 判断而非 `|| 后备值`：Scale=0（完全缩小）、Opacity=0（全透明）
+            // 都是合法的有效值，用 `||` 会把它们误判成「没填」而强制拉回默认值（与 editPanel.js 一致）
+            const toIntOr = (val, fallback) => {
+                const n = parseInt(val, 10);
+                return Number.isFinite(n) ? n : fallback;
+            };
             const validTextures = config.textures.map(t => {
                 const cleaned = {
                     TextureURL: String(t.TextureURL || ""),
-                    OffsetX: parseInt(t.OffsetX) || 0,
-                    OffsetY: parseInt(t.OffsetY) || 0,
-                    Scale: parseInt(t.Scale) || 100,
-                    Rotation: parseInt(t.Rotation) || 0,
+                    OffsetX: toIntOr(t.OffsetX, 0),
+                    OffsetY: toIntOr(t.OffsetY, 0),
+                    Scale: toIntOr(t.Scale, 100),
+                    Rotation: toIntOr(t.Rotation, 0),
                     Visible: t.Visible !== false,
-                    Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100)),
+                    Opacity: Math.max(0, Math.min(100, toIntOr(t.Opacity, 100))),
                     MirrorH: t.MirrorH === true,
                     MirrorV: t.MirrorV === true
                 };
@@ -140,6 +146,12 @@ export function importConfig(item, mode) {
                 // 覆盖模式同步导入隐藏分类开关（兼容旧版配置：无该字段时默认 false）
                 for (const cat of HIDE_CATEGORIES) {
                     item.Property[cat.key] = config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] === true;
+                }
+                // 兼容 v5 及以前配置：旧 hideBody=true 等价于 头部+上半身+下半身 全部隐藏
+                if (config.hideBody === true) {
+                    item.Property.HideHead = true;
+                    item.Property.HideBodyUpper = true;
+                    item.Property.HideBodyLower = true;
                 }
 
                 // 图层优先级：覆盖模式直接用导入内容替换（兼容旧版配置：无该字段时清空）

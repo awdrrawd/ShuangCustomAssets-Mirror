@@ -7,8 +7,9 @@ import { LAYER_NAMES, ASSETS_CDN_PRIMARY, POSE_CATEGORIES, getPoseKey } from "./
 import { resolveFixedAssetUrl } from "./cdnFallback.js";
 import { updateHideArray } from "./hideArray.js";
 import { getCorsImage } from "@lib/utils.js";
-import { getAnimatedImage, getCurrentGifFrameIndex } from "@lib/gifPlayer.js";
+import { getAnimatedImage, getGifFrameState } from "@lib/gifPlayer.js";
 import { notifyGifFrame } from "@lib/gifAnimationLoop.js";
+import { queueOneShotRefresh } from "@lib/refreshScheduler.js";
 import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled, getAnimatedImageEnabled } from "./settings.js";
 
 /**
@@ -109,7 +110,8 @@ export function renderTexture(data, originalFunction, drawData) {
         imageUrl = params.TextureURL;
         offsetX = params.OffsetX || 0;
         offsetY = params.OffsetY || 0;
-        scale = (params.Scale || 100) / 100;
+        // 用 ?? 而非 ||：Scale 合法值可以是 0（完全缩小），不该被当成「未设定」强制拉回 100%
+        scale = (params.Scale ?? 100) / 100;
         rotation = params.Rotation || 0;
         displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
         mirrorH = params.MirrorH === true;
@@ -128,7 +130,11 @@ export function renderTexture(data, originalFunction, drawData) {
     let img, sourceWidth, sourceHeight, gifFrameIndex = -1;
 
     if (!gifEntry.loaded) {
-        // 内容还在下载 / 解析中，这一帧先不绘制，解析完成后自然会补上
+        // 内容还在下载 / 解析中，这一帧先不绘制；BC 只有在有人触发 CharacterRefresh
+        // 时才会重新执行到这里，光是「解析完成」本身不会自动补一次重绘，所以顺便
+        // 注册一个「解析完成后补画一次」的回调，避免这一层贴图从此卡在空白状态，
+        // 直到凑巧有其他操作（换装、聊天讯息等）触发重绘才「意外」修好
+        getAnimatedImage(imageUrl, () => queueOneShotRefresh(C));
         return;
     } else if (!gifEntry.failed && gifEntry.isAnimated) {
         if (getAnimatedImageEnabled()) {
@@ -140,15 +146,16 @@ export function renderTexture(data, originalFunction, drawData) {
                 data.PersistentData[layerGifStartKey] = Date.now();
             }
             const elapsed = Date.now() - data.PersistentData[layerGifStartKey];
-            gifFrameIndex = getCurrentGifFrameIndex(gifEntry, elapsed);
+            const gifFrameState = getGifFrameState(gifEntry, elapsed);
+            gifFrameIndex = gifFrameState.index;
             if (gifFrameIndex < 0) return;
             // AfterDraw 只会在 BC 重新生成角色外观画布（CharacterRefresh）时才被调用，
-            // 不会随动画帧自动触发；这里登记「这一帧该显示第几帧」，一旦帧索引真的换了，
-            // gifAnimationLoop 的计时器就会在下一次 tick 主动帮我们叫一次 CharacterRefresh，
-            // 让新的一帧真正被重绘、上传成贴图，而不是停在最后一次「顺便」刷新时的那一帧。
-            // 所有正在播放动图的角色共用同一个计时器（见 gifAnimationLoop.js），
-            // 不会为每张动图各自开一个独立计时器。
-            notifyGifFrame(C, layerIndex, gifFrameIndex);
+            // 不会随动画帧自动触发；这里登记「这一层预期下一次该换第几帧、什么时候换」，
+            // gifAnimationLoop 会依这个到期时间排程，只在真的到期时才主动叫一次
+            // CharacterRefresh，让新的一帧真正被重绘、上传成贴图，而不是每个轮询间隔
+            // 都不分青红皂白地刷一次。所有正在播放动图的角色共用同一个计时器
+            // （见 gifAnimationLoop.js），不会为每张动图各自开一个独立计时器。
+            notifyGifFrame(C, layerIndex, gifFrameIndex, Date.now() + gifFrameState.remainingMs);
         } else {
             // 偏好设置关闭了「启用动态图片」：固定显示第一帧，当成静态图处理，
             // 不推进时间轴、也不呼叫 notifyGifFrame——不会把这个角色登记进共用刷新
@@ -172,7 +179,15 @@ export function renderTexture(data, originalFunction, drawData) {
         // 加载失败（如 r2.dev 未开启 CORS）直接跳过，避免污染 canvas 导致 WebGL 黑框
         const imgEntry = getCorsImage(imageUrl);
         if (imgEntry.failed) return;
-        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) return;
+        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) {
+            // 图片还没下载完成：这是「重新整理页面后，其他玩家身上的贴图效果
+            // （含 Scale 等参数）需要手动重设才会出现」的根本成因——角色初次
+            // 渲染时贴图往往还没下载完，这一帧被跳过后，除非又凑巧发生一次
+            // 重绘，画面会一直停在「没有这个图层」的状态。这里注册「下载完成
+            // 后补画一次」，让效果在图片真正就绪的当下就正确显示，不用手动重设
+            getCorsImage(imageUrl, () => queueOneShotRefresh(C));
+            return;
+        }
         img = imgEntry.img;
         sourceWidth = img.naturalWidth;
         sourceHeight = img.naturalHeight;

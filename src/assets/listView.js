@@ -99,7 +99,8 @@ export function drawHideSettings(item) {
     DrawText(L("选择需要隐藏的部位分类", "Choose which part categories to hide"), 1505, 410, "#fff942", "Gray");
 
     const startY = 450;
-    const rowHeight = 60;
+    // 身体拆为 头部/上半身/下半身 后分类数 6→8，行高收紧避免溢出画布底部
+    const rowHeight = 55;
 
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];
@@ -126,7 +127,8 @@ export function drawHideSettings(item) {
  */
 export function handleHideSettingsClick(item) {
     const startY = 450;
-    const rowHeight = 60;
+    // 身体拆为 头部/上半身/下半身 后分类数 6→8，行高收紧避免溢出画布底部
+    const rowHeight = 55;
 
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];

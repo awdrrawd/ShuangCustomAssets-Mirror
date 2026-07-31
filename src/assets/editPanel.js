@@ -991,15 +991,21 @@ export function handleTextureEditClick(item, textureIndex, data) {
 
     // 确认保存（右上角图标按钮）
     if (MouseIn(1885, 135, 90, 90)) {
-        // 深拷贝 tempTextureData（保留 PoseSettings 结构），再逐字段清理类型
+        // 深拷贝 tempTextureData（保留 PoseSettings 结构），再逐字段清理类型。
+        // 用 Number.isFinite 判断而非 `|| 后备值`：Scale=0（完全缩小）、Opacity=0（全透明）
+        // 都是合法的有效值，用 `||` 会把它们误判成「没填」而强制拉回默认值
+        const toIntOr = (val, fallback) => {
+            const n = parseInt(val, 10);
+            return Number.isFinite(n) ? n : fallback;
+        };
         const finalTexture = JSON.parse(JSON.stringify(state.tempTextureData));
         // Clean up: ensure numeric fields are numbers, booleans are booleans
         finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
-        finalTexture.OffsetX = parseInt(state.tempTextureData?.OffsetX) || 0;
-        finalTexture.OffsetY = parseInt(state.tempTextureData?.OffsetY) || 0;
-        finalTexture.Scale = parseInt(state.tempTextureData?.Scale) || 100;
-        finalTexture.Rotation = parseInt(state.tempTextureData?.Rotation) || 0;
-        finalTexture.Opacity = Math.max(0, Math.min(100, parseInt(state.tempTextureData?.Opacity) || 100));
+        finalTexture.OffsetX = toIntOr(state.tempTextureData?.OffsetX, 0);
+        finalTexture.OffsetY = toIntOr(state.tempTextureData?.OffsetY, 0);
+        finalTexture.Scale = toIntOr(state.tempTextureData?.Scale, 100);
+        finalTexture.Rotation = toIntOr(state.tempTextureData?.Rotation, 0);
+        finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
         finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
         finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
         // Preserve Visible

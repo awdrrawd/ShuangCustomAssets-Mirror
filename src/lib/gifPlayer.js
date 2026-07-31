@@ -41,17 +41,88 @@ registerPrunableCache(_gifCache, L("动图", "animated image"));
  * @property {number} height
  * @property {number} lastUsed - 最近一次被 getAnimatedImage 读取到的时间戳，
  *   供 cacheGC 判断这个网址是否已经「画面上看不到了」，进而释放解码出来的整批帧 canvas
+ * @property {Set<Function>} _waiters - 「下载/解析还没完成前，想在完成时被通知一次」的回调集合，
+ *   用途见 getAnimatedImage 的 onReady 参数说明
  */
 
 /**
+ * 通知所有正在等待这个 entry 完成的回调（图片就绪 / 确认失败时呼叫一次即清空）
+ * @param {GifEntry} entry
+ */
+function notifyReady(entry) {
+    entry._waiters.forEach((fn) => {
+        try { fn(); } catch (err) { Logger.error("[ShuangAssets] 动图就绪回调执行失败", err); }
+    });
+    entry._waiters.clear();
+}
+
+// === 载入并发限制 + 分块解码 ===
+//
+// 背景：进入一个人多的聊天室时，很多角色的自定义贴图会在同一瞬间开始各自
+// fetch + 解码，每一个都是主执行绪上的同步工作（parseGIF / decompressFrames /
+// 逐帧 disposal 合成），大量同时发生时会叠加成一段肉眼可见的长任务卡顿。
+// 这里做两件事来分摊这个负载：
+// 1. 并发限制：同时间最多只有 MAX_CONCURRENT_DECODES 张 GIF 在做 fetch+解码，
+//    其余排队；不影响正确性（谁先解码完不影响最终显示），只是把「同时挤在一起」
+//    的负载摊开成「陆续完成」，避免瞬间尖峰。
+// 2. 分块合成：单张 GIF 内部的逐帧 disposal 合成迴圈，每处理一小批帧就透过
+//    setTimeout(0) 让出主执行绪一次，避免帧数很多、解析度很大的单一 GIF
+//    自己就造成一次长任务。
+
+/** 同时间最多允许几张 GIF 在做 fetch + 解码，其余排队等候 */
+const MAX_CONCURRENT_DECODES = 3;
+/** 分块合成时，每处理这么多帧就让出一次主执行绪 */
+const COMPOSE_CHUNK_SIZE = 6;
+
+let _activeDecodes = 0;
+/** @type {(() => Promise<void>)[]} */
+const _decodeQueue = [];
+
+function _pumpDecodeQueue() {
+    while (_activeDecodes < MAX_CONCURRENT_DECODES && _decodeQueue.length > 0) {
+        const task = _decodeQueue.shift();
+        _activeDecodes++;
+        task().finally(() => {
+            _activeDecodes--;
+            _pumpDecodeQueue();
+        });
+    }
+}
+
+/**
+ * 把一个 fetch+解码任务排进并发限制队列，返回其执行结果的 Promise
+ * @param {() => Promise<void>} task
+ * @returns {Promise<void>}
+ */
+function scheduleDecodeTask(task) {
+    return new Promise((resolve, reject) => {
+        _decodeQueue.push(() => task().then(resolve, reject));
+        _pumpDecodeQueue();
+    });
+}
+
+/** 一个 setTimeout(0) 包成 Promise，用于分块合成之间让出主执行绪 */
+function _yieldToMainThread() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/**
  * 依内容解析动图，结果按网址缓存，同一网址只会解析一次。
+ *
  * @param {string} url
+ * @param {() => void} [onReady] - 可选：如果这个网址的下载/解析此刻还没完成，
+ *   注册一个「完成（不论成功、失败、还是确认不是 GIF）时呼叫一次」的回调。
+ *   用于渲染逻辑第一次读到「还没 ready，这一帧先跳过」时，顺便请求「解析完了
+ *   通知我补画一次」，避免因为没有人再触发角色重绘，导致这一层贴图或该角色
+ *   的整个动图播放循环一直无法真正开始（详见 render.js 的调用处）。
+ *   已经完成的情况下不会注册，因为已经没有「等待」的必要
  * @returns {GifEntry} 若尚未解析完成，回传的物件 loaded 为 false，之后同一个 entry 物件的欄位会被就地更新
  */
-export function getAnimatedImage(url) {
+export function getAnimatedImage(url, onReady) {
     let entry = _gifCache.get(url);
     if (entry) {
         entry.lastUsed = Date.now();
+        if (onReady && !entry.loaded) entry._waiters.add(onReady);
         return entry;
     }
 
@@ -63,140 +134,161 @@ export function getAnimatedImage(url) {
         totalDuration: 0,
         width: 0,
         height: 0,
-        lastUsed: Date.now()
+        lastUsed: Date.now(),
+        _waiters: new Set()
     };
     _gifCache.set(url, entry);
+    if (onReady) entry._waiters.add(onReady);
 
-    fetch(url, { mode: "cors", credentials: "omit" })
-        .then((res) => {
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            return res.arrayBuffer();
-        })
-        .then((buffer) => {
-            const header = new Uint8Array(buffer, 0, 3);
-            const isGifHeader = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46; // "GIF"
+    // fetch + 解码整体排进并发限制队列：房间人多、大量贴图同时开始加载时，
+    // 同时间只会有最多 MAX_CONCURRENT_DECODES 个在实际做事，其余在队列里等，
+    // 避免所有人的 GIF 同一瞬间一起挤爆主执行绪
+    scheduleDecodeTask(() =>
+        fetch(url, { mode: "cors", credentials: "omit" })
+            .then((res) => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.arrayBuffer();
+            })
+            .then(async (buffer) => {
+                const header = new Uint8Array(buffer, 0, 3);
+                const isGifHeader = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46; // "GIF"
 
-            if (!isGifHeader) {
-                // 内容根本不是 GIF（例如网址是 .gif 但实际给的是 png/jpg，或反过来）
-                // -> 交还给一般的静态图片管线（getCorsImage）处理，这里只标记失败即可
-                entry.failed = true;
-                entry.loaded = true;
-                return;
-            }
-
-            const gif = parseGIF(buffer);
-            const rawFrames = decompressFrames(gif, true);
-
-            entry.width = gif.lsd.width;
-            entry.height = gif.lsd.height;
-            // 依实际解压出的帧数判断，而不是看副檔名：只有 1 帧的 GIF 不算动图
-            entry.isAnimated = rawFrames.length > 1;
-
-            // 依 GIF 规范的 disposal 方式，把每一帧合成还原成「完整画布」大小的静态帧，
-            // 一次性预先渲染好存起来。之后播放只是挑选已经画好的帧来贴，不会重复解码。
-            //
-            // disposal 的语意是「这一帧显示完之后，画布该如何处理，才能画下一帧」，
-            // 所以套用的应该是「上一帧」的 disposalType，而不是「这一帧自己」的 disposalType；
-            // 且 disposalType === 2 只须清除上一帧实际画到的那个矩形区域，不是整张画布清空。
-            // disposalType === 3（还原到更早之前的状态）也一并处理，仿照 libgif.js 的做法：
-            // 用「上一次 disposal 不是 3 时」的那张快照当还原依据。
-            const composeCanvas = document.createElement("canvas");
-            composeCanvas.width = entry.width || 1;
-            composeCanvas.height = entry.height || 1;
-            const composeCtx = composeCanvas.getContext("2d");
-
-            const patchCanvas = document.createElement("canvas");
-            const patchCtx = patchCanvas.getContext("2d");
-
-            let lastDisposalType = null;
-            let lastDims = null;
-            let disposalRestoreFromIdx = null;
-
-            rawFrames.forEach((frame, currIdx) => {
-                const { dims } = frame;
-
-                if (currIdx > 0) {
-                    if (lastDisposalType === 3) {
-                        // 还原到「上一次 disposal 不是 3」时的完整画面快照；
-                        // 如果从头到现在每一帧都是 disposal 3（没有可还原的快照），退而求其次清除那块区域
-                        if (disposalRestoreFromIdx !== null) {
-                            composeCtx.clearRect(0, 0, entry.width, entry.height);
-                            composeCtx.drawImage(entry.frames[disposalRestoreFromIdx].canvas, 0, 0);
-                        } else if (lastDims) {
-                            composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
-                        }
-                    } else {
-                        disposalRestoreFromIdx = currIdx - 1;
-                    }
-
-                    if (lastDisposalType === 2 && lastDims) {
-                        // 还原成背景色：浏览器的历史实现一律还原成「透明」，这里比照办理
-                        composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
-                    }
-                    // disposalType 0 / 1（未指定 / 不处理）：画布维持上一帧画完的样子，不用做任何事
+                if (!isGifHeader) {
+                    // 内容根本不是 GIF（例如网址是 .gif 但实际给的是 png/jpg，或反过来）
+                    // -> 交还给一般的静态图片管线（getCorsImage）处理，这里只标记失败即可
+                    entry.failed = true;
+                    entry.loaded = true;
+                    notifyReady(entry);
+                    return;
                 }
 
-                patchCanvas.width = dims.width || 1;
-                patchCanvas.height = dims.height || 1;
-                const patchImageData = patchCtx.createImageData(patchCanvas.width, patchCanvas.height);
-                patchImageData.data.set(frame.patch);
-                patchCtx.putImageData(patchImageData, 0, 0);
+                const gif = parseGIF(buffer);
+                const rawFrames = decompressFrames(gif, true);
 
-                composeCtx.drawImage(patchCanvas, dims.left, dims.top);
+                entry.width = gif.lsd.width;
+                entry.height = gif.lsd.height;
+                // 依实际解压出的帧数判断，而不是看副檔名：只有 1 帧的 GIF 不算动图
+                entry.isAnimated = rawFrames.length > 1;
 
-                // 必须现在就把目前完整画面另外存一份快照，因为 composeCanvas 之后还会被下一帧继续叠加
-                const frameCanvas = document.createElement("canvas");
-                frameCanvas.width = entry.width || 1;
-                frameCanvas.height = entry.height || 1;
-                frameCanvas.getContext("2d").drawImage(composeCanvas, 0, 0);
+                // 依 GIF 规范的 disposal 方式，把每一帧合成还原成「完整画布」大小的静态帧，
+                // 一次性预先渲染好存起来。之后播放只是挑选已经画好的帧来贴，不会重复解码。
+                //
+                // disposal 的语意是「这一帧显示完之后，画布该如何处理，才能画下一帧」，
+                // 所以套用的应该是「上一帧」的 disposalType，而不是「这一帧自己」的 disposalType；
+                // 且 disposalType === 2 只须清除上一帧实际画到的那个矩形区域，不是整张画布清空。
+                // disposalType === 3（还原到更早之前的状态）也一并处理，仿照 libgif.js 的做法：
+                // 用「上一次 disposal 不是 3 时」的那张快照当还原依据。
+                //
+                // 分块处理：每合成 COMPOSE_CHUNK_SIZE 帧就让出一次主执行绪，避免帧数多、
+                // 解析度大的单一 GIF 自己就造成一段长任务卡顿；不影响合成结果的正确性，
+                // 因为每一帧的合成都依赖上一帧已经画好的 composeCanvas 状态，天生就是顺序的。
+                const composeCanvas = document.createElement("canvas");
+                composeCanvas.width = entry.width || 1;
+                composeCanvas.height = entry.height || 1;
+                const composeCtx = composeCanvas.getContext("2d");
 
-                // gifuct-js 已把 delay 转换成毫秒；0 或极短的延迟依浏览器惯例视为 100ms，
-                // 避免部分工具导出的「0 延迟」帧造成播放速度失控或除以 0
-                const delay = frame.delay > 10 ? frame.delay : 100;
+                const patchCanvas = document.createElement("canvas");
+                const patchCtx = patchCanvas.getContext("2d");
 
-                entry.frames.push({ canvas: frameCanvas, delay });
-                entry.totalDuration += delay;
+                let lastDisposalType = null;
+                let lastDims = null;
+                let disposalRestoreFromIdx = null;
 
-                lastDisposalType = frame.disposalType;
-                lastDims = dims;
-            });
+                for (let currIdx = 0; currIdx < rawFrames.length; currIdx++) {
+                    const frame = rawFrames[currIdx];
+                    const { dims } = frame;
 
-            entry.loaded = true;
-        })
-        .catch((err) => {
-            entry.failed = true;
-            entry.loaded = true;
-            Logger.warn(L(
-                `GIF 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
-                `Failed to parse GIF (the host may not support CORS, or the file is corrupted): ${url}`
-            ), err);
-        });
+                    if (currIdx > 0) {
+                        if (lastDisposalType === 3) {
+                            // 还原到「上一次 disposal 不是 3」时的完整画面快照；
+                            // 如果从头到现在每一帧都是 disposal 3（没有可还原的快照），退而求其次清除那块区域
+                            if (disposalRestoreFromIdx !== null) {
+                                composeCtx.clearRect(0, 0, entry.width, entry.height);
+                                composeCtx.drawImage(entry.frames[disposalRestoreFromIdx].canvas, 0, 0);
+                            } else if (lastDims) {
+                                composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
+                            }
+                        } else {
+                            disposalRestoreFromIdx = currIdx - 1;
+                        }
+
+                        if (lastDisposalType === 2 && lastDims) {
+                            // 还原成背景色：浏览器的历史实现一律还原成「透明」，这里比照办理
+                            composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
+                        }
+                        // disposalType 0 / 1（未指定 / 不处理）：画布维持上一帧画完的样子，不用做任何事
+                    }
+
+                    patchCanvas.width = dims.width || 1;
+                    patchCanvas.height = dims.height || 1;
+                    const patchImageData = patchCtx.createImageData(patchCanvas.width, patchCanvas.height);
+                    patchImageData.data.set(frame.patch);
+                    patchCtx.putImageData(patchImageData, 0, 0);
+
+                    composeCtx.drawImage(patchCanvas, dims.left, dims.top);
+
+                    // 必须现在就把目前完整画面另外存一份快照，因为 composeCanvas 之后还会被下一帧继续叠加
+                    const frameCanvas = document.createElement("canvas");
+                    frameCanvas.width = entry.width || 1;
+                    frameCanvas.height = entry.height || 1;
+                    frameCanvas.getContext("2d").drawImage(composeCanvas, 0, 0);
+
+                    // gifuct-js 已把 delay 转换成毫秒；0 或极短的延迟依浏览器惯例视为 100ms，
+                    // 避免部分工具导出的「0 延迟」帧造成播放速度失控或除以 0
+                    const delay = frame.delay > 10 ? frame.delay : 100;
+
+                    entry.frames.push({ canvas: frameCanvas, delay });
+                    entry.totalDuration += delay;
+
+                    lastDisposalType = frame.disposalType;
+                    lastDims = dims;
+
+                    if ((currIdx + 1) % COMPOSE_CHUNK_SIZE === 0 && currIdx + 1 < rawFrames.length) {
+                        await _yieldToMainThread();
+                    }
+                }
+
+                entry.loaded = true;
+                notifyReady(entry);
+            })
+            .catch((err) => {
+                entry.failed = true;
+                entry.loaded = true;
+                notifyReady(entry);
+                Logger.warn(L(
+                    `GIF 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
+                    `Failed to parse GIF (the host may not support CORS, or the file is corrupted): ${url}`
+                ), err);
+            })
+    );
 
     return entry;
 }
 
 /**
- * 依经过的时间，从已解码的帧数组中选出目前应显示的帧「索引」
- * （回传索引而非直接回传 canvas，方便呼叫端用索引本身当作缓存 key 的一部分，
- * 只有索引改变时才需要重绘，索引不变时可以直接跳过，不会有持续重绘的开销）
+ * 依经过的时间，从已解码的帧数组中选出目前应显示的帧「索引」，并顺便算出
+ * 「还要多久这一帧才会换下一帧」（remainingMs）。remainingMs 是 gifAnimationLoop
+ * 到期排程的依据：呼叫端把 Date.now() + remainingMs 当作 nextDue 交给
+ * notifyGifFrame，这样长 delay 的 GIF 不会被固定轮询间隔白白多重绘好几次。
  * @param {GifEntry} entry
  * @param {number} elapsedMs - 从图层第一次显示这张动图算起，经过的毫秒数
- * @returns {number} 帧索引；尚未就绪或没有帧时回传 -1
+ * @returns {{index: number, remainingMs: number}} index 尚未就绪或没有帧时为 -1
  */
-export function getCurrentGifFrameIndex(entry, elapsedMs) {
+export function getGifFrameState(entry, elapsedMs) {
     if (!entry.loaded || entry.failed || entry.frames.length === 0 || entry.totalDuration <= 0) {
-        return -1;
+        return { index: -1, remainingMs: 0 };
     }
     let t = elapsedMs % entry.totalDuration;
     for (let i = 0; i < entry.frames.length; i++) {
         const delay = entry.frames[i].delay;
-        if (t < delay) return i;
+        if (t < delay) return { index: i, remainingMs: delay - t };
         t -= delay;
     }
-    return entry.frames.length - 1;
+    const lastFrame = entry.frames[entry.frames.length - 1];
+    return { index: entry.frames.length - 1, remainingMs: lastFrame.delay };
 }
 
 export default {
     getAnimatedImage,
-    getCurrentGifFrameIndex
+    getGifFrameState
 };

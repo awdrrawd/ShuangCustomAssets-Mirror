@@ -38,9 +38,17 @@ export const DEFAULT_PROPS = {
     HideEmoticon: false,   // 隐藏表情图标
     HideCosplay: false,    // 隐藏 cosplay 部位
     HideFacial: false,     // 隐藏五官
-    HideBody: false,       // 隐藏身体
+    HideHead: false,       // 隐藏头部
+    HideBodyUpper: false,  // 隐藏上半身
+    HideBodyLower: false,  // 隐藏下半身
     HideClothing: false,   // 隐藏服饰
-    HideItems: false       // 隐藏拘束道具
+    HideItems: false,      // 隐藏拘束道具
+    // 兼容字段：v5 及以前用单一 HideBody 开关，v6 拆为 头部/上半身/下半身 三个。
+    // 这里保留 HideBody 是为了让 BC 的 CraftingValidate (ItemProperty.Validate) 能通过
+    // ——否则老自制道具的 ItemProperty 里带 HideBody，而新 BaselineProperty 没有该键时，
+    // typeof 校验会失败，导致整个 ItemProperty 被判废、Textures 一起丢失。
+    // HideBody 已不在 HIDE_CATEGORIES 中，updateHideArray 不读取它，纯兼容用途。
+    HideBody: false
 };
 
 // === 姿势分类 ===
@@ -199,13 +207,29 @@ export const HIDE_CATEGORIES = [
         ]
     },
     {
-        key: "HideBody",
-        label: "身体",
-        labelEn: "Body",
+        key: "HideHead",
+        label: "头部",
+        labelEn: "Head",
         groups: [
-            "Head", "BodyUpper", "BodyLower", "Height",
-            "BodyStyle", "Pronouns", "Nipples", "Pussy",
-            "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight",
+            "Head"
+        ]
+    },
+    {
+        key: "HideBodyUpper",
+        label: "上半身",
+        labelEn: "Body Upper",
+        groups: [
+            "BodyUpper", "Nipples",
+            "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight"
+        ]
+    },
+    {
+        key: "HideBodyLower",
+        label: "下半身",
+        labelEn: "Body Lower",
+        groups: [
+            "BodyLower", "Pussy",
+            "Height", "BodyStyle", "Pronouns",
             "外观工具"
         ]
     },
