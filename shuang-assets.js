@@ -701,14 +701,20 @@
 	}
 	const _corsImageCache = new Map();
 	registerPrunableCache(_corsImageCache, L("静态图片", "static image"));
-	function getCorsImage(url) {
+	function getCorsImage(url, onReady) {
 	    let entry = _corsImageCache.get(url);
 	    if (!entry) {
 	        const img = new Image();
-	        entry = { img, loaded: false, failed: false, lastUsed: Date.now() };
-	        img.addEventListener("load", () => { entry.loaded = true; });
+	        entry = { img, loaded: false, failed: false, lastUsed: Date.now(), _waiters: new Set() };
+	        img.addEventListener("load", () => {
+	            entry.loaded = true;
+	            entry._waiters.forEach((fn) => { try { fn(); } catch (err) { Logger.error("[ShuangAssets] 图片就绪回调执行失败", err); } });
+	            entry._waiters.clear();
+	        });
 	        img.addEventListener("error", () => {
 	            entry.failed = true;
+	            entry._waiters.forEach((fn) => { try { fn(); } catch (err) { Logger.error("[ShuangAssets] 图片就绪回调执行失败", err); } });
+	            entry._waiters.clear();
 	            Logger.warn(L(
 	                `图片加载失败（很可能是图床未开启跨域 CORS，无 Access-Control-Allow-Origin 响应头）: ${url}`,
 	                `Failed to load image (the host likely has no CORS / Access-Control-Allow-Origin header): ${url}`
@@ -719,6 +725,9 @@
 	        _corsImageCache.set(url, entry);
 	    } else {
 	        entry.lastUsed = Date.now();
+	    }
+	    if (onReady && !entry.loaded && !entry.failed) {
+	        entry._waiters.add(onReady);
 	    }
 	    return entry;
 	}
@@ -764,9 +773,12 @@
 	    HideEmoticon: false,
 	    HideCosplay: false,
 	    HideFacial: false,
-	    HideBody: false,
+	    HideHead: false,
+	    HideBodyUpper: false,
+	    HideBodyLower: false,
 	    HideClothing: false,
-	    HideItems: false
+	    HideItems: false,
+	    HideBody: false
 	};
 	const POSE_CATEGORIES = {
 	    BodyUpper: {
@@ -873,13 +885,29 @@
 	        ]
 	    },
 	    {
-	        key: "HideBody",
-	        label: "身体",
-	        labelEn: "Body",
+	        key: "HideHead",
+	        label: "头部",
+	        labelEn: "Head",
 	        groups: [
-	            "Head", "BodyUpper", "BodyLower", "Height",
-	            "BodyStyle", "Pronouns", "Nipples", "Pussy",
-	            "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight",
+	            "Head"
+	        ]
+	    },
+	    {
+	        key: "HideBodyUpper",
+	        label: "上半身",
+	        labelEn: "Body Upper",
+	        groups: [
+	            "BodyUpper", "Nipples",
+	            "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight"
+	        ]
+	    },
+	    {
+	        key: "HideBodyLower",
+	        label: "下半身",
+	        labelEn: "Body Lower",
+	        groups: [
+	            "BodyLower", "Pussy",
+	            "Height", "BodyStyle", "Pronouns",
 	            "外观工具"
 	        ]
 	    },
@@ -1599,27 +1627,63 @@
 	    if (input) input.remove();
 	}
 
+	function refreshCharacterAppearance(C) {
+	    if (!C) return;
+	    try {
+	        if (typeof CharacterAppearanceBuildCanvas === "function") {
+	            CharacterAppearanceBuildCanvas(C);
+	            C.MustDraw = false;
+	        } else if (typeof CharacterRefresh === "function") {
+	            CharacterRefresh(C, false, false);
+	        }
+	    } catch (err) {
+	        Logger.error("[ShuangAssets] 角色外观重绘失败", err);
+	    }
+	}
+	const _pendingOneShot = new Set();
+	function queueOneShotRefresh(C) {
+	    if (!C || _pendingOneShot.has(C)) return;
+	    _pendingOneShot.add(C);
+	    setTimeout(() => {
+	        _pendingOneShot.delete(C);
+	        refreshCharacterAppearance(C);
+	    }, 0);
+	}
+
 	const GIF_POLL_INTERVAL_DEFAULT_MS = 100;
 	const STALE_CHARACTER_TIMEOUT_MS = 5 * 60 * 1000;
 	const _knownAnimatedCharacters = new Map();
 	let _timerStarted = false;
-	function forceRefresh(C) {
-	    try {
-	        if (typeof CharacterRefresh === "function") {
-	            CharacterRefresh(C, false, false);
-	        }
-	    } catch (err) {
-	        Logger.error("[ShuangAssets] GIF 动画刷新失败", err);
+	function isCurrentlyVisible(C) {
+	    if (typeof DrawLastCharacters === "undefined" || !Array.isArray(DrawLastCharacters)) {
+	        return true;
 	    }
+	    return DrawLastCharacters.includes(C);
 	}
 	function kickAllKnownAnimated() {
 	    if (_knownAnimatedCharacters.size === 0) return;
-	    for (const C of _knownAnimatedCharacters.keys()) forceRefresh(C);
+	    for (const [C, entry] of _knownAnimatedCharacters) {
+	        entry.nextDue = Infinity;
+	        refreshCharacterAppearance(C);
+	    }
+	}
+	function kickDueAnimated() {
+	    if (_knownAnimatedCharacters.size === 0) return;
+	    const now = Date.now();
+	    for (const [C, entry] of _knownAnimatedCharacters) {
+	        if (now < entry.nextDue) continue;
+	        if (!isCurrentlyVisible(C)) continue;
+	        entry.nextDue = Infinity;
+	        refreshCharacterAppearance(C);
+	    }
+	}
+	function forgetCharacter(C) {
+	    if (C) _knownAnimatedCharacters.delete(C);
 	}
 	function pruneStaleCharacters() {
 	    const now = Date.now();
-	    for (const [C, lastSeen] of _knownAnimatedCharacters) {
-	        if (now - lastSeen > STALE_CHARACTER_TIMEOUT_MS) {
+	    for (const [C, entry] of _knownAnimatedCharacters) {
+	        if (now - entry.lastSeen > STALE_CHARACTER_TIMEOUT_MS) {
 	            _knownAnimatedCharacters.delete(C);
 	        }
 	    }
@@ -1629,7 +1693,7 @@
 	    _timerStarted = true;
 	    const tick = () => {
 	        pruneStaleCharacters();
-	        kickAllKnownAnimated();
+	        kickDueAnimated();
 	        setTimeout(tick, getGifFrameRate());
 	    };
 	    setTimeout(tick, GIF_POLL_INTERVAL_DEFAULT_MS);
@@ -1645,7 +1709,7 @@
 	    try {
 	        HookManager.hookFunction("CommonSetScreen", 0, (args, next) => {
 	            const ret = next(args);
-	            setTimeout(kickAllKnownAnimated, 0);
+	            setTimeout(() => kickAllKnownAnimated(), 0);
 	            pruneCachesNow();
 	            return ret;
 	        });
@@ -1654,16 +1718,47 @@
 	    }
 	    if (typeof HookManager.afterPlayerLogin === "function") {
 	        try {
-	            HookManager.afterPlayerLogin(() => setTimeout(kickAllKnownAnimated, 0));
+	            HookManager.afterPlayerLogin(() => setTimeout(() => kickAllKnownAnimated(), 0));
 	        } catch (err) {
 	            Logger.error("[ShuangAssets] 注册登入动图钩子失败", err);
 	        }
 	    }
+	    try {
+	        HookManager.hookFunction("ChatRoomSyncItem", 0, (args, next) => {
+	            const ret = next(args);
+	            try {
+	                const data = args[0];
+	                const target = data?.Item?.Target;
+	                if (
+	                    typeof target === "number"
+	                    && typeof ChatRoomCharacter !== "undefined"
+	                    && Array.isArray(ChatRoomCharacter)
+	                ) {
+	                    const C = ChatRoomCharacter.find((c) => c.MemberNumber === target);
+	                    if (C) forgetCharacter(C);
+	                }
+	            } catch (err) {
+	                Logger.error("[ShuangAssets] 处理道具同步事件失败", err);
+	            }
+	            return ret;
+	        });
+	    } catch (err) {
+	        Logger.error("[ShuangAssets] 注册道具同步动图钩子失败", err);
+	    }
 	}
-	function notifyGifFrame(C, layerIndex, frameIndex) {
+	function notifyGifFrame(C, layerIndex, frameIndex, nextDueAt) {
 	    if (!C || frameIndex < 0) return;
 	    ensureTimerStarted();
-	    _knownAnimatedCharacters.set(C, Date.now());
+	    const now = Date.now();
+	    const due = typeof nextDueAt === "number" ? nextDueAt : now;
+	    let entry = _knownAnimatedCharacters.get(C);
+	    if (!entry) {
+	        entry = { lastSeen: now, nextDue: due };
+	        _knownAnimatedCharacters.set(C, entry);
+	    } else {
+	        entry.lastSeen = now;
+	        entry.nextDue = Math.min(entry.nextDue, due);
+	    }
 	}
 
 	const state = {
@@ -2367,13 +2462,17 @@
 	        return;
 	    }
 	    if (MouseIn(1885, 135, 90, 90)) {
+	        const toIntOr = (val, fallback) => {
+	            const n = parseInt(val, 10);
+	            return Number.isFinite(n) ? n : fallback;
+	        };
 	        const finalTexture = JSON.parse(JSON.stringify(state.tempTextureData));
 	        finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
-	        finalTexture.OffsetX = parseInt(state.tempTextureData?.OffsetX) || 0;
-	        finalTexture.OffsetY = parseInt(state.tempTextureData?.OffsetY) || 0;
-	        finalTexture.Scale = parseInt(state.tempTextureData?.Scale) || 100;
-	        finalTexture.Rotation = parseInt(state.tempTextureData?.Rotation) || 0;
-	        finalTexture.Opacity = Math.max(0, Math.min(100, parseInt(state.tempTextureData?.Opacity) || 100));
+	        finalTexture.OffsetX = toIntOr(state.tempTextureData?.OffsetX, 0);
+	        finalTexture.OffsetY = toIntOr(state.tempTextureData?.OffsetY, 0);
+	        finalTexture.Scale = toIntOr(state.tempTextureData?.Scale, 100);
+	        finalTexture.Rotation = toIntOr(state.tempTextureData?.Rotation, 0);
+	        finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
 	        finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
 	        finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
 	        const existing = item.Property.Textures[textureIndex];
@@ -2410,7 +2509,7 @@
 	        : {};
 	    const config = {
 	        type: "ShuangCustomAssets",
-	        version: 5,
+	        version: 6,
 	        textures: textures,
 	        overridePriority: overridePriority,
 	    };
@@ -2456,15 +2555,19 @@
 	            if (!Array.isArray(config.textures)) {
 	                throw new Error("配置格式错误");
 	            }
+	            const toIntOr = (val, fallback) => {
+	                const n = parseInt(val, 10);
+	                return Number.isFinite(n) ? n : fallback;
+	            };
 	            const validTextures = config.textures.map(t => {
 	                const cleaned = {
 	                    TextureURL: String(t.TextureURL || ""),
-	                    OffsetX: parseInt(t.OffsetX) || 0,
-	                    OffsetY: parseInt(t.OffsetY) || 0,
-	                    Scale: parseInt(t.Scale) || 100,
-	                    Rotation: parseInt(t.Rotation) || 0,
+	                    OffsetX: toIntOr(t.OffsetX, 0),
+	                    OffsetY: toIntOr(t.OffsetY, 0),
+	                    Scale: toIntOr(t.Scale, 100),
+	                    Rotation: toIntOr(t.Rotation, 0),
 	                    Visible: t.Visible !== false,
-	                    Opacity: Math.max(0, Math.min(100, parseInt(t.Opacity) || 100)),
+	                    Opacity: Math.max(0, Math.min(100, toIntOr(t.Opacity, 100))),
 	                    MirrorH: t.MirrorH === true,
 	                    MirrorV: t.MirrorV === true
 	                };
@@ -2502,6 +2605,11 @@
 	                item.Property.Textures = validTextures;
 	                for (const cat of HIDE_CATEGORIES) {
 	                    item.Property[cat.key] = config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] === true;
+	                }
+	                if (config.hideBody === true) {
+	                    item.Property.HideHead = true;
+	                    item.Property.HideBodyUpper = true;
+	                    item.Property.HideBodyLower = true;
 	                }
 	                const importedPriority = sanitizePriorityMap(config.overridePriority, validTextures.length);
 	                if (Object.keys(importedPriority).length > 0) {
@@ -2595,7 +2703,7 @@
 	    DrawText(L("隐藏设置", "Hide Settings"), 1500, 360, "White", "Gray");
 	    DrawText(L("选择需要隐藏的部位分类", "Choose which part categories to hide"), 1505, 410, "#fff942", "Gray");
 	    const startY = 450;
-	    const rowHeight = 60;
+	    const rowHeight = 55;
 	    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
 	        const cat = HIDE_CATEGORIES[i];
 	        const y = startY + i * rowHeight;
@@ -2613,7 +2721,7 @@
 	}
 	function handleHideSettingsClick(item) {
 	    const startY = 450;
-	    const rowHeight = 60;
+	    const rowHeight = 55;
 	    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
 	        const cat = HIDE_CATEGORIES[i];
 	        const y = startY + i * rowHeight;
@@ -3417,10 +3525,40 @@
 
 	const _gifCache = new Map();
 	registerPrunableCache(_gifCache, L("动图", "animated image"));
-	function getAnimatedImage(url) {
+	function notifyReady(entry) {
+	    entry._waiters.forEach((fn) => {
+	        try { fn(); } catch (err) { Logger.error("[ShuangAssets] 动图就绪回调执行失败", err); }
+	    });
+	    entry._waiters.clear();
+	}
+	const MAX_CONCURRENT_DECODES = 3;
+	const COMPOSE_CHUNK_SIZE = 6;
+	let _activeDecodes = 0;
+	const _decodeQueue = [];
+	function _pumpDecodeQueue() {
+	    while (_activeDecodes < MAX_CONCURRENT_DECODES && _decodeQueue.length > 0) {
+	        const task = _decodeQueue.shift();
+	        _activeDecodes++;
+	        task().finally(() => {
+	            _activeDecodes--;
+	            _pumpDecodeQueue();
+	        });
+	    }
+	}
+	function scheduleDecodeTask(task) {
+	    return new Promise((resolve, reject) => {
+	        _decodeQueue.push(() => task().then(resolve, reject));
+	        _pumpDecodeQueue();
+	    });
+	}
+	function _yieldToMainThread() {
+	    return new Promise((resolve) => setTimeout(resolve, 0));
+	}
+	function getAnimatedImage(url, onReady) {
 	    let entry = _gifCache.get(url);
 	    if (entry) {
 	        entry.lastUsed = Date.now();
+	        if (onReady && !entry.loaded) entry._waiters.add(onReady);
 	        return entry;
 	    }
 	    entry = {
@@ -3431,92 +3569,104 @@
 	        totalDuration: 0,
 	        width: 0,
 	        height: 0,
-	        lastUsed: Date.now()
+	        lastUsed: Date.now(),
+	        _waiters: new Set()
 	    };
 	    _gifCache.set(url, entry);
-	    fetch(url, { mode: "cors", credentials: "omit" })
-	        .then((res) => {
-	            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-	            return res.arrayBuffer();
-	        })
-	        .then((buffer) => {
-	            const header = new Uint8Array(buffer, 0, 3);
-	            const isGifHeader = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46;
-	            if (!isGifHeader) {
-	                entry.failed = true;
-	                entry.loaded = true;
-	                return;
-	            }
-	            const gif = libExports.parseGIF(buffer);
-	            const rawFrames = libExports.decompressFrames(gif, true);
-	            entry.width = gif.lsd.width;
-	            entry.height = gif.lsd.height;
-	            entry.isAnimated = rawFrames.length > 1;
-	            const composeCanvas = document.createElement("canvas");
-	            composeCanvas.width = entry.width || 1;
-	            composeCanvas.height = entry.height || 1;
-	            const composeCtx = composeCanvas.getContext("2d");
-	            const patchCanvas = document.createElement("canvas");
-	            const patchCtx = patchCanvas.getContext("2d");
-	            let lastDisposalType = null;
-	            let lastDims = null;
-	            let disposalRestoreFromIdx = null;
-	            rawFrames.forEach((frame, currIdx) => {
-	                const { dims } = frame;
-	                if (currIdx > 0) {
-	                    if (lastDisposalType === 3) {
-	                        if (disposalRestoreFromIdx !== null) {
-	                            composeCtx.clearRect(0, 0, entry.width, entry.height);
-	                            composeCtx.drawImage(entry.frames[disposalRestoreFromIdx].canvas, 0, 0);
-	                        } else if (lastDims) {
+	    if (onReady) entry._waiters.add(onReady);
+	    scheduleDecodeTask(() =>
+	        fetch(url, { mode: "cors", credentials: "omit" })
+	            .then((res) => {
+	                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+	                return res.arrayBuffer();
+	            })
+	            .then(async (buffer) => {
+	                const header = new Uint8Array(buffer, 0, 3);
+	                const isGifHeader = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46;
+	                if (!isGifHeader) {
+	                    entry.failed = true;
+	                    entry.loaded = true;
+	                    notifyReady(entry);
+	                    return;
+	                }
+	                const gif = libExports.parseGIF(buffer);
+	                const rawFrames = libExports.decompressFrames(gif, true);
+	                entry.width = gif.lsd.width;
+	                entry.height = gif.lsd.height;
+	                entry.isAnimated = rawFrames.length > 1;
+	                const composeCanvas = document.createElement("canvas");
+	                composeCanvas.width = entry.width || 1;
+	                composeCanvas.height = entry.height || 1;
+	                const composeCtx = composeCanvas.getContext("2d");
+	                const patchCanvas = document.createElement("canvas");
+	                const patchCtx = patchCanvas.getContext("2d");
+	                let lastDisposalType = null;
+	                let lastDims = null;
+	                let disposalRestoreFromIdx = null;
+	                for (let currIdx = 0; currIdx < rawFrames.length; currIdx++) {
+	                    const frame = rawFrames[currIdx];
+	                    const { dims } = frame;
+	                    if (currIdx > 0) {
+	                        if (lastDisposalType === 3) {
+	                            if (disposalRestoreFromIdx !== null) {
+	                                composeCtx.clearRect(0, 0, entry.width, entry.height);
+	                                composeCtx.drawImage(entry.frames[disposalRestoreFromIdx].canvas, 0, 0);
+	                            } else if (lastDims) {
+	                                composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
+	                            }
+	                        } else {
+	                            disposalRestoreFromIdx = currIdx - 1;
+	                        }
+	                        if (lastDisposalType === 2 && lastDims) {
 	                            composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
 	                        }
-	                    } else {
-	                        disposalRestoreFromIdx = currIdx - 1;
 	                    }
-	                    if (lastDisposalType === 2 && lastDims) {
-	                        composeCtx.clearRect(lastDims.left, lastDims.top, lastDims.width, lastDims.height);
+	                    patchCanvas.width = dims.width || 1;
+	                    patchCanvas.height = dims.height || 1;
+	                    const patchImageData = patchCtx.createImageData(patchCanvas.width, patchCanvas.height);
+	                    patchImageData.data.set(frame.patch);
+	                    patchCtx.putImageData(patchImageData, 0, 0);
+	                    composeCtx.drawImage(patchCanvas, dims.left, dims.top);
+	                    const frameCanvas = document.createElement("canvas");
+	                    frameCanvas.width = entry.width || 1;
+	                    frameCanvas.height = entry.height || 1;
+	                    frameCanvas.getContext("2d").drawImage(composeCanvas, 0, 0);
+	                    const delay = frame.delay > 10 ? frame.delay : 100;
+	                    entry.frames.push({ canvas: frameCanvas, delay });
+	                    entry.totalDuration += delay;
+	                    lastDisposalType = frame.disposalType;
+	                    lastDims = dims;
+	                    if ((currIdx + 1) % COMPOSE_CHUNK_SIZE === 0 && currIdx + 1 < rawFrames.length) {
+	                        await _yieldToMainThread();
 	                    }
 	                }
-	                patchCanvas.width = dims.width || 1;
-	                patchCanvas.height = dims.height || 1;
-	                const patchImageData = patchCtx.createImageData(patchCanvas.width, patchCanvas.height);
-	                patchImageData.data.set(frame.patch);
-	                patchCtx.putImageData(patchImageData, 0, 0);
-	                composeCtx.drawImage(patchCanvas, dims.left, dims.top);
-	                const frameCanvas = document.createElement("canvas");
-	                frameCanvas.width = entry.width || 1;
-	                frameCanvas.height = entry.height || 1;
-	                frameCanvas.getContext("2d").drawImage(composeCanvas, 0, 0);
-	                const delay = frame.delay > 10 ? frame.delay : 100;
-	                entry.frames.push({ canvas: frameCanvas, delay });
-	                entry.totalDuration += delay;
-	                lastDisposalType = frame.disposalType;
-	                lastDims = dims;
-	            });
-	            entry.loaded = true;
-	        })
-	        .catch((err) => {
-	            entry.failed = true;
-	            entry.loaded = true;
-	            Logger.warn(L(
-	                `GIF 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
-	                `Failed to parse GIF (the host may not support CORS, or the file is corrupted): ${url}`
-	            ), err);
-	        });
+	                entry.loaded = true;
+	                notifyReady(entry);
+	            })
+	            .catch((err) => {
+	                entry.failed = true;
+	                entry.loaded = true;
+	                notifyReady(entry);
+	                Logger.warn(L(
+	                    `GIF 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
+	                    `Failed to parse GIF (the host may not support CORS, or the file is corrupted): ${url}`
+	                ), err);
+	            })
+	    );
 	    return entry;
 	}
-	function getCurrentGifFrameIndex(entry, elapsedMs) {
+	function getGifFrameState(entry, elapsedMs) {
 	    if (!entry.loaded || entry.failed || entry.frames.length === 0 || entry.totalDuration <= 0) {
-	        return -1;
+	        return { index: -1, remainingMs: 0 };
 	    }
 	    let t = elapsedMs % entry.totalDuration;
 	    for (let i = 0; i < entry.frames.length; i++) {
 	        const delay = entry.frames[i].delay;
-	        if (t < delay) return i;
+	        if (t < delay) return { index: i, remainingMs: delay - t };
 	        t -= delay;
 	    }
-	    return entry.frames.length - 1;
+	    const lastFrame = entry.frames[entry.frames.length - 1];
+	    return { index: entry.frames.length - 1, remainingMs: lastFrame.delay };
 	}
 
 	function resolvePoseParams(texture, drawPose) {
@@ -3578,7 +3728,7 @@
 	        imageUrl = params.TextureURL;
 	        offsetX = params.OffsetX || 0;
 	        offsetY = params.OffsetY || 0;
-	        scale = (params.Scale || 100) / 100;
+	        scale = (params.Scale ?? 100) / 100;
 	        rotation = params.Rotation || 0;
 	        displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
 	        mirrorH = params.MirrorH === true;
@@ -3590,6 +3740,7 @@
 	    const gifEntry = getAnimatedImage(imageUrl);
 	    let img, sourceWidth, sourceHeight, gifFrameIndex = -1;
 	    if (!gifEntry.loaded) {
+	        getAnimatedImage(imageUrl, () => queueOneShotRefresh(C));
 	        return;
 	    } else if (!gifEntry.failed && gifEntry.isAnimated) {
 	        if (getAnimatedImageEnabled()) {
@@ -3599,9 +3750,10 @@
 	                data.PersistentData[layerGifStartKey] = Date.now();
 	            }
 	            const elapsed = Date.now() - data.PersistentData[layerGifStartKey];
-	            gifFrameIndex = getCurrentGifFrameIndex(gifEntry, elapsed);
+	            const gifFrameState = getGifFrameState(gifEntry, elapsed);
+	            gifFrameIndex = gifFrameState.index;
 	            if (gifFrameIndex < 0) return;
-	            notifyGifFrame(C, layerIndex, gifFrameIndex);
+	            notifyGifFrame(C, layerIndex, gifFrameIndex, Date.now() + gifFrameState.remainingMs);
 	        } else {
 	            gifFrameIndex = 0;
 	        }
@@ -3617,7 +3769,10 @@
 	    } else {
 	        const imgEntry = getCorsImage(imageUrl);
 	        if (imgEntry.failed) return;
-	        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) return;
+	        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) {
+	            getCorsImage(imageUrl, () => queueOneShotRefresh(C));
+	            return;
+	        }
 	        img = imgEntry.img;
 	        sourceWidth = img.naturalWidth;
 	        sourceHeight = img.naturalHeight;
@@ -3751,9 +3906,12 @@
 	        HideEmoticon: false,
 	        HideCosplay: false,
 	        HideFacial: false,
-	        HideBody: false,
+	        HideHead: false,
+	        HideBodyUpper: false,
+	        HideBodyLower: false,
 	        HideClothing: false,
-	        HideItems: false
+	        HideItems: false,
+	        HideBody: false
 	    },
 	    ScriptHooks: {
 	        Load: (data, originalFunction) => {
@@ -3762,6 +3920,12 @@
 	            if (!item) return;
 	            if (!item.Property) item.Property = { ...DEFAULT_PROPS };
 	            if (!item.Property.Textures) item.Property.Textures = [];
+	            if (item.Property.HideBody === true) {
+	                item.Property.HideHead = true;
+	                item.Property.HideBodyUpper = true;
+	                item.Property.HideBodyLower = true;
+	                delete item.Property.HideBody;
+	            }
 	            for (const cat of HIDE_CATEGORIES) {
 	                if (item.Property[cat.key] === undefined) item.Property[cat.key] = false;
 	            }
@@ -3909,7 +4073,13 @@
 	                    args[0] = parts.join(sep);
 	                }
 	            }
-	            return next(args);
+	            const craft = next(args);
+	            if (craft && craft.ItemProperty && typeof craft.ItemProperty === "object" && craft.ItemProperty.HideBody === true) {
+	                craft.ItemProperty.HideHead = true;
+	                craft.ItemProperty.HideBodyUpper = true;
+	                craft.ItemProperty.HideBodyLower = true;
+	            }
+	            return craft;
 	        });
 	        u$1.hookFunction("GLDraw2DCanvas", 0, (args, next) => {
 	            const gl = args[0];
