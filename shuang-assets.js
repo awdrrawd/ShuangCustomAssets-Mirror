@@ -680,6 +680,28 @@
 	    ensureTimerStarted$1();
 	}
 
+	const NO_SPINNER_CLASS = "shuang-no-number-spinner";
+	let _noSpinnerStyleInjected = false;
+	function hideNumberInputSpinner(input) {
+	    if (!input) return;
+	    if (!_noSpinnerStyleInjected) {
+	        const style = document.createElement("style");
+	        style.textContent = `
+            .${NO_SPINNER_CLASS}::-webkit-outer-spin-button,
+            .${NO_SPINNER_CLASS}::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            .${NO_SPINNER_CLASS} {
+                -moz-appearance: textfield;
+                appearance: textfield;
+            }
+        `;
+	        document.head.appendChild(style);
+	        _noSpinnerStyleInjected = true;
+	    }
+	    input.classList.add(NO_SPINNER_CLASS);
+	}
 	const Logger = {
 	    prefix: "[ShuangAssets]",
 	    info(...args) {
@@ -760,7 +782,9 @@
 	    TextureURL: "",
 	    OffsetX: 1,
 	    OffsetY: 1,
-	    Scale: 100,
+	    ScaleX: 100,
+	    ScaleY: 100,
+	    ScaleLocked: true,
 	    Rotation: 0,
 	    Visible: true,
 	    Opacity: 100,
@@ -789,7 +813,7 @@
 	    BodyLower: {
 	        label: "腿部姿势",
 	        labelEn: "Leg Pose",
-	        poses: ["BaseLower", "Kneel", "KneelingSpread", "LegsClosed", "Spread"]
+	        poses: ["BaseLower", "LegsClosed", "Kneel", "KneelingSpread", "Spread"]
 	    },
 	    BodyFull: {
 	        label: "全身姿势",
@@ -806,13 +830,31 @@
 	    BackElbowTouch: { cn: "紧绷背手",   en: "Elbow Touch" },
 	    BackCuffs:      { cn: "背后手铐",   en: "Back Cuffs" },
 	    BaseLower:      { cn: "站立",       en: "Standing" },
+	    LegsClosed:     { cn: "站立闭合",   en: "Legs Closed" },
 	    Kneel:          { cn: "跪姿",       en: "Kneel" },
 	    KneelingSpread: { cn: "跪地张腿",   en: "Kneeling Spread" },
-	    LegsClosed:     { cn: "站立闭合",       en: "Legs Closed" },
 	    Spread:         { cn: "站立张腿",       en: "Spread" },
 	    Hogtied:        { cn: "仰卧",       en: "Hogtied" },
 	    AllFours:       { cn: "四肢着地",   en: "All Fours" }
 	};
+	function migrateScaleField(texture) {
+	    if (!texture || typeof texture !== "object") return;
+	    if (texture.Scale !== undefined && texture.ScaleX === undefined) {
+	        texture.ScaleX = texture.Scale;
+	        texture.ScaleY = texture.Scale;
+	        texture.ScaleLocked = true;
+	        delete texture.Scale;
+	    }
+	    if (texture.PoseSettings && typeof texture.PoseSettings === "object") {
+	        for (const ps of Object.values(texture.PoseSettings)) {
+	            if (ps && ps.Scale !== undefined && ps.ScaleX === undefined) {
+	                ps.ScaleX = ps.Scale;
+	                ps.ScaleY = ps.Scale;
+	                delete ps.Scale;
+	            }
+	        }
+	    }
+	}
 	function getPoseKey(drawPose) {
 	    if (!drawPose || drawPose.length === 0) return null;
 	    const fullPoses = POSE_CATEGORIES.BodyFull.poses;
@@ -827,17 +869,25 @@
 	    if (lowerPose) return lowerPose;
 	    return null;
 	}
-	const POSE_BAR_Y = 855;
-	const POSE_BTN_Y = 890;
-	const POSE_TOGGLE_X = 1100;
-	const POSE_TOGGLE_W = 170;
-	const POSE_TOGGLE_H = 35;
-	const POSE_SWITCH_X = 1520;
-	const POSE_SWITCH_W = 130;
+	const POSE_BAR_Y = 900;
+	const POSE_TOGGLE_X = 1570;
+	const POSE_TOGGLE_W = 100;
+	const POSE_TOGGLE_H = 40;
+	const POSE_SWITCH_X = POSE_TOGGLE_X + POSE_TOGGLE_W + 10;
+	const POSE_SWITCH_W = 100;
+	const POSE_NAME_LABEL_X = 1100;
+	const POSE_NAME_VALUE_X = 1210;
+	const POSE_NAME_VALUE_W = 350;
 	const POSE_PAGE_BTN_W = 150;
 	const POSE_PAGE_BTN_H = 40;
-	const POSE_PAGE_BTN_GAP = 5;
-	const POSE_PAGE_START_X = 1010;
+	const POSE_PAGE_BTN_GAP = 20;
+	const POSE_PAGE_START_X = 1265;
+	const POSE_PAGE_COLS = 3;
+	const POSE_PAGE_START_Y = 435;
+	const POSE_PAGE_ROW_STEP = 50;
+	const POSE_PAGE_CATEGORY_GAP = 30;
+	const POSE_PAGE_LABEL_X = 1100;
+	const POSE_PAGE_LABEL_Y_OFFSET = 20;
 	const TEXTURES_PER_PAGE = 6;
 	const MAX_TEXTURE_COUNT = 16;
 	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
@@ -946,40 +996,55 @@
 	    }
 	];
 	const ALL_HIDEABLE_GROUPS = HIDE_CATEGORIES.flatMap(c => c.groups);
-	const INPUT_OFFSET_X = "CustomTextureOffsetXInput";
-	const INPUT_OFFSET_Y = "CustomTextureOffsetYInput";
-	const INPUT_SCALE = "CustomTextureScaleInput";
-	const INPUT_ROTATION = "CustomTextureRotationInput";
-	const INPUT_OPACITY = "CustomTextureOpacityInput";
-	const INPUT_PRIORITY = "CustomTexturePriorityInput";
-	const URL_INPUT_ID = "ShuangTextureUrlInput";
-	const OPACITY_SLIDER_ID = "ShuangTextureOpacitySlider";
-	const OPACITY_SLIDER_X = 1435;
-	const OPACITY_SLIDER_W = 260;
+	const FIELD_OFFSET_X = "CustomTextureOffsetX";
+	const FIELD_OFFSET_Y = "CustomTextureOffsetY";
+	const FIELD_SCALE_X = "CustomTextureScaleX";
+	const FIELD_SCALE_Y = "CustomTextureScaleY";
+	const FIELD_OPACITY = "CustomTextureOpacity";
+	const FIELD_ROTATION = "CustomTextureRotation";
+	const FIELD_PRIORITY = "CustomTexturePriority";
+	const FIELD_URL = "CustomTextureURLInput";
 	const STEPPER_BTN_W = 40;
 	const STEPPER_BTN_H = 40;
 	const STEPPER_MINUS_X = 1220;
 	const STEPPER_PLUS_X = 1380;
 	const STEPPER_INPUT_X = 1265;
 	const STEPPER_INPUT_W = 110;
+	const STEPPER_INPUT_H = 40;
 	const STEPPER_FIELDS = [
-	    { id: INPUT_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX",  def: 1,   min: null, max: null },
-	    { id: INPUT_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY",  def: 1,   min: null, max: null },
-	    { id: INPUT_SCALE,    y: 635, labelCn: "缩放%",   labelEn: "Scale %",    labelY: 655, prop: "Scale",    def: 100, min: null, max: null },
-	    { id: INPUT_ROTATION, y: 685, labelCn: "旋转%",   labelEn: "Rotation %",  labelY: 705, prop: "Rotation", def: 0,   min: null, max: null },
-	    { id: INPUT_OPACITY,  y: 735, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 755, prop: "Opacity",  def: 100, min: 0,    max: 100 },
-	    { id: INPUT_PRIORITY, y: 785, labelCn: "图层优先级",  labelEn: "Layer Priority",   labelY: 805, prop: null,      def: 50,  min: -99,  max: 99 }
+	    { id: FIELD_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX", def: 1,   min: null, max: null },
+	    { id: FIELD_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY", def: 1,   min: null, max: null },
+	    { id: FIELD_SCALE_X,  y: 635, labelCn: "缩放X%",  labelEn: "Scale X %",  labelY: 655, prop: "ScaleX",  def: 100, min: null, max: null },
+	    { id: FIELD_SCALE_Y,  y: 680, labelCn: "缩放Y%",  labelEn: "Scale Y %",  labelY: 700, prop: "ScaleY",  def: 100, min: null, max: null }
 	];
+	const BAR_FIELDS = [
+	    { id: FIELD_ROTATION, y: 730, labelCn: "旋转",     labelEn: "Rotation",      labelY: 750, prop: "Rotation", def: 0,   min: 0,   max: 360, bar: true },
+	    { id: FIELD_OPACITY,  y: 780, labelCn: "透明度%", labelEn: "Opacity %",     labelY: 800, prop: "Opacity",   def: 100, min: 0,   max: 100, bar: true },
+	    { id: FIELD_PRIORITY, y: 830, labelCn: "图层优先级", labelEn: "Layer Priority", labelY: 850, prop: null,       def: 50,  min: -99, max: 99,  bar: true }
+	];
+	const BAR_TRACK_X = 1445;
+	const BAR_TRACK_W = 220;
+	const BAR_TRACK_H = 8;
+	const BAR_HANDLE_SIZE = 24;
+	const MOVE_BTN_X = 1435;
+	const MOVE_BTN_Y = 510;
+	const MOVE_BTN_W = 100;
+	const MOVE_BTN_H = 40;
+	const SCALE_DRAG_BTN_X = MOVE_BTN_X;
+	const SCALE_DRAG_BTN_Y = 660;
+	const SCALE_DRAG_BTN_W = 100;
+	const SCALE_DRAG_BTN_H = 40;
+	const ASPECT_LOCK_BTN_X = SCALE_DRAG_BTN_X + SCALE_DRAG_BTN_W + 20;
+	const ASPECT_LOCK_BTN_Y = SCALE_DRAG_BTN_Y;
+	const ASPECT_LOCK_BTN_W = 100;
+	const ASPECT_LOCK_BTN_H = 40;
+	const SCALE_DRAG_SENSITIVITY = 0.5;
 	const MIRROR_ROW_Y = 585;
 	const MIRROR_ROW_LABEL_Y = 605;
 	const MIRROR_H_BTN_X = 1220;
 	const MIRROR_V_BTN_X = 1330;
 	const MIRROR_BTN_W = 90;
 	const MIRROR_BTN_H = 40;
-	const MOVE_BTN_X = 1435;
-	const MOVE_BTN_Y = 510;
-	const MOVE_BTN_W = 150;
-	const MOVE_BTN_H = 40;
 	const stepperPress = {
 	    fieldId: null,
 	    direction: 0,
@@ -990,12 +1055,23 @@
 	const URL_BOX_Y = 435;
 	const URL_BOX_W = 490;
 	const URL_BOX_H = 40;
+	const barDrag = {
+	    fieldId: null
+	};
+	const scaleDrag = {
+	    active: false,
+	    startMouseX: 0,
+	    startMouseY: 0,
+	    startScaleX: 100,
+	    startScaleY: 100
+	};
 	const BADGE_IMAGE_URL = "https://shuang-custom-assets.pages.dev/SCA_logo.png";
 	const LOGIN_BADGE_TEXTURE = {
 	    TextureURL: BADGE_IMAGE_URL,
 	    OffsetX: 153,
 	    OffsetY: -200,
-	    Scale: 21,
+	    ScaleX: 21,
+	    ScaleY: 21,
 	    Rotation: 0,
 	    Opacity: 100,
 	    Visible: true
@@ -1763,7 +1839,7 @@
 
 	const TAG_CONTENT = "SCA_INFO";
 	const TAG_KEY = "SCA_INFO";
-	const ICON_X = 340;
+	const ICON_X = 320;
 	const ICON_Y = 0;
 	const ICON_SIZE = 40;
 	function sendTag(target) {
@@ -1872,6 +1948,7 @@
 	    dragStartMouseY: 0,
 	    dragStartOffsetX: 0,
 	    dragStartOffsetY: 0,
+	    isScaleDragMode: false,
 	    _lastTextureRefresh: 0,
 	    _pendingTextureRefresh: false,
 	    statusMessage: null,
@@ -1888,6 +1965,9 @@
 	function resetDragState() {
 	    state.isDragMode = false;
 	    state.dragActive = false;
+	    state.isScaleDragMode = false;
+	    scaleDrag.active = false;
+	    barDrag.fieldId = null;
 	}
 	function showStatus(text, color = "#4CAF50", durationMs = 5000) {
 	    state.statusMessage = { text, color };
@@ -1941,19 +2021,7 @@
 	    return state.tempTextureData;
 	}
 	function refreshEditInputs() {
-	    const target = getEditTarget();
-	    if (!target) return;
-	    const urlInput = document.getElementById(URL_INPUT_ID);
-	    if (urlInput) urlInput.value = target.TextureURL || "";
-	    for (const field of STEPPER_FIELDS) {
-	        const input = document.getElementById(field.id);
-	        if (input) input.value = String(getFieldValue(field));
-	    }
-	    const opacitySlider = document.getElementById(OPACITY_SLIDER_ID);
-	    if (opacitySlider) {
-	        const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
-	        opacitySlider.value = String(getFieldValue(opacityField));
-	    }
+	    if (!getEditTarget()) return;
 	    state._fieldsDirty = true;
 	}
 	function inheritGlobalFields() {
@@ -1963,7 +2031,9 @@
 	        TextureURL: g?.TextureURL || "",
 	        OffsetX: g?.OffsetX ?? 1,
 	        OffsetY: g?.OffsetY ?? 1,
-	        Scale: g?.Scale ?? 100,
+	        ScaleX: g?.ScaleX ?? 100,
+	        ScaleY: g?.ScaleY ?? 100,
+	        ScaleLocked: g?.ScaleLocked !== false,
 	        Rotation: g?.Rotation ?? 0,
 	        Opacity: g?.Opacity ?? 100,
 	        MirrorH: g?.MirrorH === true,
@@ -2010,46 +2080,46 @@
 	    refreshEditInputs();
 	}
 	function drawPoseBar() {
-	    const C = CharacterGetCurrent();
-	    const poseKey = getPoseKey(C?.DrawPose);
-	    let poseText;
-	    if (poseKey) {
-	        const labels = poseKey.split("+").map(p => {
+	    DrawText(L("特定姿势: ", "Specific Pose: "), POSE_NAME_LABEL_X, POSE_BAR_Y, "White", "Gray");
+	    let poseValueText;
+	    if (state.poseEditing) {
+	        const labels = state.poseEditing.split("+").map(p => {
 	            const label = POSE_LABELS[p];
 	            return label ? L(label.cn, label.en) : p;
 	        });
-	        poseText = L("当前姿势: ", "Current pose: ") + labels.join(" + ");
-	        if (state.poseEditing) {
-	            poseText += L("  [编辑姿势配置]", "  [Editing Pose Override]");
-	        }
+	        poseValueText = labels.join(" + ");
 	    } else {
-	        poseText = L("当前姿势: 未知", "Current pose: Unknown");
+	        poseValueText = L("无", "None");
 	    }
-	    DrawText(poseText, 1100, POSE_BAR_Y, "White", "Gray");
+	    MainCanvas.textAlign = "center";
+	    DrawTextFit(poseValueText, POSE_NAME_VALUE_X + POSE_NAME_VALUE_W / 2, POSE_BAR_Y, POSE_NAME_VALUE_W, "Yellow", "Black");
+	    MainCanvas.textAlign = "center";
+	    const C = CharacterGetCurrent();
+	    const poseKey = getPoseKey(C?.DrawPose);
 	    if (poseKey) {
 	        const ps = state.tempTextureData?.PoseSettings?.[poseKey];
 	        const isEnabled = state.poseEditing === poseKey || (ps && ps.enabled === true);
 	        const btnText = isEnabled
-	            ? L("独立配置: 开", "Pose Override: On")
-	            : L("独立配置: 关", "Pose Override: Off");
-	        DrawButton(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+	            ? L("启用", "On")
+	            : L("停用", "Off");
+	        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
 	            POSE_TOGGLE_W, POSE_TOGGLE_H,
 	            btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
 	    }
-	    DrawButton(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+	    DrawButton(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
 	        POSE_SWITCH_W, POSE_TOGGLE_H,
-	        L("切换姿势", "Switch Pose"), "White", null,
+	        L("设定", "Configure"), "White", null,
 	        L("打开姿势切换页面", "Open pose switch page"), false);
 	}
 	function handlePoseBarClick() {
 	    const C = CharacterGetCurrent();
 	    const poseKey = getPoseKey(C?.DrawPose);
-	    if (MouseIn(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+	    if (MouseIn(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
 	            POSE_SWITCH_W, POSE_TOGGLE_H)) {
 	        state.poseSwitchMode = true;
 	        return true;
 	    }
-	    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+	    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
 	            POSE_TOGGLE_W, POSE_TOGGLE_H)) {
 	        if (state.poseEditing === poseKey) {
 	            deletePoseEditing(poseKey);
@@ -2065,51 +2135,67 @@
 	    if (!C) return;
 	    DrawText(L("切换姿势", "Switch Pose"), 1500, 360, "White", "Gray");
 	    DrawText(L("点击姿势按钮切换，左侧实时预览效果", "Click a pose to switch, preview on the left"),
-	        1505, 390, "Yellow", "Black");
+	        1505, 405, "Yellow", "Black");
 	    const activeMapping = C.DrawPoseMapping || {};
-	    let y = 430;
+	    let rowY = POSE_PAGE_START_Y;
 	    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
-	        DrawText(L(cat.label, cat.labelEn), 1100, y, "White", "Gray");
-	        y += 25;
+	        const categoryFirstRowY = rowY;
+	        DrawText(L(cat.label, cat.labelEn), POSE_PAGE_LABEL_X,
+	            categoryFirstRowY + POSE_PAGE_LABEL_Y_OFFSET, "White", "Gray");
 	        for (let i = 0; i < cat.poses.length; i++) {
 	            const poseName = cat.poses[i];
-	            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+	            const col = i % POSE_PAGE_COLS;
+	            const row = Math.floor(i / POSE_PAGE_COLS);
+	            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+	            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
 	            const isActive = activeMapping[catKey] === poseName;
 	            const label = POSE_LABELS[poseName];
 	            const btnText = label ? L(label.cn, label.en) : poseName;
-	            DrawButton(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
+	            DrawButton(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
 	                btnText, isActive ? "#4CAF50" : "White", null, null, false);
 	        }
-	        y += POSE_PAGE_BTN_H + 30;
+	        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
+	        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
 	    }
 	}
 	function handlePoseSwitchClick() {
 	    const C = CharacterGetCurrent();
 	    if (!C) return false;
-	    let y = 455;
+	    let rowY = POSE_PAGE_START_Y;
 	    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+	        const categoryFirstRowY = rowY;
 	        for (let i = 0; i < cat.poses.length; i++) {
 	            const poseName = cat.poses[i];
-	            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
-	            if (MouseIn(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
+	            const col = i % POSE_PAGE_COLS;
+	            const row = Math.floor(i / POSE_PAGE_COLS);
+	            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+	            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
+	            if (MouseIn(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
 	                setPreviewPose(poseName);
 	                return true;
 	            }
 	        }
-	        y += POSE_PAGE_BTN_H + 30 + 25;
+	        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
+	        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
 	    }
 	    return false;
 	}
 	function setupStepperListeners() {
 	    if (state._stepperListenerReady) return;
 	    state._stepperListenerReady = true;
-	    document.addEventListener("mousedown", () => { state._pointerDown = true; });
+	    document.addEventListener("mousedown", () => {
+	        state._pointerDown = true;
+	        tryStartBarDrag();
+	    });
 	    document.addEventListener("mouseup", () => {
 	        state._pointerDown = false;
 	        stepperPress.fieldId = null;
 	        state._lastTextureRefresh = 0;
 	    });
-	    document.addEventListener("touchstart", () => { state._pointerDown = true; }, { passive: true });
+	    document.addEventListener("touchstart", () => {
+	        state._pointerDown = true;
+	        tryStartBarDrag();
+	    }, { passive: true });
 	    document.addEventListener("touchend", () => {
 	        state._pointerDown = false;
 	        stepperPress.fieldId = null;
@@ -2120,6 +2206,17 @@
 	        stepperPress.fieldId = null;
 	        state._lastTextureRefresh = 0;
 	    });
+	}
+	function tryStartBarDrag() {
+	    if (state.currentEditTexture < 0 || state.poseSwitchMode) return;
+	    for (const field of BAR_FIELDS) {
+	        const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+	        if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
+	            setFieldValue(field, barValueFromMouseX(field, MouseX));
+	            barDrag.fieldId = field.id;
+	            return;
+	        }
+	    }
 	}
 	function getFieldValue(field) {
 	    if (field.prop === null) return state.tempPriority;
@@ -2143,21 +2240,222 @@
 	                target[field.prop] = value;
 	                state._fieldsDirty = true;
 	            }
-	        }
-	    }
-	    const domInput = document.getElementById(field.id);
-	    if (domInput && domInput.value !== String(value)) {
-	        domInput.value = String(value);
-	    }
-	    if (field.id === INPUT_OPACITY) {
-	        const slider = document.getElementById(OPACITY_SLIDER_ID);
-	        if (slider && slider.value !== String(value)) {
-	            slider.value = String(value);
+	            if (target.ScaleLocked !== false) {
+	                if (field.prop === "ScaleX" && target.ScaleY !== value) {
+	                    target.ScaleY = value;
+	                    state._fieldsDirty = true;
+	                } else if (field.prop === "ScaleY" && target.ScaleX !== value) {
+	                    target.ScaleX = value;
+	                    state._fieldsDirty = true;
+	                }
+	            }
 	        }
 	    }
 	}
 	function applyStepperChange(field, delta) {
 	    setFieldValue(field, getFieldValue(field) + delta);
+	}
+	function createEditPanelDomInputs() {
+	    if (state._editInputsReady) return;
+	    state._editInputsReady = true;
+	    const urlInput = ElementCreateInput(FIELD_URL, "text", "", "https://");
+	    urlInput.addEventListener("input", () => {
+	        const target = getEditTarget();
+	        if (!target) return;
+	        target.TextureURL = urlInput.value.trim();
+	        state._fieldsDirty = true;
+	    });
+	    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
+	        const input = ElementCreateInput(field.id, "number", String(field.def), "");
+	        if (field.min !== null) input.min = String(field.min);
+	        if (field.max !== null) input.max = String(field.max);
+	        input.step = "1";
+	        hideNumberInputSpinner(input);
+	        input.addEventListener("input", () => {
+	            const parsed = parseInt(input.value, 10);
+	            if (!Number.isFinite(parsed)) return;
+	            setFieldValue(field, parsed);
+	        });
+	        input.addEventListener("change", () => {
+	            input.value = String(getFieldValue(field));
+	        });
+	    }
+	}
+	function positionEditPanelInputs() {
+	    const showing = state.currentEditTexture >= 0 && !state.poseSwitchMode;
+	    const urlInput = document.getElementById(FIELD_URL);
+	    if (urlInput) {
+	        if (showing) {
+	            ElementPosition(FIELD_URL, URL_BOX_X + URL_BOX_W / 2, URL_BOX_Y + URL_BOX_H / 2, URL_BOX_W, URL_BOX_H);
+	            if (document.activeElement !== urlInput) {
+	                const val = getEditTarget()?.TextureURL || "";
+	                if (urlInput.value !== val) urlInput.value = val;
+	            }
+	        } else {
+	            ElementPosition(FIELD_URL, -999, -999, 0, 0);
+	        }
+	    }
+	    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
+	        const input = document.getElementById(field.id);
+	        if (!input) continue;
+	        if (showing) {
+	            ElementPosition(field.id, STEPPER_INPUT_X + STEPPER_INPUT_W / 2, field.y + STEPPER_INPUT_H / 2,
+	                STEPPER_INPUT_W, STEPPER_INPUT_H);
+	            if (document.activeElement !== input) {
+	                const val = String(getFieldValue(field));
+	                if (input.value !== val) input.value = val;
+	            }
+	        } else {
+	            ElementPosition(field.id, -999, -999, 0, 0);
+	        }
+	    }
+	}
+	function removeEditPanelInputs() {
+	    if (!state._editInputsReady) return;
+	    state._editInputsReady = false;
+	    const ids = [FIELD_URL, ...STEPPER_FIELDS.map(f => f.id), ...BAR_FIELDS.map(f => f.id)];
+	    for (const id of ids) {
+	        const el = document.getElementById(id);
+	        if (el) el.remove();
+	    }
+	}
+	function drawBarField(field) {
+	    const value = getFieldValue(field);
+	    const ratio = (value - field.min) / (field.max - field.min);
+	    const trackY = field.y + STEPPER_INPUT_H / 2 - BAR_TRACK_H / 2;
+	    MainCanvas.fillStyle = "#999999";
+	    MainCanvas.fillRect(BAR_TRACK_X, trackY, BAR_TRACK_W, BAR_TRACK_H);
+	    if (field.min < 0 && field.max > 0) {
+	        const zeroRatio = (0 - field.min) / (field.max - field.min);
+	        const zeroX = BAR_TRACK_X + zeroRatio * BAR_TRACK_W;
+	        MainCanvas.fillStyle = "#000000";
+	        MainCanvas.fillRect(zeroX - 1, trackY - 4, 2, BAR_TRACK_H + 8);
+	    }
+	    const handleX = BAR_TRACK_X + ratio * BAR_TRACK_W - BAR_HANDLE_SIZE / 2;
+	    const handleY = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+	    MainCanvas.fillStyle = barDrag.fieldId === field.id ? "#4CAF50" : "#FFFFFF";
+	    MainCanvas.fillRect(handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
+	    MainCanvas.strokeStyle = "#000000";
+	    MainCanvas.lineWidth = 2;
+	    MainCanvas.strokeRect(handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
+	}
+	function barValueFromMouseX(field, mouseX) {
+	    const ratio = Math.max(0, Math.min(1, (mouseX - BAR_TRACK_X) / BAR_TRACK_W));
+	    return Math.round(field.min + ratio * (field.max - field.min));
+	}
+	function handleBarFieldClick(field) {
+	    const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+	    if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
+	        setFieldValue(field, barValueFromMouseX(field, MouseX));
+	        barDrag.fieldId = field.id;
+	        return true;
+	    }
+	    return false;
+	}
+	function updateBarDrag() {
+	    if (!barDrag.fieldId) return;
+	    if (!state._pointerDown) {
+	        barDrag.fieldId = null;
+	        return;
+	    }
+	    const field = BAR_FIELDS.find(f => f.id === barDrag.fieldId);
+	    if (!field) {
+	        barDrag.fieldId = null;
+	        return;
+	    }
+	    setFieldValue(field, barValueFromMouseX(field, MouseX));
+	}
+	function drawScaleDragButton() {
+	    DrawButton(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
+	        L("拖移", "Drag"), state.isScaleDragMode ? "#4CAF50" : "White", null, null, false);
+	    if (MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) {
+	        const hintX = 1820;
+	        const hintY = SCALE_DRAG_BTN_Y + SCALE_DRAG_BTN_H / 2;
+	        const lines = isChineseLang()
+	            ? ["开启后可在左侧", "预览区域拖动", "缩放图片"]
+	            : ["When enabled,", "drag on the preview", "to resize the image"];
+	        for (let i = 0; i < lines.length; i++) {
+	            DrawText(lines[i], hintX, hintY - 22 + i * 30, "Yellow", "Black");
+	        }
+	    }
+	}
+	function handleScaleDragButtonClick() {
+	    if (!MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) return false;
+	    state.isScaleDragMode = !state.isScaleDragMode;
+	    scaleDrag.active = false;
+	    if (state.isScaleDragMode) {
+	        state.isDragMode = false;
+	        state.dragActive = false;
+	    }
+	    return true;
+	}
+	function updateScaleDrag() {
+	    if (!state.isScaleDragMode) {
+	        scaleDrag.active = false;
+	        return;
+	    }
+	    const target = getEditTarget();
+	    if (!target) {
+	        scaleDrag.active = false;
+	        return;
+	    }
+	    const inPreviewArea = MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000;
+	    if (!state._pointerDown || !inPreviewArea) {
+	        scaleDrag.active = false;
+	        return;
+	    }
+	    if (!scaleDrag.active) {
+	        scaleDrag.active = true;
+	        scaleDrag.startMouseX = MouseX;
+	        scaleDrag.startMouseY = MouseY;
+	        const sx = Number(target.ScaleX);
+	        const sy = Number(target.ScaleY);
+	        scaleDrag.startScaleX = Number.isFinite(sx) ? sx : 100;
+	        scaleDrag.startScaleY = Number.isFinite(sy) ? sy : 100;
+	        return;
+	    }
+	    const deltaX = (MouseX - scaleDrag.startMouseX) * SCALE_DRAG_SENSITIVITY;
+	    const deltaY = (MouseY - scaleDrag.startMouseY) * SCALE_DRAG_SENSITIVITY;
+	    let newScaleX, newScaleY;
+	    if (target.ScaleLocked !== false) {
+	        newScaleX = newScaleY = Math.round(scaleDrag.startScaleX + deltaX);
+	    } else {
+	        newScaleX = Math.round(scaleDrag.startScaleX + deltaX);
+	        newScaleY = Math.round(scaleDrag.startScaleY + deltaY);
+	    }
+	    if (target.ScaleX !== newScaleX || target.ScaleY !== newScaleY) {
+	        target.ScaleX = newScaleX;
+	        target.ScaleY = newScaleY;
+	        state._fieldsDirty = true;
+	    }
+	}
+	function drawAspectLockButton() {
+	    const target = getEditTarget();
+	    const locked = target?.ScaleLocked !== false;
+	    DrawButton(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H,
+	        L("等比", "Lock"), locked ? "#4CAF50" : "White", null, null, false);
+	    if (MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) {
+	        const hintX = 1820;
+	        const hintY = ASPECT_LOCK_BTN_Y + ASPECT_LOCK_BTN_H / 2;
+	        const lines = isChineseLang()
+	            ? ["锁定缩放X/Y", "比例始终一致"]
+	            : ["Lock the X/Y", "scale ratio together"];
+	        for (let i = 0; i < lines.length; i++) {
+	            DrawText(lines[i], hintX, hintY - 15 + i * 30, "Yellow", "Black");
+	        }
+	    }
+	}
+	function handleAspectLockButtonClick() {
+	    if (!MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) return false;
+	    const target = getEditTarget();
+	    if (!target) return true;
+	    const newLocked = !(target.ScaleLocked !== false);
+	    target.ScaleLocked = newLocked;
+	    if (newLocked && target.ScaleX !== target.ScaleY) {
+	        target.ScaleY = target.ScaleX;
+	        state._fieldsDirty = true;
+	    }
+	    return true;
 	}
 	function drawMirrorRow() {
 	    DrawText(L("镜像", "Mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
@@ -2204,6 +2502,10 @@
 	    if (!MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) return false;
 	    state.isDragMode = !state.isDragMode;
 	    state.dragActive = false;
+	    if (state.isDragMode) {
+	        state.isScaleDragMode = false;
+	        scaleDrag.active = false;
+	    }
 	    return true;
 	}
 	function updateDragMove() {
@@ -2237,89 +2539,6 @@
 	        state._fieldsDirty = true;
 	    }
 	}
-	function createEditPanelDomInputs() {
-	    if (!document.getElementById(URL_INPUT_ID)) {
-	        const input = ElementCreateInput(URL_INPUT_ID, "text", "", 1000);
-	        input.placeholder = L("请输入贴图网址（需以 https:// 开头）", "Enter image URL (must start with https://)");
-	        input.addEventListener("input", () => {
-	            const target = getEditTarget();
-	            if (!target) return;
-	            const newUrl = input.value.trim();
-	            if (target.TextureURL !== newUrl) {
-	                target.TextureURL = newUrl;
-	                state._fieldsDirty = true;
-	            }
-	        });
-	    }
-	    for (const field of STEPPER_FIELDS) {
-	        if (document.getElementById(field.id)) continue;
-	        const input = ElementCreateInput(field.id, "number", String(field.def), "10");
-	        input.style.width = "80px";
-	        if (field.min !== null) input.min = String(field.min);
-	        if (field.max !== null) input.max = String(field.max);
-	        input.addEventListener("input", () => {
-	            const parsed = parseInt(input.value);
-	            if (isNaN(parsed)) return;
-	            if (field.prop === null) {
-	                if (state.tempPriority !== parsed) {
-	                    state.tempPriority = parsed;
-	                    state._fieldsDirty = true;
-	                }
-	            } else {
-	                const target = getEditTarget();
-	                if (target && target[field.prop] !== parsed) {
-	                    target[field.prop] = parsed;
-	                    state._fieldsDirty = true;
-	                }
-	            }
-	            if (field.id === INPUT_OPACITY) {
-	                const slider = document.getElementById(OPACITY_SLIDER_ID);
-	                if (slider && slider.value !== String(parsed)) {
-	                    slider.value = String(Math.max(0, Math.min(100, parsed)));
-	                }
-	            }
-	        });
-	    }
-	    if (!document.getElementById(OPACITY_SLIDER_ID)) {
-	        const slider = ElementCreateRangeInput(OPACITY_SLIDER_ID, 100, 0, 100, 1);
-	        slider.addEventListener("input", () => {
-	            const target = getEditTarget();
-	            if (!target) return;
-	            const v = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
-	            if (target.Opacity !== v) {
-	                target.Opacity = v;
-	                state._fieldsDirty = true;
-	            }
-	            const opacityInput = document.getElementById(INPUT_OPACITY);
-	            if (opacityInput && opacityInput.value !== String(v)) {
-	                opacityInput.value = String(v);
-	            }
-	        });
-	    }
-	}
-	function positionEditPanelInputs(visible) {
-	    if (!visible) {
-	        ElementPosition(URL_INPUT_ID, -999, -999, 0, 0);
-	        for (const field of STEPPER_FIELDS) {
-	            ElementPosition(field.id, -999, -999, 0, 0);
-	        }
-	        ElementPosition(OPACITY_SLIDER_ID, -999, -999, 0, 0);
-	        return;
-	    }
-	    ElementPosition(URL_INPUT_ID, URL_BOX_X + URL_BOX_W / 2, URL_BOX_Y + URL_BOX_H / 2, URL_BOX_W, URL_BOX_H);
-	    for (const field of STEPPER_FIELDS) {
-	        ElementPositionFixed(field.id, STEPPER_INPUT_X, field.y, STEPPER_INPUT_W, 40);
-	    }
-	    const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
-	    ElementPositionFixed(OPACITY_SLIDER_ID, OPACITY_SLIDER_X, opacityField.y + 20, OPACITY_SLIDER_W, 40);
-	}
-	function removeEditPanelInputs() {
-	    ElementRemove(URL_INPUT_ID);
-	    for (const field of STEPPER_FIELDS) {
-	        ElementRemove(field.id);
-	    }
-	    ElementRemove(OPACITY_SLIDER_ID);
-	}
 	function updateSteppers() {
 	    if (!state._pointerDown) {
 	        stepperPress.fieldId = null;
@@ -2327,7 +2546,7 @@
 	    }
 	    let activeField = null;
 	    let activeDirection = 0;
-	    for (const field of STEPPER_FIELDS) {
+	    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
 	        if (MouseIn(STEPPER_MINUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
 	            activeField = field;
 	            activeDirection = -1;
@@ -2371,7 +2590,7 @@
 	    state.previewPoseMapping = null;
 	    C.RegisterHook("BeforeSortLayers", POSE_HOOK_NAME, () => {
 	        if (state.previewPoseMapping) {
-	            C.DrawPoseMapping = { ...C.DrawPoseMapping, ...state.previewPoseMapping };
+	            C.DrawPoseMapping = { ...state.previewPoseMapping };
 	        }
 	    });
 	}
@@ -2398,6 +2617,8 @@
 	                delete baseMapping[category];
 	            }
 	        }
+	        if (!baseMapping.BodyUpper) baseMapping.BodyUpper = "BaseUpper";
+	        if (!baseMapping.BodyLower) baseMapping.BodyLower = "BaseLower";
 	        baseMapping[newPose.Category] = newPose.Name;
 	        state.previewPoseMapping = baseMapping;
 	    }
@@ -2421,17 +2642,6 @@
 	    }
 	    state.tempPriority = priorityValue;
 	    state.originalOverridePriority = op ? JSON.parse(JSON.stringify(op)) : undefined;
-	    const urlInput =  (document.getElementById(URL_INPUT_ID));
-	    if (urlInput) urlInput.value = state.tempTextureData?.TextureURL || "";
-	    for (const field of STEPPER_FIELDS) {
-	        const input =  (document.getElementById(field.id));
-	        if (input) input.value = String(getFieldValue(field));
-	    }
-	    const opacitySlider =  (document.getElementById(OPACITY_SLIDER_ID));
-	    if (opacitySlider) {
-	        const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
-	        opacitySlider.value = String(getFieldValue(opacityField));
-	    }
 	}
 	function drawTextureEditPanel(item, textureIndex, data) {
 	    if (state.poseSwitchMode) {
@@ -2441,6 +2651,8 @@
 	    setupStepperListeners();
 	    updateSteppers();
 	    updateDragMove();
+	    updateBarDrag();
+	    updateScaleDrag();
 	    const C = CharacterGetCurrent();
 	    const currentPoseKey = getPoseKey(C?.DrawPose);
 	    if (state.lastPoseKey !== currentPoseKey) {
@@ -2475,7 +2687,8 @@
 	        }
 	        if (state._pendingTextureRefresh) {
 	            const now = Date.now();
-	            const interval = state.dragActive ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
+	            const isDragging = state.dragActive || scaleDrag.active || !!barDrag.fieldId;
+	            const interval = isDragging ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
 	            if (now - state._lastTextureRefresh >= interval) {
 	                const C = CharacterGetCurrent();
 	                if (C) CharacterRefresh(C, false, false);
@@ -2488,7 +2701,7 @@
 	    DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
 	    DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press ✓ to return"), 1505, 405, "Yellow", "Black");
 	    DrawText(L("贴图", "Image"), 1100, 455, "White", "Gray");
-	    const currentUrl = state.tempTextureData?.TextureURL || "";
+	    const currentUrl = getEditTarget()?.TextureURL || "";
 	    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
 	        const domain = extractDomain(currentUrl);
 	        if (domain) {
@@ -2501,6 +2714,14 @@
 	        DrawText(L(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
 	        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
 	        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
+	    }
+	    drawScaleDragButton();
+	    drawAspectLockButton();
+	    for (const field of BAR_FIELDS) {
+	        DrawText(L(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
+	        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
+	        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
+	        drawBarField(field);
 	    }
 	    drawMirrorRow();
 	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
@@ -2516,7 +2737,7 @@
 	    if (handlePoseBarClick()) {
 	        return;
 	    }
-	    const currentUrl = state.tempTextureData?.TextureURL || "";
+	    const currentUrl = getEditTarget()?.TextureURL || "";
 	    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
 	        const domain = extractDomain(currentUrl);
 	        if (domain && MouseIn(1730, 435, 100, 40)) {
@@ -2536,6 +2757,17 @@
 	    }
 	    if (handleMoveButtonClick()) {
 	        return;
+	    }
+	    if (handleScaleDragButtonClick()) {
+	        return;
+	    }
+	    if (handleAspectLockButtonClick()) {
+	        return;
+	    }
+	    for (const field of BAR_FIELDS) {
+	        if (handleBarFieldClick(field)) {
+	            return;
+	        }
 	    }
 	    if (handleMirrorRowClick()) {
 	        return;
@@ -2566,8 +2798,10 @@
 	        finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
 	        finalTexture.OffsetX = toIntOr(state.tempTextureData?.OffsetX, 0);
 	        finalTexture.OffsetY = toIntOr(state.tempTextureData?.OffsetY, 0);
-	        finalTexture.Scale = toIntOr(state.tempTextureData?.Scale, 100);
-	        finalTexture.Rotation = toIntOr(state.tempTextureData?.Rotation, 0);
+	        finalTexture.ScaleX = toIntOr(state.tempTextureData?.ScaleX, 100);
+	        finalTexture.ScaleY = toIntOr(state.tempTextureData?.ScaleY, 100);
+	        finalTexture.ScaleLocked = state.tempTextureData?.ScaleLocked !== false;
+	        finalTexture.Rotation = Math.max(0, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
 	        finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
 	        finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
 	        finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
@@ -2605,7 +2839,7 @@
 	        : {};
 	    const config = {
 	        type: "ShuangCustomAssets",
-	        version: 6,
+	        version: 7,
 	        textures: textures,
 	        overridePriority: overridePriority,
 	    };
@@ -2656,11 +2890,14 @@
 	                return Number.isFinite(n) ? n : fallback;
 	            };
 	            const validTextures = config.textures.map(t => {
+	                const legacyScale = toIntOr(t.Scale, 100);
 	                const cleaned = {
 	                    TextureURL: String(t.TextureURL || ""),
 	                    OffsetX: toIntOr(t.OffsetX, 0),
 	                    OffsetY: toIntOr(t.OffsetY, 0),
-	                    Scale: toIntOr(t.Scale, 100),
+	                    ScaleX: toIntOr(t.ScaleX, legacyScale),
+	                    ScaleY: toIntOr(t.ScaleY, legacyScale),
+	                    ScaleLocked: t.ScaleLocked !== false,
 	                    Rotation: toIntOr(t.Rotation, 0),
 	                    Visible: t.Visible !== false,
 	                    Opacity: Math.max(0, Math.min(100, toIntOr(t.Opacity, 100))),
@@ -2669,6 +2906,7 @@
 	                };
 	                if (t.PoseSettings && typeof t.PoseSettings === "object" && !Array.isArray(t.PoseSettings)) {
 	                    cleaned.PoseSettings = t.PoseSettings;
+	                    migrateScaleField(cleaned);
 	                }
 	                return cleaned;
 	            });
@@ -3771,7 +4009,8 @@
 	        Visible: texture.Visible ?? true,
 	        OffsetX: texture.OffsetX ?? 1,
 	        OffsetY: texture.OffsetY ?? 1,
-	        Scale: texture.Scale ?? 100,
+	        ScaleX: texture.ScaleX ?? texture.Scale ?? 100,
+	        ScaleY: texture.ScaleY ?? texture.Scale ?? 100,
 	        Rotation: texture.Rotation ?? 0,
 	        Opacity: texture.Opacity ?? 100,
 	        MirrorH: texture.MirrorH ?? false,
@@ -3781,7 +4020,11 @@
 	    if (!poseKey) return base;
 	    const ps = texture.PoseSettings?.[poseKey];
 	    if (!ps || ps.enabled !== true) return base;
-	    const { enabled, ...overrides } = ps;
+	    const { enabled, Scale: legacyScale, ...overrides } = ps;
+	    if (legacyScale !== undefined && overrides.ScaleX === undefined) {
+	        overrides.ScaleX = legacyScale;
+	        overrides.ScaleY = legacyScale;
+	    }
 	    return { ...base, ...overrides };
 	}
 	function renderTexture(data, originalFunction, drawData) {
@@ -3808,12 +4051,12 @@
 	    if (!params.TextureURL) return;
 	    if (params.Visible === false) return;
 	    const warnEnabled = getDomainWarningEnabled();
-	    let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity, mirrorH, mirrorV;
+	    let imageUrl, offsetX, offsetY, scaleX, scaleY, rotation, displayOpacity, mirrorH, mirrorV;
 	    if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
 	        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
 	        offsetX = 167;
 	        offsetY = -256;
-	        scale = 16 / 100;
+	        scaleX = scaleY = 16 / 100;
 	        rotation = 0;
 	        displayOpacity = 1.0;
 	        mirrorH = false;
@@ -3824,7 +4067,8 @@
 	        imageUrl = params.TextureURL;
 	        offsetX = params.OffsetX || 0;
 	        offsetY = params.OffsetY || 0;
-	        scale = (params.Scale ?? 100) / 100;
+	        scaleX = (params.ScaleX ?? 100) / 100;
+	        scaleY = (params.ScaleY ?? 100) / 100;
 	        rotation = params.Rotation || 0;
 	        displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
 	        mirrorH = params.MirrorH === true;
@@ -3873,8 +4117,8 @@
 	        sourceWidth = img.naturalWidth;
 	        sourceHeight = img.naturalHeight;
 	    }
-	    const width = Math.round(sourceWidth * scale);
-	    const height = Math.round(sourceHeight * scale);
+	    const width = Math.round(sourceWidth * scaleX);
+	    const height = Math.round(sourceHeight * scaleY);
 	    const rad = rotation * Math.PI / 180;
 	    const cos = Math.abs(Math.cos(rad));
 	    const sin = Math.abs(Math.sin(rad));
@@ -4040,6 +4284,9 @@
 	                if (item.Property[cat.key] === undefined) item.Property[cat.key] = false;
 	            }
 	            updateHideArray(item);
+	            for (const texture of item.Property.Textures) {
+	                migrateScaleField(texture);
+	            }
 	            state.currentEditTexture = -1;
 	            state.tempTextureData = null;
 	            state.originalEditTexture = null;
@@ -4048,13 +4295,13 @@
 	            state.currentView = "list";
 	            state._pendingTextureRefresh = false;
 	            resetDragState();
-	            createEditPanelDomInputs();
-	            positionEditPanelInputs(false);
 	        },
 	        Draw: (data, originalFunction) => {
 	            originalFunction();
 	            const item = DialogFocusItem;
 	            if (!item) return;
+	            createEditPanelDomInputs();
+	            positionEditPanelInputs();
 	            if (state.currentView === "addDomainConfirm") {
 	                drawAddDomainConfirm();
 	            } else if (state.currentEditTexture >= 0) {
@@ -4064,11 +4311,20 @@
 	            } else {
 	                drawTextureListMain(item);
 	            }
-	            positionEditPanelInputs(state.currentEditTexture >= 0 && !state.poseSwitchMode);
 	        },
 	        Click: (data, originalFunction) => {
-	            originalFunction();
 	            const item = DialogFocusItem;
+	            if (item?.Asset?.Name === ASSET_NAME && MouseIn(1775, 25, 90, 90)) {
+	                if (DialogFocusItem !== null) {
+	                    DialogFocusItem = null;
+	                }
+	                if (typeof DialogLeave === "function") {
+	                    DialogLeave();
+	                }
+	                PreferenceSubscreenExtensionsOpen("ShuangCustomAssets");
+	                return;
+	            }
+	            originalFunction();
 	            if (!item) return;
 	            if (state.currentView === "addDomainConfirm") {
 	                handleAddDomainConfirmClick();
