@@ -151,19 +151,17 @@ export function getPoseKey(drawPose) {
 // 姿势信息栏 UI 坐标（下移以容纳新增的 缩放Y 行 + 旋转/图层优先级 BAR）
 // item5：整行（标签+姿势名称值）X 坐标整体左移 40；独立配置开关 / "设定"按钮不再单独占一行，
 // 改为紧接在姿势名称值框之后、同一行（POSE_BAR_Y）
-export const POSE_BAR_Y = 900;           // 姿势信息行 Y 坐标（标签/值/独立配置开关/"设定"按钮均在同一行）
-export const POSE_TOGGLE_X = 1570;       // 独立配置开关按钮 X 坐标（紧跟姿势名称值框之后）
-export const POSE_TOGGLE_W = 100;        // 独立配置开关按钮宽度（与"信任"按钮同尺寸）
-export const POSE_TOGGLE_H = 40;         // 独立配置开关按钮高度（与"信任"按钮同尺寸）
-export const POSE_SWITCH_X = POSE_TOGGLE_X + POSE_TOGGLE_W + 10; // 紧跟独立配置开关，间距 10
-export const POSE_SWITCH_W = 100;        // "设定"按钮宽度（与"信任"按钮同尺寸）
+export const POSE_BAR_Y = 930;           // 姿势信息行 Y 坐标（下移避开图层优先级BAR滑桿）
+export const POSE_TOGGLE_H = 40;         // 开关按钮高度
 
-// "特定姿势"名称值：独立于标签的固定宽度对象，用 DrawTextFit 绘制，避免姿势名称长度不同时
-// 挤压/偏移旁边的独立配置开关、"设定"按钮等其他元素
-export const POSE_NAME_LABEL_X = 1100;   // "特定姿势: " 标签 X 坐标（与其余字段标签统一对齐列）
-export const POSE_NAME_VALUE_X = 1210;   // 姿势名称值框 X 坐标（紧跟标签之后）
-export const POSE_NAME_VALUE_W = 350;    // 姿势名称值框宽度（超出部分由 DrawTextFit 自动收缩字号 / 截断）
-export const POSE_NAME_VALUE_H = 35;     // 姿势名称值框高度
+// 双开关系统："单独设置"(编辑目标) + "生效设置"(是否使用独立配置)
+// 布局：标签 | 姿势名 | 单独设置 | 生效设置 | 设定
+export const POSE_EDIT_TOGGLE_X = 1450;     // "单独设置"开关 X
+export const POSE_EDIT_TOGGLE_W = 110;      // "单独设置"开关宽
+export const POSE_ACTIVE_TOGGLE_X = 1570;   // "生效设置"开关 X
+export const POSE_ACTIVE_TOGGLE_W = 110;    // "生效设置"开关宽
+export const POSE_SWITCH_X = POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W + 10; // "设定"按钮 X
+export const POSE_SWITCH_W = 100;        // "设定"按钮宽度
 
 // 姿势切换页面 UI 坐标
 // 布局：分类标题在左侧(X1100)，与该分类第一行按钮同一行对齐；按钮从 X1265 开始，每行固定 3 个，超过自动换行
@@ -178,6 +176,26 @@ export const POSE_PAGE_ROW_STEP = 50;    // 同一分类内，相邻两行按钮
 export const POSE_PAGE_CATEGORY_GAP = 30;// 换到下一个分类时，在 ROW_STEP 之外额外增加的间距
 export const POSE_PAGE_LABEL_X = 1100;   // 分类标题 X 坐标
 export const POSE_PAGE_LABEL_Y_OFFSET = 20; // 分类标题 Y = 该分类第一行按钮 Y + 此偏移（与按钮垂直居中对齐）
+
+// 姿势切换页面底部按钮（进入特殊配置 / 确认）
+export const POSE_PAGE_BOTTOM_Y = 760;       // 底部按钮行 Y 坐标
+export const POSE_SPECIAL_BTN_X = 1265;      // "进入特殊配置"按钮 X
+export const POSE_SPECIAL_BTN_W = 200;       // "进入特殊配置"按钮宽
+export const POSE_CONFIRM_BTN_X = 1700;      // "确认"按钮 X
+export const POSE_CONFIRM_BTN_W = 150;       // "确认"按钮宽
+
+// 特殊配置页面：组合选择器（左/右按钮 + 名称 + 自动轮询开关）
+export const POSE_COMBO_LEFT_X = 1265;       // 上一组合按钮 X
+export const POSE_COMBO_RIGHT_X = 1700;      // 下一组合按钮 X
+export const POSE_COMBO_BTN_W = 60;          // 左右按钮宽
+export const POSE_COMBO_NAME_Y = 405;        // 组合名称行 Y
+export const POSE_COMBO_DROPDOWN_ID = "ShuangPoseComboDropdown"; // 下拉框 DOM 元素 ID
+export const POSE_COMBO_DROPDOWN_X = 1330;   // 下拉框 X（左箭头右侧）
+export const POSE_COMBO_DROPDOWN_Y = 385;    // 下拉框 Y
+export const POSE_COMBO_DROPDOWN_W = 360;    // 下拉框宽（到右箭头左侧）
+export const POSE_COMBO_DROPDOWN_H = 40;     // 下拉框高
+export const POSE_COMBO_SAVE_X = 1700;       // "保存并返回"按钮 X
+export const POSE_COMBO_SAVE_Y = 900;        // "保存并返回"按钮 Y
 
 // 每页显示的贴图数量
 export const TEXTURES_PER_PAGE = 6;

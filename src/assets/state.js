@@ -43,14 +43,22 @@ export const state = {
     // === 姿势独立配置编辑 ===
     // null = 编辑全局配置；非 null（如 "Yoked" 或 "Yoked+Kneel"）= 编辑该姿势的独立配置
     poseEditing: null,
-    // 进入姿势编辑模式前的全局 tempTextureData 备份（切换回全局时恢复）
-    tempGlobalData: null,
+    // 视角模式：false=全局视角（角色不换姿势，渲染全局配置），true=当前姿势视角（角色切到当前姿势预览）
+    poseViewMode: false,
     // 上一帧的角色姿势键名，用于检测姿势变化并自动切换编辑目标
     lastPoseKey: null,
-    // 是否显示姿势切换页面（在编辑面板中点击"切换姿势"按钮进入）
+    // 姿势页面状态：false=正常编辑, "select"=姿势选择页, "special"=特殊配置页
     poseSwitchMode: false,
     // 预览姿势映射（仅修改 DrawPoseMapping，不影响 ActivePoseMapping，不同步服务器）
     previewPoseMapping: null,
+
+    // === 姿势多选 + 特殊配置 ===
+    // 选中的姿势名列表（如 ["Yoked", "OverTheHead", "Kneel", "Hogtied"]）
+    poseSelectedList: [],
+    // 笛卡尔积生成的姿势组合键列表（如 ["Yoked+BaseLower", "Yoked+Kneel", "Hogtied"]）
+    poseComboList: [],
+    // 当前预览的组合索引
+    poseComboIndex: 0,
 
     // === 鼠标/触摸按下状态（由 document 事件监听器维护） ===
     _pointerDown: false,

@@ -18,15 +18,20 @@ import {
     URL_BOX_X, URL_BOX_Y, URL_BOX_W, URL_BOX_H, FIELD_URL,
     TEXTURE_REFRESH_INTERVAL, TEXTURE_DRAG_REFRESH_INTERVAL,
     stepperPress,
-    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_TOGGLE_X, POSE_TOGGLE_W, POSE_TOGGLE_H,
+    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_TOGGLE_H,
+    POSE_EDIT_TOGGLE_X, POSE_EDIT_TOGGLE_W, POSE_ACTIVE_TOGGLE_X, POSE_ACTIVE_TOGGLE_W,
     POSE_SWITCH_X, POSE_SWITCH_W,
-    POSE_NAME_LABEL_X, POSE_NAME_VALUE_X, POSE_NAME_VALUE_W, POSE_NAME_VALUE_H,
     POSE_PAGE_BTN_W, POSE_PAGE_BTN_H, POSE_PAGE_BTN_GAP, POSE_PAGE_START_X,
     POSE_PAGE_COLS, POSE_PAGE_START_Y, POSE_PAGE_ROW_STEP, POSE_PAGE_CATEGORY_GAP,
     POSE_PAGE_LABEL_X, POSE_PAGE_LABEL_Y_OFFSET,
+    POSE_PAGE_BOTTOM_Y,
+    POSE_SPECIAL_BTN_X, POSE_SPECIAL_BTN_W, POSE_CONFIRM_BTN_X, POSE_CONFIRM_BTN_W,
+    POSE_COMBO_LEFT_X, POSE_COMBO_RIGHT_X, POSE_COMBO_BTN_W, POSE_COMBO_NAME_Y,
+    POSE_COMBO_DROPDOWN_ID, POSE_COMBO_DROPDOWN_X, POSE_COMBO_DROPDOWN_Y, POSE_COMBO_DROPDOWN_W, POSE_COMBO_DROPDOWN_H,
+    POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y,
     POSE_CATEGORIES
 } from "./constants.js";
-import { state, resetDragState } from "./state.js";
+import { state, resetDragState, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
 import { L, isChineseLang, getCorsImage, Logger, hideNumberInputSpinner } from "@lib/utils.js";
 import { isUrlAllowed, isDomainInWhitelist, extractDomain } from "./settings.js";
@@ -61,7 +66,7 @@ export function refreshEditInputs() {
 function inheritGlobalFields() {
     const g = state.tempTextureData;
     return {
-        enabled: true,
+        enabled: false,
         TextureURL: g?.TextureURL || "",
         OffsetX: g?.OffsetX ?? 1,
         OffsetY: g?.OffsetY ?? 1,
@@ -76,153 +81,160 @@ function inheritGlobalFields() {
 }
 
 /**
- * 进入姿势独立配置编辑模式
- * 如果该姿势的 PoseSettings 不存在，则从全局配置继承创建
- * @param {string} poseKey - 姿势键名（如 "Yoked" 或 "Yoked+Kneel"）
+ * 清除预览姿势（恢复角色实际姿势）
  */
-export function enterPoseEditing(poseKey) {
-    if (!state.tempTextureData) return;
-    if (!state.tempTextureData.PoseSettings) {
-        state.tempTextureData.PoseSettings = {};
-    }
-    if (!state.tempTextureData.PoseSettings[poseKey]) {
-        state.tempTextureData.PoseSettings[poseKey] = inheritGlobalFields();
-    }
-    state.poseEditing = poseKey;
-    refreshEditInputs();
+function clearPreviewPose() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    state.previewPoseMapping = null;
+    CharacterLoadCanvas(C);
 }
 
 /**
- * 退出姿势独立配置编辑模式（仅切回全局视图，不删除已编辑的姿势配置）
- * 姿势配置在 tempTextureData 中保留，直到玩家点击保存（提交）或取消（还原原始数据）
+ * 根据视角模式和生效状态派生 poseEditing
+ * - 全局视角：poseEditing 始终为 null
+ * - 当前姿势视角 + 生效=独特：poseEditing = poseKey
+ * - 当前姿势视角 + 生效=全局：poseEditing = null
+ * @param {string} poseKey - 当前姿势键名
  */
-export function exitPoseEditing() {
-    state.poseEditing = null;
-    refreshEditInputs();
-}
-
-/**
- * 禁用并删除某个姿势的独立配置（点击开关"关"时调用）
- * @param {string} poseKey - 要删除的姿势键名
- */
-export function deletePoseEditing(poseKey) {
-    if (state.tempTextureData?.PoseSettings?.[poseKey]) {
-        delete state.tempTextureData.PoseSettings[poseKey];
-    }
-    if (state.poseEditing === poseKey) {
+function derivePoseEditing(poseKey) {
+    if (!state.poseViewMode) {
         state.poseEditing = null;
+        return;
     }
-    refreshEditInputs();
+    const ps = state.tempTextureData?.PoseSettings?.[poseKey];
+    state.poseEditing = (ps && ps.enabled === true) ? poseKey : null;
 }
 
 /**
  * 切换到另一个姿势的编辑视图
- * - 如果新姿势已有 enabled 的独立配置：切换到编辑该姿势配置
- * - 如果新姿势没有独立配置：切回全局编辑模式（保留旧姿势的配置不删除）
- * - newPoseKey 为 null（基础站姿）：切回全局编辑模式
+ * - 全局视角：poseEditing 始终 null
+ * - 当前姿势视角：根据新姿势的 enabled 状态决定 poseEditing
  * @param {string|null} newPoseKey - 新姿势键名
  */
 export function switchPose(newPoseKey) {
     if (!newPoseKey) {
-        exitPoseEditing();
+        state.poseEditing = null;
+        refreshEditInputs();
         return;
     }
-    if (state.poseEditing === newPoseKey) return;
-    if (!state.tempTextureData) return;
 
-    // 仅当新姿势已有 enabled 的独立配置时才切换到姿势编辑模式
-    const ps = state.tempTextureData.PoseSettings?.[newPoseKey];
-    if (ps && ps.enabled === true) {
-        state.poseEditing = newPoseKey;
-    } else {
-        // 新姿势没有独立配置，切回全局编辑（旧姿势配置保留在 tempTextureData 中）
-        state.poseEditing = null;
+    // 当前姿势视角：需要设置预览姿势
+    if (state.poseViewMode) {
+        // 获取姿势名用于预览（取上身或下身姿势名）
+        const parts = newPoseKey.split("+");
+        const poseName = parts[0] || newPoseKey;
+        setPreviewPose(poseName);
     }
+
+    derivePoseEditing(newPoseKey);
     refreshEditInputs();
 }
 
 /**
- * 绘制姿势信息栏：显示当前角色姿势名称 + 独立配置开关按钮 + "设定"按钮
- * 位于编辑面板底部（POSE_BAR_Y），item5：三者现在同一行显示（标签+值 X 整体左移 40，
- * 独立配置开关与"设定"按钮紧跟在姿势名称值框之后，不再单独占一行）
+ * 绘制姿势信息栏：视角开关 + 生效开关 + 批量配置按钮
+ * 位于编辑面板底部（POSE_BAR_Y）：
+ * - "视角"开关：全局视角(白)=角色不换姿势,编辑全局 / 当前视角(绿)=角色切到当前姿势预览,按生效状态编辑
+ * - "生效"开关：全局(白)=当前姿势使用全局配置 / 独特(绿)=使用独立配置
+ * - "批量配置"按钮：进入姿势选择页面
  */
 export function drawPoseBar() {
-    // 标签：固定文字，不随内容变化，因此不会因为姿势名称长短不同而产生位移
-    DrawText(L("特定姿势: ", "Specific Pose: "), POSE_NAME_LABEL_X, POSE_BAR_Y, "White", "Gray");
-
-    // 姿势名称值：独立对象（DrawTextFit，固定宽度框），显示当前正在编辑的姿势独立配置名称，
-    // 而不是角色的实际姿势——没有正在编辑任何姿势独立配置（即编辑的是全局默认值）时显示"无"
-    let poseValueText;
-    if (state.poseEditing) {
-        const labels = state.poseEditing.split("+").map(p => {
-            const label = POSE_LABELS[p];
-            return label ? L(label.cn, label.en) : p;
-        });
-        poseValueText = labels.join(" + ");
-    } else {
-        poseValueText = L("无", "None");
-    }
-    // DrawTextFit 绘制过程中会动到 MainCanvas.textAlign，为确保文字仍按预期居中/对齐，
-    // 在调用前后显式设置（与本项目 settings.js 中 _drawTextLeft 的处理方式一致）
-    MainCanvas.textAlign = "center";
-    DrawTextFit(poseValueText, POSE_NAME_VALUE_X + POSE_NAME_VALUE_W / 2, POSE_BAR_Y, POSE_NAME_VALUE_W, "Yellow", "Black");
-    MainCanvas.textAlign = "center";
-
-    // 独立配置开关按钮：始终显示（包括基础站姿），按钮本身依然对应角色的实际当前姿势，
-    // 现与姿势名称值框同一行（item5），标签由"独立配置"改名为"启用/停用"
     const C = CharacterGetCurrent();
     const poseKey = getPoseKey(C?.DrawPose);
     if (poseKey) {
-        // 开关状态：当前正在编辑此姿势 OR 此姿势已有 enabled 的独立配置（继续用灰色/绿色切换）
+        // 小字标签"视角"（开关1上方）
+        DrawText(L("视角", "View"), POSE_EDIT_TOGGLE_X + POSE_EDIT_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
+
+        // 开关1：全局视角 / 当前视角
+        DrawButton(POSE_EDIT_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+            POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H,
+            state.poseViewMode ? L("当前视角", "Pose View") : L("全局视角", "Global View"),
+            state.poseViewMode ? "#4CAF50" : "White", null,
+            L("切换视角：全局视角或当前姿势视角", "Switch view: global or current pose"), false);
+
+        // 小字标签"生效"（开关2上方）+ 开关2：始终显示
+        DrawText(L("生效", "Active"), POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
+
         const ps = state.tempTextureData?.PoseSettings?.[poseKey];
-        const isEnabled = state.poseEditing === poseKey || (ps && ps.enabled === true);
-        const btnText = isEnabled
-            ? L("启用", "On")
-            : L("停用", "Off");
-        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
-            POSE_TOGGLE_W, POSE_TOGGLE_H,
-            btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
+        const isActive = ps?.enabled === true;
+        DrawButton(POSE_ACTIVE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+            POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H,
+            isActive ? L("独特", "Unique") : L("全局", "Global"),
+            isActive ? "#4CAF50" : "White", null,
+            L("切换当前姿势使用的配置来源", "Switch config source for current pose"), false);
     }
 
-    // "设定"按钮：始终显示，紧跟在独立配置开关之后，同一行
+    // "批量配置"按钮：打开姿势选择页面
     DrawButton(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
         POSE_SWITCH_W, POSE_TOGGLE_H,
-        L("设定", "Configure"), "White", null,
-        L("打开姿势切换页面", "Open pose switch page"), false);
+        L("批量配置", "Batch"), "White", null,
+        L("打开姿势选择页面，批量配置多个姿势", "Open pose selection page for batch configuration"), false);
 }
 
 /**
- * 处理姿势信息栏的点击：切换独立配置开关 / 打开姿势切换页面
+ * 处理姿势信息栏的点击：视角开关 + 生效开关 + 批量配置按钮
  * @returns {boolean} 是否命中并处理了某个按钮
  */
 export function handlePoseBarClick() {
     const C = CharacterGetCurrent();
     const poseKey = getPoseKey(C?.DrawPose);
 
-    // "设定"按钮
+    // "批量配置"按钮：进入姿势选择页面
     if (MouseIn(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
             POSE_SWITCH_W, POSE_TOGGLE_H)) {
-        state.poseSwitchMode = true;
+        state.poseSwitchMode = "select";
         return true;
     }
 
-    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
-            POSE_TOGGLE_W, POSE_TOGGLE_H)) {
-        if (state.poseEditing === poseKey) {
-            // 当前正在编辑此姿势的独立配置 -> 关闭并删除配置
-            deletePoseEditing(poseKey);
-        } else {
-            // 开启此姿势的独立配置（从全局继承）
-            enterPoseEditing(poseKey);
+    if (poseKey) {
+        // "视角"开关
+        if (MouseIn(POSE_EDIT_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+                POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H)) {
+            state.poseViewMode = !state.poseViewMode;
+            if (state.poseViewMode) {
+                // 切到当前姿势视角：设置预览姿势
+                const parts = poseKey.split("+");
+                setPreviewPose(parts[0] || poseKey);
+                derivePoseEditing(poseKey);
+            } else {
+                // 切到全局视角：清除预览，poseEditing = null
+                clearPreviewPose();
+                state.poseEditing = null;
+            }
+            refreshEditInputs();
+            return true;
         }
-        return true;
+
+        // "生效"开关：始终可点击
+        if (MouseIn(POSE_ACTIVE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+                POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H)) {
+            if (!state.tempTextureData) return true;
+            if (!state.tempTextureData.PoseSettings) {
+                state.tempTextureData.PoseSettings = {};
+            }
+            let ps = state.tempTextureData.PoseSettings[poseKey];
+            if (!ps) {
+                // 不存在则创建（从全局继承），直接设为 enabled=true
+                ps = inheritGlobalFields();
+                ps.enabled = true;
+                state.tempTextureData.PoseSettings[poseKey] = ps;
+            } else {
+                ps.enabled = !(ps.enabled === true);
+            }
+            // 如果视角模式为当前姿势视角，需要更新 poseEditing
+            if (state.poseViewMode) {
+                derivePoseEditing(poseKey);
+            }
+            state._fieldsDirty = true;
+            return true;
+        }
     }
     return false;
 }
 
 /**
  * 绘制姿势切换页面：分三组显示所有可选手部/腿部/全身姿势
- * 点击姿势按钮通过 PoseSetActive 切换角色姿势，实时预览
+ * 默认多选模式：点击姿势按钮切换选中状态（橙色=选中），用于特殊配置
  */
 export function drawPoseSwitchPage() {
     const C = CharacterGetCurrent();
@@ -230,11 +242,10 @@ export function drawPoseSwitchPage() {
 
     // 标题（与 贴图管理/编辑图层/隐藏设置 三页统一坐标+颜色）
     DrawText(L("切换姿势", "Switch Pose"), 1500, 360, "White", "Gray");
-    DrawText(L("点击姿势按钮切换，左侧实时预览效果", "Click a pose to switch, preview on the left"),
+    // 说明文字
+    DrawText(L("选择要批量配置的姿势", "Select poses for batch configuration"),
         1505, 405, "Yellow", "Black");
 
-    // 当前角色的渲染姿势映射（包含 previewPoseMapping 的覆盖）
-    const activeMapping = C.DrawPoseMapping || {};
     let rowY = POSE_PAGE_START_Y;
 
     // 按分类绘制姿势按钮：每个分类的按钮从 X1265 开始，每行固定 3 个自动换行；
@@ -250,17 +261,34 @@ export function drawPoseSwitchPage() {
             const row = Math.floor(i / POSE_PAGE_COLS);
             const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
             const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
-            const isActive = activeMapping[catKey] === poseName;
+            const isSelected = state.poseSelectedList.includes(poseName);
             const label = POSE_LABELS[poseName];
             const btnText = label ? L(label.cn, label.en) : poseName;
 
+            // 默认多选：选中=橙色，未选中=白色
+            const bgColor = isSelected ? "#FF9800" : "White";
             DrawButton(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
-                btnText, isActive ? "#4CAF50" : "White", null, null, false);
+                btnText, bgColor, null, null, false);
         }
 
         const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
         rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
     }
+
+    // 底部按钮：编辑选中姿势 + 确认
+    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+    const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
+    const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
+    const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
+    // 必须同时选了上身和下身姿势（或选了全身姿势）才能批量编辑
+    const canEnter = (hasUpper && hasLower) || hasFull;
+    DrawButton(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H,
+        L("编辑选中姿势", "Edit Selected"), canEnter ? "White" : "Gray", null,
+        L("为选中的姿势组合设置统一配置（需同时选上身和下身姿势）", "Set unified config for selected pose combinations (requires both upper and lower poses)"), false);
+    DrawButton(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H,
+        L("确认", "Confirm"), "White", null,
+        L("返回编辑面板", "Back to edit panel"), false);
 }
 
 /**
@@ -270,6 +298,31 @@ export function drawPoseSwitchPage() {
 export function handlePoseSwitchClick() {
     const C = CharacterGetCurrent();
     if (!C) return false;
+
+    // "编辑选中姿势"按钮
+    if (MouseIn(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H)) {
+        const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+        const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+        const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
+        const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
+        const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
+        if ((hasUpper && hasLower) || hasFull) {
+            enterSpecialConfig();
+        } else {
+            showStatus(
+                L("需要同时选择上身和下身姿势", "Need to select both upper and lower poses"),
+                "#FF6B6B", 3000
+            );
+        }
+        return true;
+    }
+
+    // "确认"按钮：返回编辑面板
+    if (MouseIn(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H)) {
+        state.poseSwitchMode = false;
+        state.poseSelectedList = [];
+        return true;
+    }
 
     // 命中判定必须与 drawPoseSwitchPage 的网格布局完全一致（每行 3 个按钮，自动换行）
     let rowY = POSE_PAGE_START_Y;
@@ -284,13 +337,217 @@ export function handlePoseSwitchClick() {
             const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
 
             if (MouseIn(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
-                // 本地预览姿势（仅修改 DrawPoseMapping，不同步服务器）
-                setPreviewPose(poseName);
+                // 切换选中状态
+                const idx = state.poseSelectedList.indexOf(poseName);
+                if (idx >= 0) {
+                    state.poseSelectedList.splice(idx, 1);
+                } else {
+                    state.poseSelectedList.push(poseName);
+                }
                 return true;
             }
         }
         const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
         rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
+    }
+
+    return false;
+}
+
+/**
+ * 进入特殊配置页面：对选中的姿势进行笛卡尔积组合并逐一配置
+ * - 上身姿势 x 下身姿势 => "Upper+Lower" 组合键
+ * - 全身姿势 => 单独的姿势名作为键
+ */
+function enterSpecialConfig() {
+    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+    const fullPoses = POSE_CATEGORIES.BodyFull.poses;
+
+    const selectedUpper = state.poseSelectedList.filter(p => upperPoses.includes(p));
+    const selectedLower = state.poseSelectedList.filter(p => lowerPoses.includes(p));
+    const selectedFull = state.poseSelectedList.filter(p => fullPoses.includes(p));
+
+    // 笛卡尔积：上身 x 下身
+    const combos = [];
+    for (const up of selectedUpper) {
+        for (const lo of selectedLower) {
+            combos.push(`${up}+${lo}`);
+        }
+    }
+    // 全身姿势单独加入
+    for (const fp of selectedFull) {
+        combos.push(fp);
+    }
+
+    state.poseComboList = combos;
+    state.poseComboIndex = 0;
+    state.poseSwitchMode = "special";
+
+    // 为所有组合创建 PoseSettings 条目（从全局继承，enabled: true）
+    if (!state.tempTextureData.PoseSettings) {
+        state.tempTextureData.PoseSettings = {};
+    }
+    for (const comboKey of combos) {
+        if (!state.tempTextureData.PoseSettings[comboKey]) {
+            const cfg = inheritGlobalFields();
+            cfg.enabled = true;
+            state.tempTextureData.PoseSettings[comboKey] = cfg;
+        } else {
+            state.tempTextureData.PoseSettings[comboKey].enabled = true;
+        }
+    }
+
+    // 预览第一个组合
+    state.poseEditing = combos[0];
+    setPreviewPoseCombo(combos[0]);
+    createComboDropdown();
+    refreshEditInputs();
+}
+
+/**
+ * 预览一个姿势组合（如 "Yoked+Kneel" 或 "Hogtied"）
+ * 拆分组合键，对每个姿势名逐一调用 setPreviewPose
+ */
+function setPreviewPoseCombo(poseKey) {
+    const poseNames = poseKey.split("+");
+    for (const name of poseNames) {
+        setPreviewPose(name);
+    }
+}
+
+/**
+ * 创建姿势组合下拉框（DOM <select>），仅在特殊配置页面使用
+ */
+function createComboDropdown() {
+    let sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+    if (!sel) {
+        sel = document.createElement("select");
+        sel.id = POSE_COMBO_DROPDOWN_ID;
+        sel.style.position = "fixed";
+        sel.style.zIndex = "100";
+        sel.style.fontSize = "14px";
+        sel.addEventListener("change", () => {
+            const idx = parseInt(sel.value, 10);
+            if (Number.isFinite(idx) && idx >= 0 && idx < state.poseComboList.length) {
+                state.poseComboIndex = idx;
+                state.poseEditing = state.poseComboList[idx];
+                setPreviewPoseCombo(state.poseEditing);
+                refreshEditInputs();
+            }
+        });
+        document.body.appendChild(sel);
+    }
+    // 填充选项
+    sel.innerHTML = "";
+    for (let i = 0; i < state.poseComboList.length; i++) {
+        const comboKey = state.poseComboList[i];
+        const labels = comboKey.split("+").map(p => {
+            const label = POSE_LABELS[p];
+            return label ? L(label.cn, label.en) : p;
+        });
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `(${i + 1}/${state.poseComboList.length}) ${labels.join(" + ")}`;
+        sel.appendChild(opt);
+    }
+    sel.value = String(state.poseComboIndex);
+    positionComboDropdown();
+}
+
+/**
+ * 定位下拉框到画布坐标（每帧调用）
+ */
+function positionComboDropdown() {
+    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+    if (!sel) return;
+    sel.value = String(state.poseComboIndex);
+    // 与 BC 的 ElementPosition 类似：将 CSS 坐标映射到画布坐标
+    const canvas = MainCanvas?.canvas;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / (MainCanvas?.width || 2000);
+    const scaleY = rect.height / (MainCanvas?.height || 1000);
+    sel.style.left = `${rect.left + POSE_COMBO_DROPDOWN_X * scaleX}px`;
+    sel.style.top = `${rect.top + POSE_COMBO_DROPDOWN_Y * scaleY}px`;
+    sel.style.width = `${POSE_COMBO_DROPDOWN_W * scaleX}px`;
+    sel.style.height = `${POSE_COMBO_DROPDOWN_H * scaleY}px`;
+    sel.style.display = state.poseSwitchMode === "special" ? "block" : "none";
+}
+
+/**
+ * 移除下拉框（离开特殊配置页面时调用）
+ */
+function removeComboDropdown() {
+    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+    if (sel) sel.remove();
+}
+
+/**
+ * 绘制特殊配置页面的组合选择器
+ * - 顶部（Y=405）：左箭头 | 下拉框 | 右箭头
+ * - 底部（Y=900）：保存并返回按钮
+ */
+function drawComboSelector() {
+    // 左箭头按钮
+    DrawButton(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
+        "\u25C0", "White", null, L("上一个组合", "Previous combo"), false);
+
+    // 右箭头按钮
+    DrawButton(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
+        "\u25B6", "White", null, L("下一个组合", "Next combo"), false);
+
+    // 下拉框定位（DOM 元素由 createComboDropdown 创建，这里每帧同步位置和选中项）
+    positionComboDropdown();
+
+    // 底部：保存并返回按钮
+    DrawButton(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
+        POSE_CONFIRM_BTN_W, POSE_TOGGLE_H,
+        L("保存并返回", "Save & Back"), "White", null,
+        L("保存配置并返回姿势选择页面", "Save config and return to pose selection"), false);
+}
+
+/**
+ * 处理特殊配置页面的点击（组合选择器按钮）
+ * @returns {boolean} 是否命中并处理了某个按钮
+ */
+function handlePoseSpecialConfigClick(item, textureIndex, data) {
+    // 左箭头：上一个组合
+    if (MouseIn(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
+        state.poseComboIndex = (state.poseComboIndex - 1 + state.poseComboList.length) % state.poseComboList.length;
+        state.poseEditing = state.poseComboList[state.poseComboIndex];
+        setPreviewPoseCombo(state.poseEditing);
+        refreshEditInputs();
+        return true;
+    }
+
+    // 右箭头：下一个组合
+    if (MouseIn(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
+        state.poseComboIndex = (state.poseComboIndex + 1) % state.poseComboList.length;
+        state.poseEditing = state.poseComboList[state.poseComboIndex];
+        setPreviewPoseCombo(state.poseEditing);
+        refreshEditInputs();
+        return true;
+    }
+
+    // 保存并返回按钮
+    if (MouseIn(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
+            POSE_CONFIRM_BTN_W, POSE_TOGGLE_H)) {
+        // 确保所有组合的 enabled 都为 true
+        for (const comboKey of state.poseComboList) {
+            if (state.tempTextureData?.PoseSettings?.[comboKey]) {
+                state.tempTextureData.PoseSettings[comboKey].enabled = true;
+            }
+        }
+        removeComboDropdown();
+        state.poseSwitchMode = "select";
+        state.poseEditing = null;
+        refreshEditInputs();
+        return true;
     }
 
     return false;
@@ -333,12 +590,12 @@ export function setupStepperListeners() {
 
 /**
  * 指针刚按下的瞬间检测是否命中某个 BAR 滑桿（轨道或手柄），命中则立即跳变到该位置并
- * 标记为拖动中——不能像之前那样只在游戏的 Click 事件里判断：Click 必然发生在 mouseup
+ * 标记为拖动中--不能像之前那样只在游戏的 Click 事件里判断：Click 必然发生在 mouseup
  * 之后，此时 mouseup 监听器已经把 _pointerDown 重置为 false，下一帧 updateBarDrag()
  * 会马上清空 barDrag.fieldId，导致 BAR 只能点击跳变、无法真正按住拖动
  */
 function tryStartBarDrag() {
-    if (state.currentEditTexture < 0 || state.poseSwitchMode) return;
+    if (state.currentEditTexture < 0 || state.poseSwitchMode === "select") return;
     for (const field of BAR_FIELDS) {
         const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
         if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
@@ -448,7 +705,7 @@ export function createEditPanelDomInputs() {
 }
 
 /**
- * 每帧定位编辑图层面板的 DOM 输入框：正在编辑某个图层且不在姿势切换页面时，
+ * 每帧定位编辑图层面板的 DOM 输入框：正在编辑某个图层且不在姿势选择页面时，
  * 定位到对应字段坐标（ElementPosition 以中心点为基准，故需 +宽高的一半）；
  * 否则移出画布（与 settings.js 现有的 ElementPosition(-999,-999,0,0) 隐藏方式一致）。
  * 数值同步：仅在该输入框未获得焦点时才回填当前值，避免每帧覆盖用户正在打字的内容；
@@ -456,7 +713,7 @@ export function createEditPanelDomInputs() {
  * 在 drawTextureEditPanel 中每帧调用
  */
 export function positionEditPanelInputs() {
-    const showing = state.currentEditTexture >= 0 && !state.poseSwitchMode;
+    const showing = state.currentEditTexture >= 0 && state.poseSwitchMode !== "select";
 
     const urlInput = document.getElementById(FIELD_URL);
     if (urlInput) {
@@ -485,6 +742,9 @@ export function positionEditPanelInputs() {
             ElementPosition(field.id, -999, -999, 0, 0);
         }
     }
+
+    // 下拉框：每帧定位，内部根据 poseSwitchMode 自动隐藏
+    positionComboDropdown();
 }
 
 /**
@@ -498,6 +758,8 @@ export function removeEditPanelInputs() {
         const el = document.getElementById(id);
         if (el) el.remove();
     }
+    // 同时移除特殊配置页面的下拉框
+    removeComboDropdown();
 }
 
 /**
@@ -923,7 +1185,7 @@ export function registerPoseHook() {
     state.previewPoseMapping = null;
     C.RegisterHook("BeforeSortLayers", POSE_HOOK_NAME, () => {
         if (state.previewPoseMapping) {
-            // item6：完全替换而非与 C.DrawPoseMapping 合并——setPreviewPose 生成的
+            // item6：完全替换而非与 C.DrawPoseMapping 合并--setPreviewPose 生成的
             // previewPoseMapping 本身已是一份完整映射（全身姿势时只含 BodyFull，
             // 手部/腿部分类刻意不存在，代表"没有姿势"）。若改用展开合并（{...C.DrawPoseMapping,
             // ...previewPoseMapping}），旧的 BodyUpper/BodyLower 键不会被合并操作删除，
@@ -954,7 +1216,7 @@ export function setPreviewPose(poseName) {
 
     if (newPose.Category === "BodyFull") {
         // 全身姿势（如"仰卧"/"四肢着地"）：替换整个映射，只保留 BodyFull 一项，
-        // 刻意不包含 BodyUpper/BodyLower —— 手部/腿部没有姿势（item6）
+        // 刻意不包含 BodyUpper/BodyLower -- 手部/腿部没有姿势（item6）
         state.previewPoseMapping = { [newPose.Category]: newPose.Name };
     } else {
         // 非全身姿势：基于当前预览映射（保留其他分类的选择），清理 BodyFull
@@ -981,11 +1243,14 @@ export function setPreviewPose(poseName) {
 
 export function createEditInputs(texture) {
     state._fieldsDirty = false;
-    // 重置姿势编辑状态：进入新图层编辑时始终从全局配置开始
+    // 重置姿势编辑状态：进入新图层编辑时默认当前姿势视角
     state.poseEditing = null;
-    state.tempGlobalData = null;
+    state.poseViewMode = true;
     state.lastPoseKey = null; // 下一帧 drawTextureEditPanel 会检测到变化并自动切换
     state.poseSwitchMode = false;
+    state.poseSelectedList = [];
+    state.poseComboList = [];
+    state.poseComboIndex = 0;
 
     // 注册 BeforeSortLayers 钩子：在 CharacterLoadCanvas 时覆盖 DrawPoseMapping
     // 实现本地预览姿势（不修改 ActivePoseMapping，不同步服务器）
@@ -1009,8 +1274,8 @@ export function createEditInputs(texture) {
  * 绘制编辑面板
  */
 export function drawTextureEditPanel(item, textureIndex, data) {
-    // 姿势切换页面：优先绘制并跳过正常编辑面板
-    if (state.poseSwitchMode) {
+    // 姿势选择页面：只绘制选择页面
+    if (state.poseSwitchMode === "select") {
         drawPoseSwitchPage();
         return;
     }
@@ -1026,15 +1291,17 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     // "拖移"缩放拖拽模式：每帧检测鼠标/触摸拖拽状态，实时更新 ScaleX/ScaleY
     updateScaleDrag();
 
-    // 检测姿势变化：角色姿势改变时自动切换编辑目标
+    // 检测姿势变化：角色姿势改变时自动切换编辑目标（仅正常编辑模式）
     // 用 lastPoseKey 追踪实际姿势变化，而非 poseEditing（poseEditing 为 null 时也需要检测）
-    const C = CharacterGetCurrent();
-    const currentPoseKey = getPoseKey(C?.DrawPose);
-    if (state.lastPoseKey !== currentPoseKey) {
-        state.lastPoseKey = currentPoseKey;
-        // switchPose 会检查新姿势是否有 enabled 的独立配置：
-        // 有则切换到姿势编辑，无则切回全局编辑
-        switchPose(currentPoseKey);
+    if (!state.poseSwitchMode) {
+        const C = CharacterGetCurrent();
+        const currentPoseKey = getPoseKey(C?.DrawPose);
+        if (state.lastPoseKey !== currentPoseKey) {
+            state.lastPoseKey = currentPoseKey;
+            // switchPose 会检查新姿势是否有 enabled 的独立配置：
+            // 有则切换到姿势编辑，无则切回全局编辑
+            switchPose(currentPoseKey);
+        }
     }
 
     if (state.tempTextureData) {
@@ -1050,7 +1317,15 @@ export function drawTextureEditPanel(item, textureIndex, data) {
             const newUrl = state.tempTextureData.TextureURL || "";
             const urlChanged = previousUrl !== newUrl;
 
-            item.Property.Textures[textureIndex] = JSON.parse(JSON.stringify(state.tempTextureData));
+            // 全局视角：临时禁用所有姿势配置，强制使用全局渲染
+            // 当前姿势视角：保留 enabled 原样，渲染跟随生效开关
+            const renderData = JSON.parse(JSON.stringify(state.tempTextureData));
+            if (!state.poseViewMode && renderData.PoseSettings) {
+                for (const key of Object.keys(renderData.PoseSettings)) {
+                    renderData.PoseSettings[key].enabled = false;
+                }
+            }
+            item.Property.Textures[textureIndex] = renderData;
 
             // 图层优先级：写入 item.Property.OverridePriority，与 BC 原生 Layering 界面同步
             const layerName = LAYER_NAMES[textureIndex];
@@ -1073,6 +1348,21 @@ export function drawTextureEditPanel(item, textureIndex, data) {
                     }, { once: true });
                 }
             }
+
+            // 特殊配置页面：统一配置同步 -- 将当前组合的配置复制到所有其他组合
+            if (state.poseSwitchMode === "special" && state.poseComboList.length > 1 && state.poseEditing) {
+                const srcConfig = state.tempTextureData?.PoseSettings?.[state.poseEditing];
+                if (srcConfig) {
+                    for (const comboKey of state.poseComboList) {
+                        if (comboKey !== state.poseEditing && state.tempTextureData.PoseSettings?.[comboKey]) {
+                            // 复制全部字段，保留各自的 enabled 状态
+                            const destEnabled = state.tempTextureData.PoseSettings[comboKey].enabled;
+                            Object.assign(state.tempTextureData.PoseSettings[comboKey], srcConfig);
+                            state.tempTextureData.PoseSettings[comboKey].enabled = destEnabled;
+                        }
+                    }
+                }
+            }
         }
 
         // 节流刷新：限制 CharacterRefresh 调用频率
@@ -1092,14 +1382,21 @@ export function drawTextureEditPanel(item, textureIndex, data) {
         }
     }
 
-    // 姿势信息栏：显示当前姿势 + 独立配置开关
-    drawPoseBar();
+    // 底部：特殊配置页面用组合选择器，正常编辑用姿势信息栏
+    if (state.poseSwitchMode === "special") {
+        drawComboSelector();
+    } else {
+        drawPoseBar();
+    }
 
-    // 标题：id1 (1430,340,140,39.65) -> 中心点 (1500,360)
-    DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
-
-    // 说明文字：id2 (1270.42,385,470,40) -> 中心点 (1505,405)
-    DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press ✓ to return"), 1505, 405, "Yellow", "Black");
+    // 标题
+    if (state.poseSwitchMode === "special") {
+        DrawText(L("批量编辑", "Batch Edit"), 1500, 360, "White", "Gray");
+    } else {
+        DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
+        // 说明文字：id2 (1270.42,385,470,40) -> 中心点 (1505,405)
+        DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press \u2713 to return"), 1505, 405, "Yellow", "Black");
+    }
 
     // 贴图：id9 标签 (1000,435,200,40) -> 中心 (1100,455)；网址框现为真实 DOM <input type="text">
     // （createEditPanelDomInputs/positionEditPanelInputs），可直接输入网址，不再需要弹窗（item1）
@@ -1139,27 +1436,40 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     // 镜射（水平/垂直）：紧跟在"旋转"字段下方的一整行，右侧两个切换按钮
     drawMirrorRow();
 
-    // 确认保存：id13 (1885,135,90,90)
-    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
-        L("保存该图层并返回列表", "Save this layer & back to list"));
-    // 删除此贴图：id14 (1885,245,90,90)，不染色，与其他图标按钮一致使用白底
-    DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
-        L("删除此图层", "Delete this layer"), false);
+    // 确认保存 / 删除此贴图（仅正常编辑模式，特殊配置页面有自己的"保存并返回"按钮）
+    if (!state.poseSwitchMode) {
+        // 确认保存：id13 (1885,135,90,90)
+        DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+            L("保存该图层并返回列表", "Save this layer & back to list"));
+        // 删除此贴图：id14 (1885,245,90,90)，不染色，与其他图标按钮一致使用白底
+        DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
+            L("删除此图层", "Delete this layer"), false);
+    }
 }
 
 /**
  * 处理编辑点击
  */
 export function handleTextureEditClick(item, textureIndex, data) {
-    // 姿势切换页面：优先处理点击并跳过正常编辑面板
-    if (state.poseSwitchMode) {
+    // 姿势选择页面：优先处理点击并跳过正常编辑面板
+    if (state.poseSwitchMode === "select") {
         handlePoseSwitchClick();
         return;
     }
 
-    // 姿势信息栏：独立配置开关 / "设定"按钮
-    if (handlePoseBarClick()) {
-        return;
+    // 特殊配置页面：先处理组合选择器按钮，未命中则继续处理编辑字段
+    if (state.poseSwitchMode === "special") {
+        if (handlePoseSpecialConfigClick(item, textureIndex, data)) {
+            return;
+        }
+        // Fall through to normal edit field handling
+    }
+
+    // 姿势信息栏（仅正常编辑模式）
+    if (!state.poseSwitchMode) {
+        if (handlePoseBarClick()) {
+            return;
+        }
     }
 
     // 可信域名按钮（与贴图 URL 同一行，固定位置，不随其他字段变化）
@@ -1174,8 +1484,10 @@ export function handleTextureEditClick(item, textureIndex, data) {
             state.originalOverridePriority = undefined;
             state._pendingTextureRefresh = false;
             state.poseEditing = null;
-            state.tempGlobalData = null;
             state.poseSwitchMode = false;
+            state.poseSelectedList = [];
+            state.poseComboList = [];
+            state.poseComboIndex = 0;
             unregisterPoseHook();
             resetDragState();
             return;
@@ -1195,7 +1507,7 @@ export function handleTextureEditClick(item, textureIndex, data) {
         return;
     }
 
-    // 旋转 / 图层优先级：BAR 滑桿，点击轨道/手柄跳转取值并开始拖动，点击数值弹出 prompt 精确输入（item3+item4）
+    // 旋转 / 图层优先级：BAR 滑桿，点击轨道/手柄跳转取值并开始拖动
     for (const field of BAR_FIELDS) {
         if (handleBarFieldClick(field)) {
             return;
@@ -1207,8 +1519,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
         return;
     }
 
-    // 删除此贴图（右下角图标按钮）
-    if (MouseIn(1885, 245, 90, 90)) {
+    // 删除此贴图（仅正常编辑模式）
+    if (!state.poseSwitchMode && MouseIn(1885, 245, 90, 90)) {
         item.Property.Textures.splice(textureIndex, 1);
         state.currentEditTexture = -1;
         state.tempTextureData = null;
@@ -1216,8 +1528,10 @@ export function handleTextureEditClick(item, textureIndex, data) {
         state._pendingTextureRefresh = false;
         state.currentListPage = 0;
         state.poseEditing = null;
-        state.tempGlobalData = null;
         state.poseSwitchMode = false;
+        state.poseSelectedList = [];
+        state.poseComboList = [];
+        state.poseComboIndex = 0;
         unregisterPoseHook();
         resetDragState();
         syncItemToServer(item);
@@ -1226,8 +1540,8 @@ export function handleTextureEditClick(item, textureIndex, data) {
         return;
     }
 
-    // 确认保存（右上角图标按钮）
-    if (MouseIn(1885, 135, 90, 90)) {
+    // 确认保存（仅正常编辑模式）
+    if (!state.poseSwitchMode && MouseIn(1885, 135, 90, 90)) {
         // 深拷贝 tempTextureData（保留 PoseSettings 结构），再逐字段清理类型。
         // 用 Number.isFinite 判断而非 `|| 后备值`：Scale=0（完全缩小）、Opacity=0（全透明）
         // 都是合法的有效值，用 `||` 会把它们误判成「没填」而强制拉回默认值
@@ -1273,8 +1587,10 @@ export function handleTextureEditClick(item, textureIndex, data) {
         state._pendingTextureRefresh = false;
         state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
         state.poseEditing = null;
-        state.tempGlobalData = null;
         state.poseSwitchMode = false;
+        state.poseSelectedList = [];
+        state.poseComboList = [];
+        state.poseComboIndex = 0;
         unregisterPoseHook();
         resetDragState();
         const C = CharacterGetCurrent();

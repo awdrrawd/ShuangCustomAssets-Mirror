@@ -211,6 +211,11 @@ const extended = {
             state.originalOverridePriority = undefined;
             state.currentListPage = 0;
             state.currentView = "list";
+            state.poseSwitchMode = false;
+            state.poseSelectedList = [];
+            state.poseComboList = [];
+            state.poseComboIndex = 0;
+            state.poseViewMode = false;
             resetDragState();
             unregisterPoseHook();
             removeEditPanelInputs();
