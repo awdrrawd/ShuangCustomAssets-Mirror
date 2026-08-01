@@ -27,7 +27,10 @@ function resolvePoseParams(texture, drawPose) {
         Visible: texture.Visible ?? true,
         OffsetX: texture.OffsetX ?? 1,
         OffsetY: texture.OffsetY ?? 1,
-        Scale: texture.Scale ?? 100,
+        // 回退到旧版单一 Scale 字段：其他玩家的贴图数据来自服务器同步，
+        // 不经过 Load hook 迁移，可能仍使用旧 Scale 而非 ScaleX/ScaleY
+        ScaleX: texture.ScaleX ?? texture.Scale ?? 100,
+        ScaleY: texture.ScaleY ?? texture.Scale ?? 100,
         Rotation: texture.Rotation ?? 0,
         Opacity: texture.Opacity ?? 100,
         MirrorH: texture.MirrorH ?? false,
@@ -40,8 +43,13 @@ function resolvePoseParams(texture, drawPose) {
     const ps = texture.PoseSettings?.[poseKey];
     if (!ps || ps.enabled !== true) return base;
 
-    // 合并：全局基底 + 姿势覆盖（排除 enabled 字段）
-    const { enabled, ...overrides } = ps;
+    // 合并：全局基底 + 姿势覆盖（排除 enabled 和旧版 Scale 字段）
+    const { enabled, Scale: legacyScale, ...overrides } = ps;
+    // 旧版 PoseSettings 用单一 Scale，迁移到 ScaleX/ScaleY（仅在没有 ScaleX/ScaleY 时回退）
+    if (legacyScale !== undefined && overrides.ScaleX === undefined) {
+        overrides.ScaleX = legacyScale;
+        overrides.ScaleY = legacyScale;
+    }
     return { ...base, ...overrides };
 }
 
@@ -90,14 +98,14 @@ export function renderTexture(data, originalFunction, drawData) {
     // 域名警告处理（检查解析后的 URL，支持姿势级切换不同图片源）
     const warnEnabled = getDomainWarningEnabled();
 
-    let imageUrl, offsetX, offsetY, scale, rotation, displayOpacity, mirrorH, mirrorV;
+    let imageUrl, offsetX, offsetY, scaleX, scaleY, rotation, displayOpacity, mirrorH, mirrorV;
 
     if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
         // 不可信域名：使用固定参数显示警告图片
         imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
         offsetX = 167;
         offsetY = -256;
-        scale = 16 / 100;
+        scaleX = scaleY = 16 / 100;
         rotation = 0;
         displayOpacity = 1.0;
         mirrorH = false;
@@ -110,8 +118,9 @@ export function renderTexture(data, originalFunction, drawData) {
         imageUrl = params.TextureURL;
         offsetX = params.OffsetX || 0;
         offsetY = params.OffsetY || 0;
-        // 用 ?? 而非 ||：Scale 合法值可以是 0（完全缩小），不该被当成「未设定」强制拉回 100%
-        scale = (params.Scale ?? 100) / 100;
+        // 用 ?? 而非 ||：ScaleX/Y 合法值可以是 0（完全缩小），不该被当成「未设定」强制拉回 100%
+        scaleX = (params.ScaleX ?? 100) / 100;
+        scaleY = (params.ScaleY ?? 100) / 100;
         rotation = params.Rotation || 0;
         displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
         mirrorH = params.MirrorH === true;
@@ -193,8 +202,8 @@ export function renderTexture(data, originalFunction, drawData) {
         sourceHeight = img.naturalHeight;
     }
 
-    const width = Math.round(sourceWidth * scale);
-    const height = Math.round(sourceHeight * scale);
+    const width = Math.round(sourceWidth * scaleX);
+    const height = Math.round(sourceHeight * scaleY);
 
     // 计算旋转后的包围盒，避免旋转后图像被裁剪
     const rad = rotation * Math.PI / 180;

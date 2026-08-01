@@ -3,6 +3,8 @@
  * 所有模块通过 state.xxx 访问和修改共享状态，确保同一引用
  */
 
+import { scaleDrag, barDrag } from "./constants.js";
+
 export const state = {
     currentEditTexture: -1,
     tempTextureData: null,
@@ -23,6 +25,9 @@ export const state = {
     dragStartMouseY: 0,    // 本次拖拽开始时的鼠标 Y
     dragStartOffsetX: 0,   // 本次拖拽开始时的 OffsetX
     dragStartOffsetY: 0,   // 本次拖拽开始时的 OffsetY
+
+    // === 编辑图层 - 缩放X/Y "拖移"拖拽模式 ===
+    isScaleDragMode: false, // 是否已开启缩放拖拽模式（点击「拖移」按钮切换）
 
     // === CharacterRefresh 节流 ===
     _lastTextureRefresh: 0,       // 上次刷新时间戳
@@ -58,6 +63,9 @@ export const state = {
 export function resetDragState() {
     state.isDragMode = false;
     state.dragActive = false;
+    state.isScaleDragMode = false;
+    scaleDrag.active = false;
+    barDrag.fieldId = null;
 }
 
 /**

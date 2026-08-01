@@ -12,6 +12,35 @@ export function createVirtualPath(id) {
     return `shuang-canvas://${id}`;
 }
 
+const NO_SPINNER_CLASS = "shuang-no-number-spinner";
+let _noSpinnerStyleInjected = false;
+
+/**
+ * 移除 <input type="number"> 浏览器原生的上下箭头（spinner）
+ * 本插件的数值输入框旁边已有自绘的 +/- 步进按钮，原生箭头是多余的且容易和步进按钮的点击区域产生混淆
+ * @param {HTMLInputElement} input - 要处理的 number 输入框
+ */
+export function hideNumberInputSpinner(input) {
+    if (!input) return;
+    if (!_noSpinnerStyleInjected) {
+        const style = document.createElement("style");
+        style.textContent = `
+            .${NO_SPINNER_CLASS}::-webkit-outer-spin-button,
+            .${NO_SPINNER_CLASS}::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            .${NO_SPINNER_CLASS} {
+                -moz-appearance: textfield;
+                appearance: textfield;
+            }
+        `;
+        document.head.appendChild(style);
+        _noSpinnerStyleInjected = true;
+    }
+    input.classList.add(NO_SPINNER_CLASS);
+}
+
 /**
  * 验证图片 URL 格式（基本格式检查）
  * 注意：域名白名单检查由 settings.js 的 isUrlAllowed 处理

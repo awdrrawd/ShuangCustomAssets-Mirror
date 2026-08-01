@@ -2,7 +2,7 @@
  * 自定义贴图道具 - 配置导入/导出
  */
 
-import { LAYER_NAMES, MAX_TEXTURE_COUNT, HIDE_CATEGORIES, DEFAULT_PROPS } from "./constants.js";
+import { LAYER_NAMES, MAX_TEXTURE_COUNT, HIDE_CATEGORIES, DEFAULT_PROPS, migrateScaleField } from "./constants.js";
 import { state, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
 import { updateHideArray } from "./hideArray.js";
@@ -18,7 +18,7 @@ export function exportConfig(item) {
         : {};
     const config = {
         type: "ShuangCustomAssets",
-        version: 6,
+        version: 7,
         textures: textures,
         overridePriority: overridePriority, // 图层优先级（键为 LayerN，值为 -99~99）
     };
@@ -92,20 +92,25 @@ export function importConfig(item, mode) {
                 return Number.isFinite(n) ? n : fallback;
             };
             const validTextures = config.textures.map(t => {
+                // 兼容旧版单一 Scale 字段导出的配置文件：没有 ScaleX/ScaleY 时用旧 Scale 值填充两者
+                const legacyScale = toIntOr(t.Scale, 100);
                 const cleaned = {
                     TextureURL: String(t.TextureURL || ""),
                     OffsetX: toIntOr(t.OffsetX, 0),
                     OffsetY: toIntOr(t.OffsetY, 0),
-                    Scale: toIntOr(t.Scale, 100),
+                    ScaleX: toIntOr(t.ScaleX, legacyScale),
+                    ScaleY: toIntOr(t.ScaleY, legacyScale),
+                    ScaleLocked: t.ScaleLocked !== false,
                     Rotation: toIntOr(t.Rotation, 0),
                     Visible: t.Visible !== false,
                     Opacity: Math.max(0, Math.min(100, toIntOr(t.Opacity, 100))),
                     MirrorH: t.MirrorH === true,
                     MirrorV: t.MirrorV === true
                 };
-                // 保留姿势设置（验证为纯对象）
+                // 保留姿势设置（验证为纯对象），同样迁移其中可能存在的旧版 Scale 字段
                 if (t.PoseSettings && typeof t.PoseSettings === "object" && !Array.isArray(t.PoseSettings)) {
                     cleaned.PoseSettings = t.PoseSettings;
+                    migrateScaleField(cleaned);
                 }
                 return cleaned;
             });

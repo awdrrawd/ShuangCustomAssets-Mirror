@@ -17,7 +17,9 @@ export const DEFAULT_TEXTURE = {
     TextureURL: "",
     OffsetX: 1,
     OffsetY: 1,
-    Scale: 100,
+    ScaleX: 100,     // 水平缩放 %
+    ScaleY: 100,     // 垂直缩放 %
+    ScaleLocked: true, // "等比"开关：开启时修改 ScaleX/ScaleY 任一方都会同步另一方
     Rotation: 0,
     Visible: true,   // 可见开关
     Opacity: 100,    // 透明度（0-100）
@@ -63,7 +65,7 @@ export const POSE_CATEGORIES = {
     BodyLower: {
         label: "腿部姿势",
         labelEn: "Leg Pose",
-        poses: ["BaseLower", "Kneel", "KneelingSpread", "LegsClosed", "Spread"]
+        poses: ["BaseLower", "LegsClosed", "Kneel", "KneelingSpread", "Spread"]
     },
     BodyFull: {
         label: "全身姿势",
@@ -84,9 +86,9 @@ export const POSE_LABELS = {
     BackElbowTouch: { cn: "紧绷背手",   en: "Elbow Touch" },
     BackCuffs:      { cn: "背后手铐",   en: "Back Cuffs" },
     BaseLower:      { cn: "站立",       en: "Standing" },
+    LegsClosed:     { cn: "站立闭合",   en: "Legs Closed" },
     Kneel:          { cn: "跪姿",       en: "Kneel" },
     KneelingSpread: { cn: "跪地张腿",   en: "Kneeling Spread" },
-    LegsClosed:     { cn: "站立闭合",       en: "Legs Closed" },
     Spread:         { cn: "站立张腿",       en: "Spread" },
     Hogtied:        { cn: "仰卧",       en: "Hogtied" },
     AllFours:       { cn: "四肢着地",   en: "All Fours" }
@@ -100,6 +102,31 @@ export const POSE_LABELS = {
  * @param {string[]} drawPose - C.DrawPose 数组
  * @returns {string|null}
  */
+/**
+ * 旧数据兼容：单一 Scale 字段拆分为 ScaleX/ScaleY 两个字段（保留缩放比例的旧行为，默认等比锁定）
+ * 就地修改传入对象；同时处理 texture 本身与其 PoseSettings 里每个姿势覆盖对象
+ * @param {object} texture - 单个贴图配置对象
+ */
+export function migrateScaleField(texture) {
+    if (!texture || typeof texture !== "object") return;
+    if (texture.Scale !== undefined && texture.ScaleX === undefined) {
+        texture.ScaleX = texture.Scale;
+        texture.ScaleY = texture.Scale;
+        // 旧版单一 Scale 等价于 X/Y 等比锁定，显式设置以保留行为
+        texture.ScaleLocked = true;
+        delete texture.Scale;
+    }
+    if (texture.PoseSettings && typeof texture.PoseSettings === "object") {
+        for (const ps of Object.values(texture.PoseSettings)) {
+            if (ps && ps.Scale !== undefined && ps.ScaleX === undefined) {
+                ps.ScaleX = ps.Scale;
+                ps.ScaleY = ps.Scale;
+                delete ps.Scale;
+            }
+        }
+    }
+}
+
 export function getPoseKey(drawPose) {
     if (!drawPose || drawPose.length === 0) return null;
 
@@ -121,20 +148,36 @@ export function getPoseKey(drawPose) {
     return null;
 }
 
-// 姿势信息栏 UI 坐标
-export const POSE_BAR_Y = 855;           // 姿势信息行 Y 坐标（底部，图层优先级字段下方）
-export const POSE_BTN_Y = 890;           // 独立配置开关和切换姿势按钮行 Y 坐标（姿势文字下方单独一行）
-export const POSE_TOGGLE_X = 1100;       // 独立配置开关按钮 X 坐标
-export const POSE_TOGGLE_W = 170;        // 独立配置开关按钮宽度
-export const POSE_TOGGLE_H = 35;         // 独立配置开关按钮高度
-export const POSE_SWITCH_X = 1520;       // 切换姿势按钮 X 坐标
-export const POSE_SWITCH_W = 130;        // 切换姿势按钮宽度
+// 姿势信息栏 UI 坐标（下移以容纳新增的 缩放Y 行 + 旋转/图层优先级 BAR）
+// item5：整行（标签+姿势名称值）X 坐标整体左移 40；独立配置开关 / "设定"按钮不再单独占一行，
+// 改为紧接在姿势名称值框之后、同一行（POSE_BAR_Y）
+export const POSE_BAR_Y = 900;           // 姿势信息行 Y 坐标（标签/值/独立配置开关/"设定"按钮均在同一行）
+export const POSE_TOGGLE_X = 1570;       // 独立配置开关按钮 X 坐标（紧跟姿势名称值框之后）
+export const POSE_TOGGLE_W = 100;        // 独立配置开关按钮宽度（与"信任"按钮同尺寸）
+export const POSE_TOGGLE_H = 40;         // 独立配置开关按钮高度（与"信任"按钮同尺寸）
+export const POSE_SWITCH_X = POSE_TOGGLE_X + POSE_TOGGLE_W + 10; // 紧跟独立配置开关，间距 10
+export const POSE_SWITCH_W = 100;        // "设定"按钮宽度（与"信任"按钮同尺寸）
+
+// "特定姿势"名称值：独立于标签的固定宽度对象，用 DrawTextFit 绘制，避免姿势名称长度不同时
+// 挤压/偏移旁边的独立配置开关、"设定"按钮等其他元素
+export const POSE_NAME_LABEL_X = 1100;   // "特定姿势: " 标签 X 坐标（与其余字段标签统一对齐列）
+export const POSE_NAME_VALUE_X = 1210;   // 姿势名称值框 X 坐标（紧跟标签之后）
+export const POSE_NAME_VALUE_W = 350;    // 姿势名称值框宽度（超出部分由 DrawTextFit 自动收缩字号 / 截断）
+export const POSE_NAME_VALUE_H = 35;     // 姿势名称值框高度
 
 // 姿势切换页面 UI 坐标
+// 布局：分类标题在左侧(X1100)，与该分类第一行按钮同一行对齐；按钮从 X1265 开始，每行固定 3 个，超过自动换行
+// 手部姿势 6 个 = 3+3（两行），腿部姿势 4 个 = 3+1（两行），全身姿势 2 个（一行）
 export const POSE_PAGE_BTN_W = 150;      // 单个姿势按钮宽度
 export const POSE_PAGE_BTN_H = 40;       // 单个姿势按钮高度
-export const POSE_PAGE_BTN_GAP = 5;      // 按钮间距
-export const POSE_PAGE_START_X = 1010;   // 按钮起始 X 坐标
+export const POSE_PAGE_BTN_GAP = 20;     // 按钮间距（同一行内）
+export const POSE_PAGE_START_X = 1265;   // 按钮起始 X 坐标
+export const POSE_PAGE_COLS = 3;         // 每行固定按钮数
+export const POSE_PAGE_START_Y = 435;    // 第一个分类第一行按钮的 Y 坐标（手部姿势标题 Y455 = 435+20）
+export const POSE_PAGE_ROW_STEP = 50;    // 同一分类内，相邻两行按钮 Y 坐标间距
+export const POSE_PAGE_CATEGORY_GAP = 30;// 换到下一个分类时，在 ROW_STEP 之外额外增加的间距
+export const POSE_PAGE_LABEL_X = 1100;   // 分类标题 X 坐标
+export const POSE_PAGE_LABEL_Y_OFFSET = 20; // 分类标题 Y = 该分类第一行按钮 Y + 此偏移（与按钮垂直居中对齐）
 
 // 每页显示的贴图数量
 export const TEXTURES_PER_PAGE = 6;
@@ -271,45 +314,79 @@ export const HIDE_CATEGORIES = [
 // 所有可隐藏的组名（用于 AllowHide）
 export const ALL_HIDEABLE_GROUPS = HIDE_CATEGORIES.flatMap(c => c.groups);
 
-// 数值字段标识符（X偏移/Y偏移/缩放/旋转/透明度/图层优先级均为真实 DOM <input type="number">，
-// 支持鼠标滚轮调值，同时用于 stepperPress 长按状态追踪）
-export const INPUT_OFFSET_X = "CustomTextureOffsetXInput";
-export const INPUT_OFFSET_Y = "CustomTextureOffsetYInput";
-export const INPUT_SCALE = "CustomTextureScaleInput";
-export const INPUT_ROTATION = "CustomTextureRotationInput";
-export const INPUT_OPACITY = "CustomTextureOpacityInput";
-export const INPUT_PRIORITY = "CustomTexturePriorityInput";
-
-// === 真实 DOM 元素 ID（贴图网址输入框 + 透明度滑桿）===
-// 均会遮挡其下方 canvas 绘制的内容，因此仅在编辑图层时定位到对应坐标，
-// 其余时间（列表页等）统一移出画面外（见 positionEditPanelInputs）
-export const URL_INPUT_ID = "ShuangTextureUrlInput";
-export const OPACITY_SLIDER_ID = "ShuangTextureOpacitySlider";
-
-// 透明度滑桿位置：放在透明度 +/- 按钮右侧
-export const OPACITY_SLIDER_X = 1435;
-export const OPACITY_SLIDER_W = 260;
+// 数值字段标识符（X偏移/Y偏移/缩放X/缩放Y/透明度：真实 DOM <input type="number">，可直接输入，
+// 旁边配自绘 +/- 步进按钮；同时用于 stepperPress 长按状态追踪的字段 id，
+// 也直接作为对应 DOM <input> 的元素 id 使用（见 editPanel.js 的 createEditPanelDomInputs）
+export const FIELD_OFFSET_X = "CustomTextureOffsetX";
+export const FIELD_OFFSET_Y = "CustomTextureOffsetY";
+export const FIELD_SCALE_X = "CustomTextureScaleX";
+export const FIELD_SCALE_Y = "CustomTextureScaleY";
+export const FIELD_OPACITY = "CustomTextureOpacity";
+// BAR 滑桿字段标识符（旋转 0~360 / 图层优先级 -99~99）：与其余数值字段布局一致
+// （标签 + [-] + 数值框(DOM input) + [+]），数值框右侧额外追加一条可拖动的 BAR 滑桿（item2）
+export const FIELD_ROTATION = "CustomTextureRotation";
+export const FIELD_PRIORITY = "CustomTexturePriority";
+// 贴图网址输入框（真实 DOM <input type="text">，可直接输入，见 item1）
+export const FIELD_URL = "CustomTextureURLInput";
 
 // === 步进按钮（+/-）配置 ===
-// 在每个数值输入框两侧放置加减按钮，支持长按加速
+// 在每个数值框两侧放置加减按钮，支持长按加速；数值框本体为 canvas 绘制，点击弹出 prompt() 直接输入精确值
 export const STEPPER_BTN_W = 40;
 export const STEPPER_BTN_H = 40;
 export const STEPPER_MINUS_X = 1220;   // 减号按钮 X 坐标
 export const STEPPER_PLUS_X = 1380;    // 加号按钮 X 坐标
-export const STEPPER_INPUT_X = 1265;   // 输入框 X 坐标（位于两按钮之间）
-export const STEPPER_INPUT_W = 110;    // 输入框容器宽度
+export const STEPPER_INPUT_X = 1265;   // 数值框 X 坐标（位于两按钮之间）
+export const STEPPER_INPUT_W = 110;    // 数值框宽度
+export const STEPPER_INPUT_H = 40;     // 数值框高度
 
-// 数值字段的步进配置（顺序对应 OffsetX/Y, 缩放, 旋转, 透明度, 优先级）
-// 注意：以下坐标均为手动写死（非动态排列）。"镜射"整行现位于 Y偏移与缩放% 之间，
-// 缩放/旋转 两个字段的 y / labelY 因此下移 50px，透明度/图层优先级 的 y 维持不变
+// 数值字段配置（X偏移/Y偏移/缩放X/缩放Y/透明度）：真实 DOM <input type="number">，可直接输入（item1）
+// 注意：以下坐标均为手动写死（非动态排列）。"镜射"整行位于 Y偏移与缩放X之间；
+// 缩放X/缩放Y 两行之后依次是 旋转(BAR)/透明度/图层优先级(BAR)
 export const STEPPER_FIELDS = [
-    { id: INPUT_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX",  def: 1,   min: null, max: null },
-    { id: INPUT_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY",  def: 1,   min: null, max: null },
-    { id: INPUT_SCALE,    y: 635, labelCn: "缩放%",   labelEn: "Scale %",    labelY: 655, prop: "Scale",    def: 100, min: null, max: null },
-    { id: INPUT_ROTATION, y: 685, labelCn: "旋转%",   labelEn: "Rotation %",  labelY: 705, prop: "Rotation", def: 0,   min: null, max: null },
-    { id: INPUT_OPACITY,  y: 735, labelCn: "透明度%", labelEn: "Opacity %",  labelY: 755, prop: "Opacity",  def: 100, min: 0,    max: 100 },
-    { id: INPUT_PRIORITY, y: 785, labelCn: "图层优先级",  labelEn: "Layer Priority",   labelY: 805, prop: null,      def: 50,  min: -99,  max: 99 }
+    { id: FIELD_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX", def: 1,   min: null, max: null },
+    { id: FIELD_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY", def: 1,   min: null, max: null },
+    { id: FIELD_SCALE_X,  y: 635, labelCn: "缩放X%",  labelEn: "Scale X %",  labelY: 655, prop: "ScaleX",  def: 100, min: null, max: null },
+    { id: FIELD_SCALE_Y,  y: 680, labelCn: "缩放Y%",  labelEn: "Scale Y %",  labelY: 700, prop: "ScaleY",  def: 100, min: null, max: null }
 ];
+
+// BAR 滑桿字段配置（旋转 / 图层优先级 / 透明度，item2）：与 STEPPER_FIELDS 共用同一套
+// [-] / 数值框(DOM input) / [+] 横向布局（复用 STEPPER_MINUS_X/STEPPER_INPUT_X/STEPPER_PLUS_X），
+// 保持与 X偏移/Y偏移/缩放 等字段完全一致的外观；数值框右侧额外追加一条可拖动的 BAR 滑桿
+// （方形手柄，轨道可点击跳转/拖动手柄两种方式调值，与旁边的数值框相互同步）
+export const BAR_FIELDS = [
+    { id: FIELD_ROTATION, y: 730, labelCn: "旋转",     labelEn: "Rotation",      labelY: 750, prop: "Rotation", def: 0,   min: 0,   max: 360, bar: true },
+    { id: FIELD_OPACITY,  y: 780, labelCn: "透明度%", labelEn: "Opacity %",     labelY: 800, prop: "Opacity",   def: 100, min: 0,   max: 100, bar: true },
+    { id: FIELD_PRIORITY, y: 830, labelCn: "图层优先级", labelEn: "Layer Priority", labelY: 850, prop: null,       def: 50,  min: -99, max: 99,  bar: true }
+];
+
+// BAR 轨道 + 方形手柄的绘制参数：紧跟在 [+] 步进按钮（STEPPER_PLUS_X 结束于 1420）之后，
+// 留出与其余控件一致的间距
+export const BAR_TRACK_X = 1445;      // 轨道起始 X 坐标（STEPPER_PLUS_X(1380) + STEPPER_BTN_W(40) + 25 间距）
+export const BAR_TRACK_W = 220;       // 轨道宽度（1445~1665，未超出面板可用宽度）
+export const BAR_TRACK_H = 8;         // 轨道厚度
+export const BAR_HANDLE_SIZE = 24;    // 方形手柄边长
+
+// === "移动"拖拽模式按钮：点击后可在角色预览区域用鼠标/触摸自由拖动图片位置 ===
+// （提前到此处声明，供下方"拖移"按钮 item4 对齐 X 坐标引用）
+export const MOVE_BTN_X = 1435;
+export const MOVE_BTN_Y = 510;
+export const MOVE_BTN_W = 100;           // 与"信任"按钮同尺寸（100x40），保持按钮框大小统一
+export const MOVE_BTN_H = 40;
+
+// === 缩放X/Y："拖移"拖动缩放按钮 + "等比"锁定按钮 ===
+// item4：「拖移」按钮的 X 对齐「移动」按钮的 X（MOVE_BTN_X），Y 在原基础上 -20，
+// 与「移动」按钮的定位方式保持一致（UI 一致性）；「等比」按钮的 X 按同样的位移量一并补正，
+// 以维持与「拖移」按钮原本的相对间距，Y 同步对齐
+export const SCALE_DRAG_BTN_X = MOVE_BTN_X;      // 1435（原 1510，对齐「移动」按钮 X）
+export const SCALE_DRAG_BTN_Y = 660;             // 原 680 - 20
+export const SCALE_DRAG_BTN_W = 100;             // 与"信任"按钮同尺寸
+export const SCALE_DRAG_BTN_H = 40;
+export const ASPECT_LOCK_BTN_X = SCALE_DRAG_BTN_X + SCALE_DRAG_BTN_W + 20; // 紧跟「拖移」按钮，间距 20
+export const ASPECT_LOCK_BTN_Y = SCALE_DRAG_BTN_Y;       // 与「拖移」按钮同一行
+export const ASPECT_LOCK_BTN_W = 100;            // 与"信任"按钮同尺寸
+export const ASPECT_LOCK_BTN_H = 40;
+// 拖动缩放的灵敏度：每 1px 鼠标位移对应的缩放 % 变化量
+export const SCALE_DRAG_SENSITIVITY = 0.5;
 
 // === 镜射（水平/垂直）：现移至"Y偏移"与"缩放%"两行之间 ===
 export const MIRROR_ROW_Y = 585;          // 镜射行 Y 坐标（Y偏移 535 与 缩放% 635 的正中间）
@@ -319,12 +396,6 @@ export const MIRROR_V_BTN_X = 1330;       // 垂直镜射按钮 X 坐标
 export const MIRROR_BTN_W = 90;
 export const MIRROR_BTN_H = 40;
 
-// === "移动"拖拽模式按钮：点击后可在角色预览区域用鼠标/触摸自由拖动图片位置 ===
-export const MOVE_BTN_X = 1435;
-export const MOVE_BTN_Y = 510;
-export const MOVE_BTN_W = 150;
-export const MOVE_BTN_H = 40;
-
 // 长按步进状态跟踪（可变对象，在各模块间共享同一引用）
 export const stepperPress = {
     fieldId: null,     // 当前按住的字段 ID
@@ -333,11 +404,25 @@ export const stepperPress = {
     lastUpdate: 0      // 上次值变更时间戳（ms）
 };
 
-// 贴图网址输入框位置
+// 贴图网址输入框位置（真实 DOM <input type="text">，可直接输入网址，item1）
 export const URL_BOX_X = 1220;
 export const URL_BOX_Y = 435;
 export const URL_BOX_W = 490;
 export const URL_BOX_H = 40;
+
+// BAR 滑桿的拖动状态跟踪（可变对象，在各模块间共享同一引用）
+export const barDrag = {
+    fieldId: null   // 当前正在拖动的 BAR 字段 id，未拖动时为 null
+};
+
+// 缩放拖动模式的状态跟踪（可变对象，在各模块间共享同一引用）
+export const scaleDrag = {
+    active: false,
+    startMouseX: 0,
+    startMouseY: 0,
+    startScaleX: 100,
+    startScaleY: 100
+};
 
 // === 登录页面加载标识贴图配置 ===
 export const BADGE_IMAGE_URL = "https://shuang-custom-assets.pages.dev/SCA_logo.png";
@@ -346,7 +431,8 @@ export const LOGIN_BADGE_TEXTURE = {
     TextureURL: BADGE_IMAGE_URL,
     OffsetX: 153,
     OffsetY: -200,
-    Scale: 21,
+    ScaleX: 21,
+    ScaleY: 21,
     Rotation: 0,
     Opacity: 100,
     Visible: true

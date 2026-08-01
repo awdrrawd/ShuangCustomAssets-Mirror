@@ -21,7 +21,7 @@ const TAG_KEY = "SCA_INFO";
 
 // 图标位置与大小（角色顶部状态图标第一行下方，单独占第二行，避免与 BC 原生 / echo 图标重叠）
 // BC 原生图标：X=70/110/150/310/350/390，Y=CharY，大小 40；echo：X=420，Y=CharY+5，大小 35
-const ICON_X = 340;     // 与 echo 图标水平对齐（echo 在 CharX+420, CharY+5）
+const ICON_X = 320;     // 与 echo 图标水平对齐（echo 在 CharX+420, CharY+5）
 const ICON_Y = 0;      // echo 图标正下方（echo 底部约 CharY+40，留 5 间距）
 const ICON_SIZE = 40;   // 略小于 BC 原生 40，按实际效果调整
 

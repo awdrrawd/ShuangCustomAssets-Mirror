@@ -1,27 +1,34 @@
 /**
  * 自定义贴图道具 - 编辑面板逻辑
- * 包含步进按钮、镜射、移动拖拽、DOM 输入框管理、编辑面板绘制与点击处理
+ * 包含步进按钮、数值输入框（真实 DOM <input>，可直接输入，item1）、BAR 滑桿（可拖动，item2/3）、
+ * 镜射、移动/缩放拖拽、编辑面板绘制与点击处理
  */
 
 import {
     LAYER_NAMES, TEXTURES_PER_PAGE,
     STEPPER_FIELDS, STEPPER_MINUS_X, STEPPER_PLUS_X, STEPPER_BTN_W, STEPPER_BTN_H,
-    STEPPER_INPUT_X, STEPPER_INPUT_W,
+    STEPPER_INPUT_X, STEPPER_INPUT_W, STEPPER_INPUT_H,
+    BAR_FIELDS, BAR_TRACK_X, BAR_TRACK_W, BAR_TRACK_H, BAR_HANDLE_SIZE,
+    barDrag,
     MIRROR_ROW_Y, MIRROR_ROW_LABEL_Y, MIRROR_H_BTN_X, MIRROR_V_BTN_X, MIRROR_BTN_W, MIRROR_BTN_H,
     MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H,
-    URL_BOX_X, URL_BOX_Y, URL_BOX_W, URL_BOX_H,
-    URL_INPUT_ID, OPACITY_SLIDER_ID, OPACITY_SLIDER_X, OPACITY_SLIDER_W,
-    INPUT_OPACITY,
+    SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
+    ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H,
+    SCALE_DRAG_SENSITIVITY, scaleDrag,
+    URL_BOX_X, URL_BOX_Y, URL_BOX_W, URL_BOX_H, FIELD_URL,
     TEXTURE_REFRESH_INTERVAL, TEXTURE_DRAG_REFRESH_INTERVAL,
     stepperPress,
-    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_BTN_Y, POSE_TOGGLE_X, POSE_TOGGLE_W, POSE_TOGGLE_H,
+    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_TOGGLE_X, POSE_TOGGLE_W, POSE_TOGGLE_H,
     POSE_SWITCH_X, POSE_SWITCH_W,
+    POSE_NAME_LABEL_X, POSE_NAME_VALUE_X, POSE_NAME_VALUE_W, POSE_NAME_VALUE_H,
     POSE_PAGE_BTN_W, POSE_PAGE_BTN_H, POSE_PAGE_BTN_GAP, POSE_PAGE_START_X,
+    POSE_PAGE_COLS, POSE_PAGE_START_Y, POSE_PAGE_ROW_STEP, POSE_PAGE_CATEGORY_GAP,
+    POSE_PAGE_LABEL_X, POSE_PAGE_LABEL_Y_OFFSET,
     POSE_CATEGORIES
 } from "./constants.js";
 import { state, resetDragState } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
-import { L, isChineseLang, getCorsImage, Logger } from "@lib/utils.js";
+import { L, isChineseLang, getCorsImage, Logger, hideNumberInputSpinner } from "@lib/utils.js";
 import { isUrlAllowed, isDomainInWhitelist, extractDomain } from "./settings.js";
 
 /**
@@ -39,30 +46,11 @@ export function getEditTarget() {
 }
 
 /**
- * 刷新所有 DOM 输入框（贴图网址、6 个数值字段、透明度滑桿）以反映当前编辑目标
- * 在切换姿势编辑模式时调用，确保界面显示正确的值
+ * 切换姿势编辑目标后调用：数值框/BAR 滑桿本身是 canvas 绘制，每帧都直接从 getEditTarget()
+ * 读取当前值，不需要额外同步任何 DOM 显示值；这里只需要标记为已变更以触发一次预览刷新
  */
 export function refreshEditInputs() {
-    const target = getEditTarget();
-    if (!target) return;
-
-    // 贴图网址输入框
-    const urlInput = document.getElementById(URL_INPUT_ID);
-    if (urlInput) urlInput.value = target.TextureURL || "";
-
-    // 6 个数值输入框（图层优先级不随姿势变化，始终读取 tempPriority）
-    for (const field of STEPPER_FIELDS) {
-        const input = document.getElementById(field.id);
-        if (input) input.value = String(getFieldValue(field));
-    }
-
-    // 透明度滑桿
-    const opacitySlider = document.getElementById(OPACITY_SLIDER_ID);
-    if (opacitySlider) {
-        const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
-        opacitySlider.value = String(getFieldValue(opacityField));
-    }
-
+    if (!getEditTarget()) return;
     state._fieldsDirty = true;
 }
 
@@ -77,7 +65,9 @@ function inheritGlobalFields() {
         TextureURL: g?.TextureURL || "",
         OffsetX: g?.OffsetX ?? 1,
         OffsetY: g?.OffsetY ?? 1,
-        Scale: g?.Scale ?? 100,
+        ScaleX: g?.ScaleX ?? 100,
+        ScaleY: g?.ScaleY ?? 100,
+        ScaleLocked: g?.ScaleLocked !== false,
         Rotation: g?.Rotation ?? 0,
         Opacity: g?.Opacity ?? 100,
         MirrorH: g?.MirrorH === true,
@@ -152,46 +142,52 @@ export function switchPose(newPoseKey) {
 }
 
 /**
- * 绘制姿势信息栏：显示当前角色姿势名称 + 独立配置开关按钮
- * 位于编辑面板底部（POSE_BAR_Y=835），在图层优先级字段下方
+ * 绘制姿势信息栏：显示当前角色姿势名称 + 独立配置开关按钮 + "设定"按钮
+ * 位于编辑面板底部（POSE_BAR_Y），item5：三者现在同一行显示（标签+值 X 整体左移 40，
+ * 独立配置开关与"设定"按钮紧跟在姿势名称值框之后，不再单独占一行）
  */
 export function drawPoseBar() {
-    const C = CharacterGetCurrent();
-    const poseKey = getPoseKey(C?.DrawPose);
+    // 标签：固定文字，不随内容变化，因此不会因为姿势名称长短不同而产生位移
+    DrawText(L("特定姿势: ", "Specific Pose: "), POSE_NAME_LABEL_X, POSE_BAR_Y, "White", "Gray");
 
-    // 显示当前姿势名称（所有姿势统一逻辑：拆分组合键，逐个翻译后用 " + " 连接）
-    let poseText;
-    if (poseKey) {
-        const labels = poseKey.split("+").map(p => {
+    // 姿势名称值：独立对象（DrawTextFit，固定宽度框），显示当前正在编辑的姿势独立配置名称，
+    // 而不是角色的实际姿势——没有正在编辑任何姿势独立配置（即编辑的是全局默认值）时显示"无"
+    let poseValueText;
+    if (state.poseEditing) {
+        const labels = state.poseEditing.split("+").map(p => {
             const label = POSE_LABELS[p];
             return label ? L(label.cn, label.en) : p;
         });
-        poseText = L("当前姿势: ", "Current pose: ") + labels.join(" + ");
-        if (state.poseEditing) {
-            poseText += L("  [编辑姿势配置]", "  [Editing Pose Override]");
-        }
+        poseValueText = labels.join(" + ");
     } else {
-        poseText = L("当前姿势: 未知", "Current pose: Unknown");
+        poseValueText = L("无", "None");
     }
-    DrawText(poseText, 1100, POSE_BAR_Y, "White", "Gray");
+    // DrawTextFit 绘制过程中会动到 MainCanvas.textAlign，为确保文字仍按预期居中/对齐，
+    // 在调用前后显式设置（与本项目 settings.js 中 _drawTextLeft 的处理方式一致）
+    MainCanvas.textAlign = "center";
+    DrawTextFit(poseValueText, POSE_NAME_VALUE_X + POSE_NAME_VALUE_W / 2, POSE_BAR_Y, POSE_NAME_VALUE_W, "Yellow", "Black");
+    MainCanvas.textAlign = "center";
 
-    // 始终显示独立配置开关按钮（包括基础站姿）
+    // 独立配置开关按钮：始终显示（包括基础站姿），按钮本身依然对应角色的实际当前姿势，
+    // 现与姿势名称值框同一行（item5），标签由"独立配置"改名为"启用/停用"
+    const C = CharacterGetCurrent();
+    const poseKey = getPoseKey(C?.DrawPose);
     if (poseKey) {
-        // 开关状态：当前正在编辑此姿势 OR 此姿势已有 enabled 的独立配置
+        // 开关状态：当前正在编辑此姿势 OR 此姿势已有 enabled 的独立配置（继续用灰色/绿色切换）
         const ps = state.tempTextureData?.PoseSettings?.[poseKey];
         const isEnabled = state.poseEditing === poseKey || (ps && ps.enabled === true);
         const btnText = isEnabled
-            ? L("独立配置: 开", "Pose Override: On")
-            : L("独立配置: 关", "Pose Override: Off");
-        DrawButton(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+            ? L("启用", "On")
+            : L("停用", "Off");
+        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
             POSE_TOGGLE_W, POSE_TOGGLE_H,
             btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
     }
 
-    // 切换姿势按钮（始终显示，与独立配置开关同一行）
-    DrawButton(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+    // "设定"按钮：始终显示，紧跟在独立配置开关之后，同一行
+    DrawButton(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
         POSE_SWITCH_W, POSE_TOGGLE_H,
-        L("切换姿势", "Switch Pose"), "White", null,
+        L("设定", "Configure"), "White", null,
         L("打开姿势切换页面", "Open pose switch page"), false);
 }
 
@@ -203,14 +199,14 @@ export function handlePoseBarClick() {
     const C = CharacterGetCurrent();
     const poseKey = getPoseKey(C?.DrawPose);
 
-    // 切换姿势按钮
-    if (MouseIn(POSE_SWITCH_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+    // "设定"按钮
+    if (MouseIn(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
             POSE_SWITCH_W, POSE_TOGGLE_H)) {
         state.poseSwitchMode = true;
         return true;
     }
 
-    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BTN_Y - POSE_TOGGLE_H / 2,
+    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
             POSE_TOGGLE_W, POSE_TOGGLE_H)) {
         if (state.poseEditing === poseKey) {
             // 当前正在编辑此姿势的独立配置 -> 关闭并删除配置
@@ -232,33 +228,38 @@ export function drawPoseSwitchPage() {
     const C = CharacterGetCurrent();
     if (!C) return;
 
-    // 标题
+    // 标题（与 贴图管理/编辑图层/隐藏设置 三页统一坐标+颜色）
     DrawText(L("切换姿势", "Switch Pose"), 1500, 360, "White", "Gray");
     DrawText(L("点击姿势按钮切换，左侧实时预览效果", "Click a pose to switch, preview on the left"),
-        1505, 390, "Yellow", "Black");
+        1505, 405, "Yellow", "Black");
 
     // 当前角色的渲染姿势映射（包含 previewPoseMapping 的覆盖）
     const activeMapping = C.DrawPoseMapping || {};
-    let y = 430;
+    let rowY = POSE_PAGE_START_Y;
 
-    // 按分类绘制姿势按钮
+    // 按分类绘制姿势按钮：每个分类的按钮从 X1265 开始，每行固定 3 个自动换行；
+    // 分类标题在左侧(X1100)，与该分类第一行按钮同一行对齐
     for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
-        // 分类标题
-        DrawText(L(cat.label, cat.labelEn), 1100, y, "White", "Gray");
-        y += 25;
+        const categoryFirstRowY = rowY;
+        DrawText(L(cat.label, cat.labelEn), POSE_PAGE_LABEL_X,
+            categoryFirstRowY + POSE_PAGE_LABEL_Y_OFFSET, "White", "Gray");
 
-        // 该分类下的姿势按钮
         for (let i = 0; i < cat.poses.length; i++) {
             const poseName = cat.poses[i];
-            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+            const col = i % POSE_PAGE_COLS;
+            const row = Math.floor(i / POSE_PAGE_COLS);
+            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
             const isActive = activeMapping[catKey] === poseName;
             const label = POSE_LABELS[poseName];
             const btnText = label ? L(label.cn, label.en) : poseName;
 
-            DrawButton(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
+            DrawButton(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
                 btnText, isActive ? "#4CAF50" : "White", null, null, false);
         }
-        y += POSE_PAGE_BTN_H + 30;
+
+        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
+        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
     }
 }
 
@@ -270,21 +271,26 @@ export function handlePoseSwitchClick() {
     const C = CharacterGetCurrent();
     if (!C) return false;
 
-    // Y 坐标必须与 drawPoseSwitchPage 完全一致：每分类 = 25（标题）+ 40（按钮）+ 30（间距）
-    let y = 455; // 第一行按钮 Y（标题 430 + 25）
+    // 命中判定必须与 drawPoseSwitchPage 的网格布局完全一致（每行 3 个按钮，自动换行）
+    let rowY = POSE_PAGE_START_Y;
 
     for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+        const categoryFirstRowY = rowY;
         for (let i = 0; i < cat.poses.length; i++) {
             const poseName = cat.poses[i];
-            const btnX = POSE_PAGE_START_X + i * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+            const col = i % POSE_PAGE_COLS;
+            const row = Math.floor(i / POSE_PAGE_COLS);
+            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
 
-            if (MouseIn(btnX, y, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
+            if (MouseIn(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
                 // 本地预览姿势（仅修改 DrawPoseMapping，不同步服务器）
                 setPreviewPose(poseName);
                 return true;
             }
         }
-        y += POSE_PAGE_BTN_H + 30 + 25; // 按钮高度 + 间距 + 下一分类标题高度
+        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
+        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
     }
 
     return false;
@@ -298,7 +304,10 @@ export function setupStepperListeners() {
     if (state._stepperListenerReady) return;
     state._stepperListenerReady = true;
     // 鼠标
-    document.addEventListener("mousedown", () => { state._pointerDown = true; });
+    document.addEventListener("mousedown", () => {
+        state._pointerDown = true;
+        tryStartBarDrag();
+    });
     document.addEventListener("mouseup", () => {
         state._pointerDown = false;
         stepperPress.fieldId = null;
@@ -306,7 +315,10 @@ export function setupStepperListeners() {
         state._lastTextureRefresh = 0;
     });
     // 触摸（移动端）
-    document.addEventListener("touchstart", () => { state._pointerDown = true; }, { passive: true });
+    document.addEventListener("touchstart", () => {
+        state._pointerDown = true;
+        tryStartBarDrag();
+    }, { passive: true });
     document.addEventListener("touchend", () => {
         state._pointerDown = false;
         stepperPress.fieldId = null;
@@ -317,6 +329,24 @@ export function setupStepperListeners() {
         stepperPress.fieldId = null;
         state._lastTextureRefresh = 0;
     });
+}
+
+/**
+ * 指针刚按下的瞬间检测是否命中某个 BAR 滑桿（轨道或手柄），命中则立即跳变到该位置并
+ * 标记为拖动中——不能像之前那样只在游戏的 Click 事件里判断：Click 必然发生在 mouseup
+ * 之后，此时 mouseup 监听器已经把 _pointerDown 重置为 false，下一帧 updateBarDrag()
+ * 会马上清空 barDrag.fieldId，导致 BAR 只能点击跳变、无法真正按住拖动
+ */
+function tryStartBarDrag() {
+    if (state.currentEditTexture < 0 || state.poseSwitchMode) return;
+    for (const field of BAR_FIELDS) {
+        const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+        if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
+            setFieldValue(field, barValueFromMouseX(field, MouseX));
+            barDrag.fieldId = field.id;
+            return;
+        }
+    }
 }
 
 /**
@@ -333,7 +363,8 @@ export function getFieldValue(field) {
 
 /**
  * 写入字段值（自动裁剪到 min/max 范围），并标记为已变更
- * @param {object} field - STEPPER_FIELDS 中的字段配置
+ * "等比"锁定开启时（target.ScaleLocked === true），修改 ScaleX/ScaleY 任一方会同步另一方
+ * @param {object} field - STEPPER_FIELDS / BAR_FIELDS 中的字段配置
  * @param {number} value - 新值
  */
 export function setFieldValue(field, value) {
@@ -353,20 +384,18 @@ export function setFieldValue(field, value) {
                 target[field.prop] = value;
                 state._fieldsDirty = true;
             }
-        }
-    }
-
-    // 步进按钮改变数值时，同步更新 DOM 输入框的显示值
-    const domInput = document.getElementById(field.id);
-    if (domInput && domInput.value !== String(value)) {
-        domInput.value = String(value);
-    }
-
-    // 透明度：同步更新滑桿
-    if (field.id === INPUT_OPACITY) {
-        const slider = document.getElementById(OPACITY_SLIDER_ID);
-        if (slider && slider.value !== String(value)) {
-            slider.value = String(value);
+            // 等比锁定：缩放X/Y 任一方变更时同步另一方，保持比例始终一致
+            // 用 !== false（而非 === true）判断，与「等比」按钮显示状态/其余读取处保持一致：
+            // 旧数据里从未显式写入过 ScaleLocked 字段时视为默认锁定，否则按钮显示锁定但实际不同步
+            if (target.ScaleLocked !== false) {
+                if (field.prop === "ScaleX" && target.ScaleY !== value) {
+                    target.ScaleY = value;
+                    state._fieldsDirty = true;
+                } else if (field.prop === "ScaleY" && target.ScaleX !== value) {
+                    target.ScaleX = value;
+                    state._fieldsDirty = true;
+                }
+            }
         }
     }
 }
@@ -378,6 +407,304 @@ export function setFieldValue(field, value) {
  */
 export function applyStepperChange(field, delta) {
     setFieldValue(field, getFieldValue(field) + delta);
+}
+
+/**
+ * 创建编辑图层面板的全部 DOM 输入框（贴图网址 1 个 + 数值字段 7 个：X/Y偏移、缩放X/Y、透明度、
+ * 旋转、图层优先级），均为真实 <input>，可直接输入/编辑（item1），不再依赖 canvas 按钮 + prompt() 弹窗。
+ * 只创建一次（复用同一批元素），编辑不同图层/切换姿势时只需在 positionEditPanelInputs() 里重新赋值
+ */
+export function createEditPanelDomInputs() {
+    if (state._editInputsReady) return;
+    state._editInputsReady = true;
+
+    // 贴图网址：type=text，输入即时写入 target.TextureURL 并标记刷新预览
+    const urlInput = ElementCreateInput(FIELD_URL, "text", "", "https://");
+    urlInput.addEventListener("input", () => {
+        const target = getEditTarget();
+        if (!target) return;
+        target.TextureURL = urlInput.value.trim();
+        state._fieldsDirty = true;
+    });
+
+    // 数值字段（X偏移/Y偏移/缩放X/缩放Y/透明度/旋转/图层优先级）：type=number
+    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
+        const input = ElementCreateInput(field.id, "number", String(field.def), "");
+        if (field.min !== null) input.min = String(field.min);
+        if (field.max !== null) input.max = String(field.max);
+        input.step = "1";
+        // 已有自绘 +/- 步进按钮，隐藏原生上下箭头，避免视觉/点击区域冗余
+        hideNumberInputSpinner(input);
+        input.addEventListener("input", () => {
+            const parsed = parseInt(input.value, 10);
+            if (!Number.isFinite(parsed)) return; // 允许临时空值（如清空重打），change 时再修正
+            setFieldValue(field, parsed);
+        });
+        input.addEventListener("change", () => {
+            // 失焦/回车：用裁剪后的最终值回填，修正超出范围或非法输入
+            input.value = String(getFieldValue(field));
+        });
+    }
+}
+
+/**
+ * 每帧定位编辑图层面板的 DOM 输入框：正在编辑某个图层且不在姿势切换页面时，
+ * 定位到对应字段坐标（ElementPosition 以中心点为基准，故需 +宽高的一半）；
+ * 否则移出画布（与 settings.js 现有的 ElementPosition(-999,-999,0,0) 隐藏方式一致）。
+ * 数值同步：仅在该输入框未获得焦点时才回填当前值，避免每帧覆盖用户正在打字的内容；
+ * 其余情况（BAR 拖动、步进按钮、移动/缩放拖拽、切换图层或姿势等程序化修改）都会实时同步显示
+ * 在 drawTextureEditPanel 中每帧调用
+ */
+export function positionEditPanelInputs() {
+    const showing = state.currentEditTexture >= 0 && !state.poseSwitchMode;
+
+    const urlInput = document.getElementById(FIELD_URL);
+    if (urlInput) {
+        if (showing) {
+            ElementPosition(FIELD_URL, URL_BOX_X + URL_BOX_W / 2, URL_BOX_Y + URL_BOX_H / 2, URL_BOX_W, URL_BOX_H);
+            if (document.activeElement !== urlInput) {
+                const val = getEditTarget()?.TextureURL || "";
+                if (urlInput.value !== val) urlInput.value = val;
+            }
+        } else {
+            ElementPosition(FIELD_URL, -999, -999, 0, 0);
+        }
+    }
+
+    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
+        const input = document.getElementById(field.id);
+        if (!input) continue;
+        if (showing) {
+            ElementPosition(field.id, STEPPER_INPUT_X + STEPPER_INPUT_W / 2, field.y + STEPPER_INPUT_H / 2,
+                STEPPER_INPUT_W, STEPPER_INPUT_H);
+            if (document.activeElement !== input) {
+                const val = String(getFieldValue(field));
+                if (input.value !== val) input.value = val;
+            }
+        } else {
+            ElementPosition(field.id, -999, -999, 0, 0);
+        }
+    }
+}
+
+/**
+ * 移除编辑图层面板的全部 DOM 输入框（退出道具编辑时调用，与 settings.js 的 _removeDomainInput 等一致）
+ */
+export function removeEditPanelInputs() {
+    if (!state._editInputsReady) return;
+    state._editInputsReady = false;
+    const ids = [FIELD_URL, ...STEPPER_FIELDS.map(f => f.id), ...BAR_FIELDS.map(f => f.id)];
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+}
+
+/**
+ * 绘制 BAR 滑桿（旋转 0~360 / 图层优先级 -99~99）：横向轨道 + 方形手柄（替代原本圆形手柄）
+ * item2：与 STEPPER_FIELDS 完全一致的左侧 [-]/数值输入框(DOM)/[+] 布局（由调用方
+ * drawTextureEditPanel 统一绘制 label + drawStepperButton，与其他数值字段共用同一循环），
+ * 这里只负责绘制数值框右侧追加的 BAR 部分：轨道 + 方形手柄，点击轨道/拖动手柄可直接调值。
+ * item3：min<0<max 的字段（如图层优先级 -99~99）在 0 对应位置画一条黑线标示中点
+ * @param {object} field - BAR_FIELDS 中的字段配置
+ */
+export function drawBarField(field) {
+    const value = getFieldValue(field);
+    const ratio = (value - field.min) / (field.max - field.min);
+    const trackY = field.y + STEPPER_INPUT_H / 2 - BAR_TRACK_H / 2;
+
+    // 轨道（直接用 MainCanvas 2D 上下文绘制，MainCanvas 即当前画布的渲染上下文）
+    MainCanvas.fillStyle = "#999999";
+    MainCanvas.fillRect(BAR_TRACK_X, trackY, BAR_TRACK_W, BAR_TRACK_H);
+
+    // item3：0 刻度中点线（仅当该字段的取值范围横跨 0 时才有意义，如图层优先级 -99~99）
+    if (field.min < 0 && field.max > 0) {
+        const zeroRatio = (0 - field.min) / (field.max - field.min);
+        const zeroX = BAR_TRACK_X + zeroRatio * BAR_TRACK_W;
+        MainCanvas.fillStyle = "#000000";
+        MainCanvas.fillRect(zeroX - 1, trackY - 4, 2, BAR_TRACK_H + 8);
+    }
+
+    // 方形手柄
+    const handleX = BAR_TRACK_X + ratio * BAR_TRACK_W - BAR_HANDLE_SIZE / 2;
+    const handleY = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+    MainCanvas.fillStyle = barDrag.fieldId === field.id ? "#4CAF50" : "#FFFFFF";
+    MainCanvas.fillRect(handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
+    MainCanvas.strokeStyle = "#000000";
+    MainCanvas.lineWidth = 2;
+    MainCanvas.strokeRect(handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
+}
+
+/**
+ * 根据鼠标 X 坐标换算 BAR 轨道对应的数值（裁剪到 min/max，取整）
+ * @param {object} field - BAR_FIELDS 中的字段配置
+ * @param {number} mouseX
+ * @returns {number}
+ */
+function barValueFromMouseX(field, mouseX) {
+    const ratio = Math.max(0, Math.min(1, (mouseX - BAR_TRACK_X) / BAR_TRACK_W));
+    return Math.round(field.min + ratio * (field.max - field.min));
+}
+
+/**
+ * 处理 BAR 滑桿点击：点击轨道/手柄区域直接跳转到对应值，并将该字段标记为"正在拖动"，
+ * 后续帧由 updateBarDrag() 持续跟随鼠标实现真正的拖拽（item2：现在不仅能点击，也能拖动）；
+ * 数值框本体已改为 DOM <input>（item1），其点击/输入由浏览器原生处理，不需要在这里判断
+ * @param {object} field - BAR_FIELDS 中的字段配置
+ * @returns {boolean} 是否命中并处理了该 BAR
+ */
+export function handleBarFieldClick(field) {
+    const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+    if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
+        setFieldValue(field, barValueFromMouseX(field, MouseX));
+        barDrag.fieldId = field.id;
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * 每帧检测 BAR 滑桿的拖动状态：指针松开时清除拖动标记，拖动中则持续跟随鼠标 X 坐标更新数值
+ * 在 drawTextureEditPanel 中调用（每帧执行），与 updateSteppers()/updateDragMove() 同一模式
+ */
+export function updateBarDrag() {
+    if (!barDrag.fieldId) return;
+    if (!state._pointerDown) {
+        barDrag.fieldId = null;
+        return;
+    }
+    const field = BAR_FIELDS.find(f => f.id === barDrag.fieldId);
+    if (!field) {
+        barDrag.fieldId = null;
+        return;
+    }
+    setFieldValue(field, barValueFromMouseX(field, MouseX));
+}
+
+/**
+ * 绘制"拖移"按钮（缩放X/Y 行右侧）：点击后切换缩放拖拽模式，
+ * 开启后可在左侧角色预览区域按住鼠标/触摸拖动来缩放图片（等比锁定时 X/Y 同步变化）
+ *
+ * 悬停说明文字不使用 DrawButton 内置 tooltip（会被 DOM 输入框遮挡），
+ * 改为在按钮右侧固定位置手动绘制，与"移动"按钮共用同一片提示区域。
+ */
+export function drawScaleDragButton() {
+    DrawButton(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
+        L("拖移", "Drag"), state.isScaleDragMode ? "#4CAF50" : "White", null, null, false);
+    if (MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) {
+        const hintX = 1820;
+        const hintY = SCALE_DRAG_BTN_Y + SCALE_DRAG_BTN_H / 2;
+        const lines = isChineseLang()
+            ? ["开启后可在左侧", "预览区域拖动", "缩放图片"]
+            : ["When enabled,", "drag on the preview", "to resize the image"];
+        for (let i = 0; i < lines.length; i++) {
+            DrawText(lines[i], hintX, hintY - 22 + i * 30, "Yellow", "Black");
+        }
+    }
+}
+
+/**
+ * 处理"拖移"按钮点击：切换缩放拖拽模式开关
+ * @returns {boolean} 是否命中并处理了该按钮
+ */
+export function handleScaleDragButtonClick() {
+    if (!MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) return false;
+    state.isScaleDragMode = !state.isScaleDragMode;
+    scaleDrag.active = false;
+    if (state.isScaleDragMode) {
+        // 移动与拖移缩放共用同一块预览区域的指针拖拽手势，两者不能同时生效
+        state.isDragMode = false;
+        state.dragActive = false;
+    }
+    return true;
+}
+
+/**
+ * 每帧检测缩放拖拽模式下的鼠标/触摸状态，实时更新 ScaleX/ScaleY
+ * 拖动范围限制在角色预览区域，逻辑与 updateDragMove()（位置拖拽）一致，仅把偏移量换成缩放量
+ */
+export function updateScaleDrag() {
+    if (!state.isScaleDragMode) {
+        scaleDrag.active = false;
+        return;
+    }
+    const target = getEditTarget();
+    if (!target) {
+        scaleDrag.active = false;
+        return;
+    }
+
+    const inPreviewArea = MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000;
+    if (!state._pointerDown || !inPreviewArea) {
+        scaleDrag.active = false;
+        return;
+    }
+
+    if (!scaleDrag.active) {
+        scaleDrag.active = true;
+        scaleDrag.startMouseX = MouseX;
+        scaleDrag.startMouseY = MouseY;
+        const sx = Number(target.ScaleX);
+        const sy = Number(target.ScaleY);
+        scaleDrag.startScaleX = Number.isFinite(sx) ? sx : 100;
+        scaleDrag.startScaleY = Number.isFinite(sy) ? sy : 100;
+        return;
+    }
+
+    const deltaX = (MouseX - scaleDrag.startMouseX) * SCALE_DRAG_SENSITIVITY;
+    const deltaY = (MouseY - scaleDrag.startMouseY) * SCALE_DRAG_SENSITIVITY;
+    let newScaleX, newScaleY;
+    if (target.ScaleLocked !== false) {
+        // 等比锁定：只用水平位移驱动，X/Y 同步变化
+        newScaleX = newScaleY = Math.round(scaleDrag.startScaleX + deltaX);
+    } else {
+        newScaleX = Math.round(scaleDrag.startScaleX + deltaX);
+        newScaleY = Math.round(scaleDrag.startScaleY + deltaY);
+    }
+    if (target.ScaleX !== newScaleX || target.ScaleY !== newScaleY) {
+        target.ScaleX = newScaleX;
+        target.ScaleY = newScaleY;
+        state._fieldsDirty = true;
+    }
+}
+
+/**
+ * 绘制"等比"按钮（缩放X/Y 行右侧，坐标固定 1680,680）：锁定/解锁 XY 缩放比例始终一致
+ */
+export function drawAspectLockButton() {
+    const target = getEditTarget();
+    const locked = target?.ScaleLocked !== false;
+    DrawButton(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H,
+        L("等比", "Lock"), locked ? "#4CAF50" : "White", null, null, false);
+    if (MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) {
+        const hintX = 1820;
+        const hintY = ASPECT_LOCK_BTN_Y + ASPECT_LOCK_BTN_H / 2;
+        const lines = isChineseLang()
+            ? ["锁定缩放X/Y", "比例始终一致"]
+            : ["Lock the X/Y", "scale ratio together"];
+        for (let i = 0; i < lines.length; i++) {
+            DrawText(lines[i], hintX, hintY - 15 + i * 30, "Yellow", "Black");
+        }
+    }
+}
+
+/**
+ * 处理"等比"按钮点击：切换 ScaleLocked 开关；开启的瞬间立即把 ScaleY 同步为 ScaleX，
+ * 确保切换的那一刻两者就是一致的，而不是等到下一次修改才生效
+ * @returns {boolean} 是否命中并处理了该按钮
+ */
+export function handleAspectLockButtonClick() {
+    if (!MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) return false;
+    const target = getEditTarget();
+    if (!target) return true;
+    const newLocked = !(target.ScaleLocked !== false);
+    target.ScaleLocked = newLocked;
+    if (newLocked && target.ScaleX !== target.ScaleY) {
+        target.ScaleY = target.ScaleX;
+        state._fieldsDirty = true;
+    }
+    return true;
 }
 
 /**
@@ -454,6 +781,11 @@ export function handleMoveButtonClick() {
     if (!MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) return false;
     state.isDragMode = !state.isDragMode;
     state.dragActive = false;
+    if (state.isDragMode) {
+        // 移动与拖移缩放共用同一块预览区域的指针拖拽手势，两者不能同时生效
+        state.isScaleDragMode = false;
+        scaleDrag.active = false;
+    }
     return true;
 }
 
@@ -501,122 +833,6 @@ export function updateDragMove() {
 }
 
 /**
- * 创建编辑面板用到的真实 DOM 元素（贴图网址输入框 + 6 个数值输入框），仅创建一次（幂等）。
- * 应在道具 Load 时调用一次，之后整个对话框生命周期内复用同一批元素，
- * 通过 positionEditPanelInputs() 控制显示/隐藏，直到 Exit 时才真正移除。
- *
- * 贴图网址：<input type="text">，可直接打字输入。
- * 数值字段（X偏移/Y偏移/缩放/旋转/透明度/图层优先级）：<input type="number">，
- * 支持鼠标滚轮调值和直接键入，数值变更时同步写入 tempTextureData / tempPriority。
- * 透明度额外附带 <input type="range"> 滑桿（位于 +/- 按钮右侧），与数值框双向同步。
- */
-export function createEditPanelDomInputs() {
-    if (!document.getElementById(URL_INPUT_ID)) {
-        const input = ElementCreateInput(URL_INPUT_ID, "text", "", 1000);
-        input.placeholder = L("请输入贴图网址（需以 https:// 开头）", "Enter image URL (must start with https://)");
-        input.addEventListener("input", () => {
-            const target = getEditTarget();
-            if (!target) return;
-            const newUrl = input.value.trim();
-            if (target.TextureURL !== newUrl) {
-                target.TextureURL = newUrl;
-                state._fieldsDirty = true;
-            }
-        });
-    }
-
-    // 6 个数值字段：X偏移/Y偏移/缩放/旋转/透明度/图层优先级
-    for (const field of STEPPER_FIELDS) {
-        if (document.getElementById(field.id)) continue;
-        const input = ElementCreateInput(field.id, "number", String(field.def), "10");
-        input.style.width = "80px";
-        if (field.min !== null) input.min = String(field.min);
-        if (field.max !== null) input.max = String(field.max);
-        input.addEventListener("input", () => {
-            const parsed = parseInt(input.value);
-            if (isNaN(parsed)) return;
-            if (field.prop === null) {
-                if (state.tempPriority !== parsed) {
-                    state.tempPriority = parsed;
-                    state._fieldsDirty = true;
-                }
-            } else {
-                const target = getEditTarget();
-                if (target && target[field.prop] !== parsed) {
-                    target[field.prop] = parsed;
-                    state._fieldsDirty = true;
-                }
-            }
-            // 透明度：同步更新滑桿
-            if (field.id === INPUT_OPACITY) {
-                const slider = document.getElementById(OPACITY_SLIDER_ID);
-                if (slider && slider.value !== String(parsed)) {
-                    slider.value = String(Math.max(0, Math.min(100, parsed)));
-                }
-            }
-        });
-    }
-
-    // 透明度滑桿：与数值框双向同步
-    if (!document.getElementById(OPACITY_SLIDER_ID)) {
-        const slider = ElementCreateRangeInput(OPACITY_SLIDER_ID, 100, 0, 100, 1);
-        slider.addEventListener("input", () => {
-            const target = getEditTarget();
-            if (!target) return;
-            const v = Math.max(0, Math.min(100, parseInt(slider.value, 10) || 0));
-            if (target.Opacity !== v) {
-                target.Opacity = v;
-                state._fieldsDirty = true;
-            }
-            // 同步更新数值输入框
-            const opacityInput = document.getElementById(INPUT_OPACITY);
-            if (opacityInput && opacityInput.value !== String(v)) {
-                opacityInput.value = String(v);
-            }
-        });
-    }
-}
-
-/**
- * 每帧定位（或移出画面）贴图网址输入框、6 个数值输入框与透明度滑桿
- * @param {boolean} visible - 是否正在编辑某个图层（currentEditTexture >= 0）
- */
-export function positionEditPanelInputs(visible) {
-    if (!visible) {
-        // 移出可视画面外，避免遮挡列表页 / 隐藏设置页等其他 canvas 内容
-        ElementPosition(URL_INPUT_ID, -999, -999, 0, 0);
-        for (const field of STEPPER_FIELDS) {
-            ElementPosition(field.id, -999, -999, 0, 0);
-        }
-        ElementPosition(OPACITY_SLIDER_ID, -999, -999, 0, 0);
-        return;
-    }
-
-    // 贴图网址输入框：覆盖原本 canvas 按钮所在的区域
-    ElementPosition(URL_INPUT_ID, URL_BOX_X + URL_BOX_W / 2, URL_BOX_Y + URL_BOX_H / 2, URL_BOX_W, URL_BOX_H);
-
-    // 6 个数值输入框：定位到各自字段行（位于 +/- 步进按钮之间）
-    for (const field of STEPPER_FIELDS) {
-        ElementPositionFixed(field.id, STEPPER_INPUT_X, field.y, STEPPER_INPUT_W, 40);
-    }
-
-    // 透明度滑桿：放在透明度 +/- 按钮右侧
-    const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
-    ElementPositionFixed(OPACITY_SLIDER_ID, OPACITY_SLIDER_X, opacityField.y + 20, OPACITY_SLIDER_W, 40);
-}
-
-/**
- * 移除贴图网址输入框、6 个数值输入框与透明度滑桿（道具对话框完全关闭时调用）
- */
-export function removeEditPanelInputs() {
-    ElementRemove(URL_INPUT_ID);
-    for (const field of STEPPER_FIELDS) {
-        ElementRemove(field.id);
-    }
-    ElementRemove(OPACITY_SLIDER_ID);
-}
-
-/**
  * 步进按钮：每帧检测长按状态并应用加速变更
  * 在 drawTextureEditPanel 中调用（每帧执行）
  * 长按时间越长，步进间隔越短、步长越大
@@ -627,10 +843,11 @@ export function updateSteppers() {
         return;
     }
 
-    // 检测当前指针位于哪个步进按钮上
+    // 检测当前指针位于哪个步进按钮上（item2：旋转/图层优先级 BAR_FIELDS 现与其他数值字段
+    // 共用同一套 [-]/[+] 步进按钮布局，一并检测）
     let activeField = null;
     let activeDirection = 0;
-    for (const field of STEPPER_FIELDS) {
+    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
         if (MouseIn(STEPPER_MINUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
             activeField = field;
             activeDirection = -1;
@@ -706,7 +923,12 @@ export function registerPoseHook() {
     state.previewPoseMapping = null;
     C.RegisterHook("BeforeSortLayers", POSE_HOOK_NAME, () => {
         if (state.previewPoseMapping) {
-            C.DrawPoseMapping = { ...C.DrawPoseMapping, ...state.previewPoseMapping };
+            // item6：完全替换而非与 C.DrawPoseMapping 合并——setPreviewPose 生成的
+            // previewPoseMapping 本身已是一份完整映射（全身姿势时只含 BodyFull，
+            // 手部/腿部分类刻意不存在，代表"没有姿势"）。若改用展开合并（{...C.DrawPoseMapping,
+            // ...previewPoseMapping}），旧的 BodyUpper/BodyLower 键不会被合并操作删除，
+            // 导致切到"仰卧"/"四肢着地"后手脚仍残留旧姿势
+            C.DrawPoseMapping = { ...state.previewPoseMapping };
         }
     });
 }
@@ -731,7 +953,8 @@ export function setPreviewPose(poseName) {
     if (!newPose) return;
 
     if (newPose.Category === "BodyFull") {
-        // 全身姿势：替换整个映射
+        // 全身姿势（如"仰卧"/"四肢着地"）：替换整个映射，只保留 BodyFull 一项，
+        // 刻意不包含 BodyUpper/BodyLower —— 手部/腿部没有姿势（item6）
         state.previewPoseMapping = { [newPose.Category]: newPose.Name };
     } else {
         // 非全身姿势：基于当前预览映射（保留其他分类的选择），清理 BodyFull
@@ -743,6 +966,11 @@ export function setPreviewPose(poseName) {
                 delete baseMapping[category];
             }
         }
+        // item6：从"仰卧"/"四肢着地"切回一般姿势时，手部/腿部分类此前完全没有姿势
+        // （上面的过滤只会删除 BodyFull，不会补回 BodyUpper/BodyLower），
+        // 此时预设为 基础手势(BaseUpper) + 站立(BaseLower)，避免分类缺失导致渲染异常
+        if (!baseMapping.BodyUpper) baseMapping.BodyUpper = "BaseUpper";
+        if (!baseMapping.BodyLower) baseMapping.BodyLower = "BaseLower";
         baseMapping[newPose.Category] = newPose.Name;
         state.previewPoseMapping = baseMapping;
     }
@@ -775,23 +1003,6 @@ export function createEditInputs(texture) {
     }
     state.tempPriority = priorityValue;
     state.originalOverridePriority = op ? JSON.parse(JSON.stringify(op)) : undefined;
-
-    // 贴图网址输入框：回填当前图层的网址（元素在 Load 时已创建，此处只需要设置显示值）
-    const urlInput = /** @type {HTMLInputElement|null} */ (document.getElementById(URL_INPUT_ID));
-    if (urlInput) urlInput.value = state.tempTextureData?.TextureURL || "";
-
-    // 6 个数值输入框：回填当前图层的数值
-    for (const field of STEPPER_FIELDS) {
-        const input = /** @type {HTMLInputElement|null} */ (document.getElementById(field.id));
-        if (input) input.value = String(getFieldValue(field));
-    }
-
-    // 透明度滑桿：回填当前图层的透明度
-    const opacitySlider = /** @type {HTMLInputElement|null} */ (document.getElementById(OPACITY_SLIDER_ID));
-    if (opacitySlider) {
-        const opacityField = STEPPER_FIELDS.find(f => f.id === INPUT_OPACITY);
-        opacitySlider.value = String(getFieldValue(opacityField));
-    }
 }
 
 /**
@@ -810,6 +1021,10 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     updateSteppers();
     // "移动"拖拽模式：每帧检测鼠标/触摸拖拽状态，实时更新 OffsetX/OffsetY
     updateDragMove();
+    // BAR 滑桿（旋转/图层优先级）拖动状态
+    updateBarDrag();
+    // "拖移"缩放拖拽模式：每帧检测鼠标/触摸拖拽状态，实时更新 ScaleX/ScaleY
+    updateScaleDrag();
 
     // 检测姿势变化：角色姿势改变时自动切换编辑目标
     // 用 lastPoseKey 追踪实际姿势变化，而非 poseEditing（poseEditing 为 null 时也需要检测）
@@ -862,11 +1077,12 @@ export function drawTextureEditPanel(item, textureIndex, data) {
 
         // 节流刷新：限制 CharacterRefresh 调用频率
         // GLDraw2DCanvas hook 已修复 WebGL 纹理泄漏，可安全进行实时预览
-        // 拖拽移动中使用更短的间隔（TEXTURE_DRAG_REFRESH_INTERVAL），让预览更跟手；
+        // 拖拽中（移动/缩放/BAR滑桿）使用更短的间隔（TEXTURE_DRAG_REFRESH_INTERVAL），让预览更跟手；
         // 其余情况（如 stepper 长按）维持原本较保守的间隔，避免长按加速时刷新过于频繁
         if (state._pendingTextureRefresh) {
             const now = Date.now();
-            const interval = state.dragActive ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
+            const isDragging = state.dragActive || scaleDrag.active || !!barDrag.fieldId;
+            const interval = isDragging ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
             if (now - state._lastTextureRefresh >= interval) {
                 const C = CharacterGetCurrent();
                 if (C) CharacterRefresh(C, false, false);
@@ -885,11 +1101,11 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     // 说明文字：id2 (1270.42,385,470,40) -> 中心点 (1505,405)
     DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press ✓ to return"), 1505, 405, "Yellow", "Black");
 
-    // 贴图：id9 标签 (1000,435,200,40) -> 中心 (1100,455)；网址框为真实 DOM <input>（见 createEditPanelDomInputs/
-    // positionEditPanelInputs），这里只绘制标签文字，输入框本体由 DOM 元素叠加在 URL_BOX_X/Y/W/H 区域之上
+    // 贴图：id9 标签 (1000,435,200,40) -> 中心 (1100,455)；网址框现为真实 DOM <input type="text">
+    // （createEditPanelDomInputs/positionEditPanelInputs），可直接输入网址，不再需要弹窗（item1）
     DrawText(L("贴图", "Image"), 1100, 455, "White", "Gray");
     // 信任按钮：id15 (1730,435,100,40)，与贴图 URL 同一行，固定位置显示，不随其他字段变化
-    const currentUrl = state.tempTextureData?.TextureURL || "";
+    const currentUrl = getEditTarget()?.TextureURL || "";
     if (currentUrl && !isDomainInWhitelist(currentUrl)) {
         const domain = extractDomain(currentUrl);
         if (domain) {
@@ -901,12 +1117,23 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     // "移动"按钮：坐标固定 (1435,510,150,40)。开启拖拽模式后，可在左侧角色预览区域按住鼠标/触摸自由拖动图片
     drawMoveButton();
 
-    // X偏移/Y偏移/缩放/旋转/透明度/图层优先级：绘制文字标签 + 左右步进按钮，
-    // 数值框本体为真实 DOM <input type="number">（由 positionEditPanelInputs 定位），支持鼠标滚轮调值和直接键入
+    // X偏移/Y偏移/缩放X/缩放Y/透明度：绘制文字标签 + 左右步进按钮 + canvas 数值框（点击 prompt 输入，item1）
     for (const field of STEPPER_FIELDS) {
         DrawText(L(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
         drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
         drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
+    }
+
+    // 缩放X/Y 行右侧：拖动缩放按钮 + 等比锁定按钮（item2）
+    drawScaleDragButton();
+    drawAspectLockButton();
+
+    // 旋转 / 图层优先级：BAR 滑桿（方形手柄，item3+item4）
+    for (const field of BAR_FIELDS) {
+        DrawText(L(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
+        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
+        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
+        drawBarField(field);
     }
 
     // 镜射（水平/垂直）：紧跟在"旋转"字段下方的一整行，右侧两个切换按钮
@@ -930,15 +1157,13 @@ export function handleTextureEditClick(item, textureIndex, data) {
         return;
     }
 
-    // 贴图网址框现为真实 DOM <input>，点击/输入由浏览器原生处理，不再需要 canvas 点击检测
-
-    // 姿势信息栏：独立配置开关 / 切换姿势按钮
+    // 姿势信息栏：独立配置开关 / "设定"按钮
     if (handlePoseBarClick()) {
         return;
     }
 
     // 可信域名按钮（与贴图 URL 同一行，固定位置，不随其他字段变化）
-    const currentUrl = state.tempTextureData?.TextureURL || "";
+    const currentUrl = getEditTarget()?.TextureURL || "";
     if (currentUrl && !isDomainInWhitelist(currentUrl)) {
         const domain = extractDomain(currentUrl);
         if (domain && MouseIn(1730, 435, 100, 40)) {
@@ -962,8 +1187,20 @@ export function handleTextureEditClick(item, textureIndex, data) {
         return;
     }
 
-    // 数值字段（X偏移/Y偏移/缩放/旋转/透明度/图层优先级）现为真实 DOM <input>，
-    // 点击/输入/滚轮由浏览器原生处理，不再需要 canvas 点击检测
+    // 缩放X/Y 行右侧："拖移"缩放拖拽按钮 / "等比"锁定按钮（item2）
+    if (handleScaleDragButtonClick()) {
+        return;
+    }
+    if (handleAspectLockButtonClick()) {
+        return;
+    }
+
+    // 旋转 / 图层优先级：BAR 滑桿，点击轨道/手柄跳转取值并开始拖动，点击数值弹出 prompt 精确输入（item3+item4）
+    for (const field of BAR_FIELDS) {
+        if (handleBarFieldClick(field)) {
+            return;
+        }
+    }
 
     // 镜射（水平/垂直）：点击切换开关
     if (handleMirrorRowClick()) {
@@ -1003,8 +1240,10 @@ export function handleTextureEditClick(item, textureIndex, data) {
         finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
         finalTexture.OffsetX = toIntOr(state.tempTextureData?.OffsetX, 0);
         finalTexture.OffsetY = toIntOr(state.tempTextureData?.OffsetY, 0);
-        finalTexture.Scale = toIntOr(state.tempTextureData?.Scale, 100);
-        finalTexture.Rotation = toIntOr(state.tempTextureData?.Rotation, 0);
+        finalTexture.ScaleX = toIntOr(state.tempTextureData?.ScaleX, 100);
+        finalTexture.ScaleY = toIntOr(state.tempTextureData?.ScaleY, 100);
+        finalTexture.ScaleLocked = state.tempTextureData?.ScaleLocked !== false;
+        finalTexture.Rotation = Math.max(0, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
         finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
         finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
         finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;

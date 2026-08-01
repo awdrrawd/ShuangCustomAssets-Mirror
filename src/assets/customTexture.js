@@ -10,15 +10,14 @@ import {
     ASSET_NAME, LAYER_NAMES,
     ALL_ITEM_GROUPS, ALL_HIDEABLE_GROUPS,
     DEFAULT_PROPS, HIDE_CATEGORIES,
-    BADGE_IMAGE_URL, assetStrings
+    BADGE_IMAGE_URL, assetStrings, migrateScaleField
 } from "./constants.js";
 import { state, resetDragState } from "./state.js";
 import { updateHideArray } from "./hideArray.js";
 import { syncItemToServer } from "./serverSync.js";
 import {
-    createEditPanelDomInputs, positionEditPanelInputs, removeEditPanelInputs,
     drawTextureEditPanel, handleTextureEditClick,
-    unregisterPoseHook
+    unregisterPoseHook, createEditPanelDomInputs, positionEditPanelInputs, removeEditPanelInputs
 } from "./editPanel.js";
 import {
     drawAddDomainConfirm, handleAddDomainConfirmClick,
@@ -73,7 +72,7 @@ const extended = {
     // 差异时都会用这份 BaselineProperty 去检查 item.Property 是否缺栏位，只要少一个就会印出
     // "Initializing one or more missing extended item properties from ..." 的警告（Push=false，
     // 只在本地补一次，不会写回服务器）。而 hideArray.js 的 updateHideArray 是刻意在没有任何
-    // 分类需要隐藏时 delete item.Property.Hide（省流量，不送一个空数组上服务器）——如果这里把
+    // 分类需要隐藏时 delete item.Property.Hide（省流量，不送一个空数组上服务器）--如果这里把
     // Hide 也列进 BaselineProperty，就会变成：validation 侦测到 Hide 缺栏位 -> 本地补回 []
     // -> 下一次 updateHideArray 又把它删掉 -> 下一次 validation 又侦测到缺栏位……无限反复触发
     // 同一句核心警告。Hide 本身有 BC 原生的 ValidationSanitizeAllowedPropertyArray /
@@ -116,6 +115,11 @@ const extended = {
             // 根据开关刷新 Hide 数组，确保生效
             updateHideArray(item);
 
+            // 兼容旧数据：v6 及以前贴图用单一 Scale 字段，v7 拆分为 ScaleX/ScaleY（默认等比锁定，行为不变）
+            for (const texture of item.Property.Textures) {
+                migrateScaleField(texture);
+            }
+
             state.currentEditTexture = -1;
             state.tempTextureData = null;
             state.originalEditTexture = null;
@@ -124,17 +128,17 @@ const extended = {
             state.currentView = "list";
             state._pendingTextureRefresh = false;
             resetDragState();
-
-            // 贴图网址输入框 / 数值输入框：整个对话框期间复用同一批 DOM 元素，进入时创建（幂等），
-            // 初始移出画面外，只有进入「编辑图层」面板时才会被定位到可见区域
-            createEditPanelDomInputs();
-            positionEditPanelInputs(false);
         },
 
         Draw: (data, originalFunction) => {
             originalFunction();
             const item = DialogFocusItem;
             if (!item) return;
+
+            // 每帧同步编辑面板 DOM 输入框的创建/位置（含隐藏）：无论当前显示的是哪个子视图，
+            // 都要跑这一步，否则切到列表/隐藏设置/姿势切换等页面时输入框会残留在原位置
+            createEditPanelDomInputs();
+            positionEditPanelInputs();
 
             if (state.currentView === "addDomainConfirm") {
                 drawAddDomainConfirm();
@@ -145,14 +149,29 @@ const extended = {
             } else {
                 drawTextureListMain(item);
             }
-
-            // 贴图网址输入框 / 数值输入框 / 透明度滑桿：仅在编辑图层面板时可见，其余页面（含姿势切换页）统一移出画面外
-            positionEditPanelInputs(state.currentEditTexture >= 0 && !state.poseSwitchMode);
         },
 
         Click: (data, originalFunction) => {
-            originalFunction();
             const item = DialogFocusItem;
+
+            // 权限模式图标（Icons/DialogPermissionMode.png，坐标 1775,25,90,90，
+            // 由扩展道具基础 Draw 统一绘制，见 TypedItem.js 的 TypedItemDraw/TypedItemClick）：
+            // 本插件把它改为直接前往插件自身的偏好设置，而不是切换权限模式；
+            // 必须在 originalFunction() 之前判断并 return，否则默认行为会先被触发
+            if (item?.Asset?.Name === ASSET_NAME && MouseIn(1775, 25, 90, 90)) {
+                // 先完整退出本道具的编辑状态和整个物品对话框，避免残留贴图网址/数值输入框等 DOM 元素
+                // 以及仍处于 focus 状态的道具，导致跳转后的偏好设置界面显示错乱。
+                if (DialogFocusItem !== null) {
+                    DialogFocusItem = null;
+                }
+                if (typeof DialogLeave === "function") {
+                    DialogLeave();
+                }
+                PreferenceSubscreenExtensionsOpen("ShuangCustomAssets");
+                return;
+            }
+
+            originalFunction();
             if (!item) return;
 
             if (state.currentView === "addDomainConfirm") {
@@ -194,8 +213,6 @@ const extended = {
             state.currentView = "list";
             resetDragState();
             unregisterPoseHook();
-
-            // 道具对话框完全关闭，真正移除贴图网址输入框 / 数值输入框 / 透明度滑桿等 DOM 元素
             removeEditPanelInputs();
         },
 
