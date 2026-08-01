@@ -241,6 +241,8 @@ export default function register(AssetManager) {
             const assetObj = AssetGet("Female3DCG", group, asset.Name);
             if (assetObj) {
                 assetObj.AllowHide = allAllowHide;
+                // 自定义贴图不应 block 任何其他部位（不阻止其他道具装备/使用）
+                assetObj.Block = [];
                 // 确保道具可用于制作系统（CraftingAssetsPopulate 会过滤 Wear/Enable）
                 if (assetObj.Wear === undefined) assetObj.Wear = true;
                 if (assetObj.Enable === undefined) assetObj.Enable = true;

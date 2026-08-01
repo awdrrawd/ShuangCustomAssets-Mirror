@@ -4,11 +4,15 @@
  * 任务6：配置本道具时隐藏左侧人物身上的互动格线，避免上传图片时被框线干扰
  * 任务7：编辑单个图层时，进一步阻止点击角色身上的互动格（避免误触切换到其他部位，
  *        同时便于「移动」拖拽功能在角色预览区域正常拖动图片而不被切换部位打断）
+ * 任务8：自定义贴图不 block 其他部位，也不被其他道具 block（双向豁免）
  */
 
-import { ASSET_NAME } from "./constants.js";
+import { ASSET_NAME, ALL_ITEM_GROUPS } from "./constants.js";
 import { state } from "./state.js";
 import { returnToListFromSubview } from "./listView.js";
+
+// 预计算：自定义贴图注册的所有 Item 组名集合，用于 O(1) 判断目标组是否包含贴图
+const TEXTURE_GROUPS = new Set(ALL_ITEM_GROUPS);
 
 /**
  * 注册与对话框交互相关的全局函数 hook
@@ -51,6 +55,28 @@ export function setupDialogHooks(HookManager) {
                 }
                 returnToListFromSubview();
                 return; // 阻止关闭对话框
+            }
+            return next(args);
+        });
+    }
+
+    // 任务8：自定义贴图不被其他道具的 Block 规则拦截
+    // BC 的 InventoryGroupIsBlockedForCharacter 检查角色身上所有 restraints 的 Asset.Block /
+    // Property.Block，如果其中任何一个包含目标 GroupName，就返回 true（该组被 block，无法装备/使用）。
+    // 这会导致例如头套 Block 了 ItemMouth 后，ItemMouth 组里的自定义贴图也用不了。
+    // 这里在目标组（GroupName）是自定义贴图注册的组、且角色身上该组确实装备了自定义贴图时，
+    // 跳过 block 检查返回 false，让贴图所在组始终可用。
+    if (typeof InventoryGroupIsBlockedForCharacter === "function") {
+        HookManager.hookFunction("InventoryGroupIsBlockedForCharacter", 0, (args, next) => {
+            const C = args[0];
+            const GroupName = args[1];
+            // 只处理自定义贴图注册的 Item 组
+            if (C?.Appearance && TEXTURE_GROUPS.has(GroupName)) {
+                // 目标组里装备了自定义贴图时，豁免 block
+                const hasTexture = C.Appearance.some(
+                    i => i.Asset?.Group?.Name === GroupName && i.Asset?.Name === ASSET_NAME
+                );
+                if (hasTexture) return false;
             }
             return next(args);
         });
