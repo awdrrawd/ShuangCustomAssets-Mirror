@@ -869,15 +869,14 @@
 	    if (lowerPose) return lowerPose;
 	    return null;
 	}
-	const POSE_BAR_Y = 900;
-	const POSE_TOGGLE_X = 1570;
-	const POSE_TOGGLE_W = 100;
+	const POSE_BAR_Y = 930;
 	const POSE_TOGGLE_H = 40;
-	const POSE_SWITCH_X = POSE_TOGGLE_X + POSE_TOGGLE_W + 10;
+	const POSE_EDIT_TOGGLE_X = 1450;
+	const POSE_EDIT_TOGGLE_W = 110;
+	const POSE_ACTIVE_TOGGLE_X = 1570;
+	const POSE_ACTIVE_TOGGLE_W = 110;
+	const POSE_SWITCH_X = POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W + 10;
 	const POSE_SWITCH_W = 100;
-	const POSE_NAME_LABEL_X = 1100;
-	const POSE_NAME_VALUE_X = 1210;
-	const POSE_NAME_VALUE_W = 350;
 	const POSE_PAGE_BTN_W = 150;
 	const POSE_PAGE_BTN_H = 40;
 	const POSE_PAGE_BTN_GAP = 20;
@@ -888,6 +887,22 @@
 	const POSE_PAGE_CATEGORY_GAP = 30;
 	const POSE_PAGE_LABEL_X = 1100;
 	const POSE_PAGE_LABEL_Y_OFFSET = 20;
+	const POSE_PAGE_BOTTOM_Y = 760;
+	const POSE_SPECIAL_BTN_X = 1265;
+	const POSE_SPECIAL_BTN_W = 200;
+	const POSE_CONFIRM_BTN_X = 1700;
+	const POSE_CONFIRM_BTN_W = 150;
+	const POSE_COMBO_LEFT_X = 1265;
+	const POSE_COMBO_RIGHT_X = 1700;
+	const POSE_COMBO_BTN_W = 60;
+	const POSE_COMBO_NAME_Y = 405;
+	const POSE_COMBO_DROPDOWN_ID = "ShuangPoseComboDropdown";
+	const POSE_COMBO_DROPDOWN_X = 1330;
+	const POSE_COMBO_DROPDOWN_Y = 385;
+	const POSE_COMBO_DROPDOWN_W = 360;
+	const POSE_COMBO_DROPDOWN_H = 40;
+	const POSE_COMBO_SAVE_X = 1700;
+	const POSE_COMBO_SAVE_Y = 900;
 	const TEXTURES_PER_PAGE = 6;
 	const MAX_TEXTURE_COUNT = 16;
 	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
@@ -1955,10 +1970,13 @@
 	    statusMessageExpiry: 0,
 	    _fieldsDirty: false,
 	    poseEditing: null,
-	    tempGlobalData: null,
+	    poseViewMode: false,
 	    lastPoseKey: null,
 	    poseSwitchMode: false,
 	    previewPoseMapping: null,
+	    poseSelectedList: [],
+	    poseComboList: [],
+	    poseComboIndex: 0,
 	    _pointerDown: false,
 	    _stepperListenerReady: false,
 	};
@@ -2027,7 +2045,7 @@
 	function inheritGlobalFields() {
 	    const g = state.tempTextureData;
 	    return {
-	        enabled: true,
+	        enabled: false,
 	        TextureURL: g?.TextureURL || "",
 	        OffsetX: g?.OffsetX ?? 1,
 	        OffsetY: g?.OffsetY ?? 1,
@@ -2040,93 +2058,101 @@
 	        MirrorV: g?.MirrorV === true
 	    };
 	}
-	function enterPoseEditing(poseKey) {
-	    if (!state.tempTextureData) return;
-	    if (!state.tempTextureData.PoseSettings) {
-	        state.tempTextureData.PoseSettings = {};
-	    }
-	    if (!state.tempTextureData.PoseSettings[poseKey]) {
-	        state.tempTextureData.PoseSettings[poseKey] = inheritGlobalFields();
-	    }
-	    state.poseEditing = poseKey;
-	    refreshEditInputs();
+	function clearPreviewPose() {
+	    const C = CharacterGetCurrent();
+	    if (!C) return;
+	    state.previewPoseMapping = null;
+	    CharacterLoadCanvas(C);
 	}
-	function exitPoseEditing() {
-	    state.poseEditing = null;
-	    refreshEditInputs();
-	}
-	function deletePoseEditing(poseKey) {
-	    if (state.tempTextureData?.PoseSettings?.[poseKey]) {
-	        delete state.tempTextureData.PoseSettings[poseKey];
-	    }
-	    if (state.poseEditing === poseKey) {
+	function derivePoseEditing(poseKey) {
+	    if (!state.poseViewMode) {
 	        state.poseEditing = null;
+	        return;
 	    }
-	    refreshEditInputs();
+	    const ps = state.tempTextureData?.PoseSettings?.[poseKey];
+	    state.poseEditing = (ps && ps.enabled === true) ? poseKey : null;
 	}
 	function switchPose(newPoseKey) {
 	    if (!newPoseKey) {
-	        exitPoseEditing();
+	        state.poseEditing = null;
+	        refreshEditInputs();
 	        return;
 	    }
-	    if (state.poseEditing === newPoseKey) return;
-	    if (!state.tempTextureData) return;
-	    const ps = state.tempTextureData.PoseSettings?.[newPoseKey];
-	    if (ps && ps.enabled === true) {
-	        state.poseEditing = newPoseKey;
-	    } else {
-	        state.poseEditing = null;
+	    if (state.poseViewMode) {
+	        const parts = newPoseKey.split("+");
+	        const poseName = parts[0] || newPoseKey;
+	        setPreviewPose(poseName);
 	    }
+	    derivePoseEditing(newPoseKey);
 	    refreshEditInputs();
 	}
 	function drawPoseBar() {
-	    DrawText(L("特定姿势: ", "Specific Pose: "), POSE_NAME_LABEL_X, POSE_BAR_Y, "White", "Gray");
-	    let poseValueText;
-	    if (state.poseEditing) {
-	        const labels = state.poseEditing.split("+").map(p => {
-	            const label = POSE_LABELS[p];
-	            return label ? L(label.cn, label.en) : p;
-	        });
-	        poseValueText = labels.join(" + ");
-	    } else {
-	        poseValueText = L("无", "None");
-	    }
-	    MainCanvas.textAlign = "center";
-	    DrawTextFit(poseValueText, POSE_NAME_VALUE_X + POSE_NAME_VALUE_W / 2, POSE_BAR_Y, POSE_NAME_VALUE_W, "Yellow", "Black");
-	    MainCanvas.textAlign = "center";
 	    const C = CharacterGetCurrent();
 	    const poseKey = getPoseKey(C?.DrawPose);
 	    if (poseKey) {
+	        DrawText(L("视角", "View"), POSE_EDIT_TOGGLE_X + POSE_EDIT_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
+	        DrawButton(POSE_EDIT_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	            POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H,
+	            state.poseViewMode ? L("当前视角", "Pose View") : L("全局视角", "Global View"),
+	            state.poseViewMode ? "#4CAF50" : "White", null,
+	            L("切换视角：全局视角或当前姿势视角", "Switch view: global or current pose"), false);
+	        DrawText(L("生效", "Active"), POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
 	        const ps = state.tempTextureData?.PoseSettings?.[poseKey];
-	        const isEnabled = state.poseEditing === poseKey || (ps && ps.enabled === true);
-	        const btnText = isEnabled
-	            ? L("启用", "On")
-	            : L("停用", "Off");
-	        DrawButton(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
-	            POSE_TOGGLE_W, POSE_TOGGLE_H,
-	            btnText, isEnabled ? "#4CAF50" : "White", null, null, false);
+	        const isActive = ps?.enabled === true;
+	        DrawButton(POSE_ACTIVE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	            POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H,
+	            isActive ? L("独特", "Unique") : L("全局", "Global"),
+	            isActive ? "#4CAF50" : "White", null,
+	            L("切换当前姿势使用的配置来源", "Switch config source for current pose"), false);
 	    }
 	    DrawButton(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
 	        POSE_SWITCH_W, POSE_TOGGLE_H,
-	        L("设定", "Configure"), "White", null,
-	        L("打开姿势切换页面", "Open pose switch page"), false);
+	        L("批量配置", "Batch"), "White", null,
+	        L("打开姿势选择页面，批量配置多个姿势", "Open pose selection page for batch configuration"), false);
 	}
 	function handlePoseBarClick() {
 	    const C = CharacterGetCurrent();
 	    const poseKey = getPoseKey(C?.DrawPose);
 	    if (MouseIn(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
 	            POSE_SWITCH_W, POSE_TOGGLE_H)) {
-	        state.poseSwitchMode = true;
+	        state.poseSwitchMode = "select";
 	        return true;
 	    }
-	    if (poseKey && MouseIn(POSE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
-	            POSE_TOGGLE_W, POSE_TOGGLE_H)) {
-	        if (state.poseEditing === poseKey) {
-	            deletePoseEditing(poseKey);
-	        } else {
-	            enterPoseEditing(poseKey);
+	    if (poseKey) {
+	        if (MouseIn(POSE_EDIT_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	                POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H)) {
+	            state.poseViewMode = !state.poseViewMode;
+	            if (state.poseViewMode) {
+	                const parts = poseKey.split("+");
+	                setPreviewPose(parts[0] || poseKey);
+	                derivePoseEditing(poseKey);
+	            } else {
+	                clearPreviewPose();
+	                state.poseEditing = null;
+	            }
+	            refreshEditInputs();
+	            return true;
 	        }
-	        return true;
+	        if (MouseIn(POSE_ACTIVE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+	                POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H)) {
+	            if (!state.tempTextureData) return true;
+	            if (!state.tempTextureData.PoseSettings) {
+	                state.tempTextureData.PoseSettings = {};
+	            }
+	            let ps = state.tempTextureData.PoseSettings[poseKey];
+	            if (!ps) {
+	                ps = inheritGlobalFields();
+	                ps.enabled = true;
+	                state.tempTextureData.PoseSettings[poseKey] = ps;
+	            } else {
+	                ps.enabled = !(ps.enabled === true);
+	            }
+	            if (state.poseViewMode) {
+	                derivePoseEditing(poseKey);
+	            }
+	            state._fieldsDirty = true;
+	            return true;
+	        }
 	    }
 	    return false;
 	}
@@ -2134,9 +2160,8 @@
 	    const C = CharacterGetCurrent();
 	    if (!C) return;
 	    DrawText(L("切换姿势", "Switch Pose"), 1500, 360, "White", "Gray");
-	    DrawText(L("点击姿势按钮切换，左侧实时预览效果", "Click a pose to switch, preview on the left"),
+	    DrawText(L("选择要批量配置的姿势", "Select poses for batch configuration"),
 	        1505, 405, "Yellow", "Black");
-	    const activeMapping = C.DrawPoseMapping || {};
 	    let rowY = POSE_PAGE_START_Y;
 	    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
 	        const categoryFirstRowY = rowY;
@@ -2148,19 +2173,53 @@
 	            const row = Math.floor(i / POSE_PAGE_COLS);
 	            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
 	            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
-	            const isActive = activeMapping[catKey] === poseName;
+	            const isSelected = state.poseSelectedList.includes(poseName);
 	            const label = POSE_LABELS[poseName];
 	            const btnText = label ? L(label.cn, label.en) : poseName;
+	            const bgColor = isSelected ? "#FF9800" : "White";
 	            DrawButton(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
-	                btnText, isActive ? "#4CAF50" : "White", null, null, false);
+	                btnText, bgColor, null, null, false);
 	        }
 	        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
 	        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
 	    }
+	    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+	    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+	    const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
+	    const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
+	    const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
+	    const canEnter = (hasUpper && hasLower) || hasFull;
+	    DrawButton(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H,
+	        L("编辑选中姿势", "Edit Selected"), canEnter ? "White" : "Gray", null,
+	        L("为选中的姿势组合设置统一配置（需同时选上身和下身姿势）", "Set unified config for selected pose combinations (requires both upper and lower poses)"), false);
+	    DrawButton(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H,
+	        L("确认", "Confirm"), "White", null,
+	        L("返回编辑面板", "Back to edit panel"), false);
 	}
 	function handlePoseSwitchClick() {
 	    const C = CharacterGetCurrent();
 	    if (!C) return false;
+	    if (MouseIn(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H)) {
+	        const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+	        const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+	        const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
+	        const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
+	        const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
+	        if ((hasUpper && hasLower) || hasFull) {
+	            enterSpecialConfig();
+	        } else {
+	            showStatus(
+	                L("需要同时选择上身和下身姿势", "Need to select both upper and lower poses"),
+	                "#FF6B6B", 3000
+	            );
+	        }
+	        return true;
+	    }
+	    if (MouseIn(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H)) {
+	        state.poseSwitchMode = false;
+	        state.poseSelectedList = [];
+	        return true;
+	    }
 	    let rowY = POSE_PAGE_START_Y;
 	    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
 	        const categoryFirstRowY = rowY;
@@ -2171,12 +2230,157 @@
 	            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
 	            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
 	            if (MouseIn(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
-	                setPreviewPose(poseName);
+	                const idx = state.poseSelectedList.indexOf(poseName);
+	                if (idx >= 0) {
+	                    state.poseSelectedList.splice(idx, 1);
+	                } else {
+	                    state.poseSelectedList.push(poseName);
+	                }
 	                return true;
 	            }
 	        }
 	        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
 	        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
+	    }
+	    return false;
+	}
+	function enterSpecialConfig() {
+	    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+	    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+	    const fullPoses = POSE_CATEGORIES.BodyFull.poses;
+	    const selectedUpper = state.poseSelectedList.filter(p => upperPoses.includes(p));
+	    const selectedLower = state.poseSelectedList.filter(p => lowerPoses.includes(p));
+	    const selectedFull = state.poseSelectedList.filter(p => fullPoses.includes(p));
+	    const combos = [];
+	    for (const up of selectedUpper) {
+	        for (const lo of selectedLower) {
+	            combos.push(`${up}+${lo}`);
+	        }
+	    }
+	    for (const fp of selectedFull) {
+	        combos.push(fp);
+	    }
+	    state.poseComboList = combos;
+	    state.poseComboIndex = 0;
+	    state.poseSwitchMode = "special";
+	    if (!state.tempTextureData.PoseSettings) {
+	        state.tempTextureData.PoseSettings = {};
+	    }
+	    for (const comboKey of combos) {
+	        if (!state.tempTextureData.PoseSettings[comboKey]) {
+	            const cfg = inheritGlobalFields();
+	            cfg.enabled = true;
+	            state.tempTextureData.PoseSettings[comboKey] = cfg;
+	        } else {
+	            state.tempTextureData.PoseSettings[comboKey].enabled = true;
+	        }
+	    }
+	    state.poseEditing = combos[0];
+	    setPreviewPoseCombo(combos[0]);
+	    createComboDropdown();
+	    refreshEditInputs();
+	}
+	function setPreviewPoseCombo(poseKey) {
+	    const poseNames = poseKey.split("+");
+	    for (const name of poseNames) {
+	        setPreviewPose(name);
+	    }
+	}
+	function createComboDropdown() {
+	    let sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+	    if (!sel) {
+	        sel = document.createElement("select");
+	        sel.id = POSE_COMBO_DROPDOWN_ID;
+	        sel.style.position = "fixed";
+	        sel.style.zIndex = "100";
+	        sel.style.fontSize = "14px";
+	        sel.addEventListener("change", () => {
+	            const idx = parseInt(sel.value, 10);
+	            if (Number.isFinite(idx) && idx >= 0 && idx < state.poseComboList.length) {
+	                state.poseComboIndex = idx;
+	                state.poseEditing = state.poseComboList[idx];
+	                setPreviewPoseCombo(state.poseEditing);
+	                refreshEditInputs();
+	            }
+	        });
+	        document.body.appendChild(sel);
+	    }
+	    sel.innerHTML = "";
+	    for (let i = 0; i < state.poseComboList.length; i++) {
+	        const comboKey = state.poseComboList[i];
+	        const labels = comboKey.split("+").map(p => {
+	            const label = POSE_LABELS[p];
+	            return label ? L(label.cn, label.en) : p;
+	        });
+	        const opt = document.createElement("option");
+	        opt.value = String(i);
+	        opt.textContent = `(${i + 1}/${state.poseComboList.length}) ${labels.join(" + ")}`;
+	        sel.appendChild(opt);
+	    }
+	    sel.value = String(state.poseComboIndex);
+	    positionComboDropdown();
+	}
+	function positionComboDropdown() {
+	    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+	    if (!sel) return;
+	    sel.value = String(state.poseComboIndex);
+	    const canvas = MainCanvas?.canvas;
+	    if (!canvas) return;
+	    const rect = canvas.getBoundingClientRect();
+	    const scaleX = rect.width / (MainCanvas?.width || 2000);
+	    const scaleY = rect.height / (MainCanvas?.height || 1000);
+	    sel.style.left = `${rect.left + POSE_COMBO_DROPDOWN_X * scaleX}px`;
+	    sel.style.top = `${rect.top + POSE_COMBO_DROPDOWN_Y * scaleY}px`;
+	    sel.style.width = `${POSE_COMBO_DROPDOWN_W * scaleX}px`;
+	    sel.style.height = `${POSE_COMBO_DROPDOWN_H * scaleY}px`;
+	    sel.style.display = state.poseSwitchMode === "special" ? "block" : "none";
+	}
+	function removeComboDropdown() {
+	    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+	    if (sel) sel.remove();
+	}
+	function drawComboSelector() {
+	    DrawButton(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+	        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
+	        "\u25C0", "White", null, L("上一个组合", "Previous combo"), false);
+	    DrawButton(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+	        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
+	        "\u25B6", "White", null, L("下一个组合", "Next combo"), false);
+	    positionComboDropdown();
+	    DrawButton(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
+	        POSE_CONFIRM_BTN_W, POSE_TOGGLE_H,
+	        L("保存并返回", "Save & Back"), "White", null,
+	        L("保存配置并返回姿势选择页面", "Save config and return to pose selection"), false);
+	}
+	function handlePoseSpecialConfigClick(item, textureIndex, data) {
+	    if (MouseIn(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+	            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
+	        state.poseComboIndex = (state.poseComboIndex - 1 + state.poseComboList.length) % state.poseComboList.length;
+	        state.poseEditing = state.poseComboList[state.poseComboIndex];
+	        setPreviewPoseCombo(state.poseEditing);
+	        refreshEditInputs();
+	        return true;
+	    }
+	    if (MouseIn(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+	            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
+	        state.poseComboIndex = (state.poseComboIndex + 1) % state.poseComboList.length;
+	        state.poseEditing = state.poseComboList[state.poseComboIndex];
+	        setPreviewPoseCombo(state.poseEditing);
+	        refreshEditInputs();
+	        return true;
+	    }
+	    if (MouseIn(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
+	            POSE_CONFIRM_BTN_W, POSE_TOGGLE_H)) {
+	        for (const comboKey of state.poseComboList) {
+	            if (state.tempTextureData?.PoseSettings?.[comboKey]) {
+	                state.tempTextureData.PoseSettings[comboKey].enabled = true;
+	            }
+	        }
+	        removeComboDropdown();
+	        state.poseSwitchMode = "select";
+	        state.poseEditing = null;
+	        refreshEditInputs();
+	        return true;
 	    }
 	    return false;
 	}
@@ -2208,7 +2412,7 @@
 	    });
 	}
 	function tryStartBarDrag() {
-	    if (state.currentEditTexture < 0 || state.poseSwitchMode) return;
+	    if (state.currentEditTexture < 0 || state.poseSwitchMode === "select") return;
 	    for (const field of BAR_FIELDS) {
 	        const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
 	        if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
@@ -2282,7 +2486,7 @@
 	    }
 	}
 	function positionEditPanelInputs() {
-	    const showing = state.currentEditTexture >= 0 && !state.poseSwitchMode;
+	    const showing = state.currentEditTexture >= 0 && state.poseSwitchMode !== "select";
 	    const urlInput = document.getElementById(FIELD_URL);
 	    if (urlInput) {
 	        if (showing) {
@@ -2309,6 +2513,7 @@
 	            ElementPosition(field.id, -999, -999, 0, 0);
 	        }
 	    }
+	    positionComboDropdown();
 	}
 	function removeEditPanelInputs() {
 	    if (!state._editInputsReady) return;
@@ -2318,6 +2523,7 @@
 	        const el = document.getElementById(id);
 	        if (el) el.remove();
 	    }
+	    removeComboDropdown();
 	}
 	function drawBarField(field) {
 	    const value = getFieldValue(field);
@@ -2627,9 +2833,12 @@
 	function createEditInputs(texture) {
 	    state._fieldsDirty = false;
 	    state.poseEditing = null;
-	    state.tempGlobalData = null;
+	    state.poseViewMode = true;
 	    state.lastPoseKey = null;
 	    state.poseSwitchMode = false;
+	    state.poseSelectedList = [];
+	    state.poseComboList = [];
+	    state.poseComboIndex = 0;
 	    registerPoseHook();
 	    const item = DialogFocusItem;
 	    const layerName = LAYER_NAMES[state.currentEditTexture];
@@ -2644,7 +2853,7 @@
 	    state.originalOverridePriority = op ? JSON.parse(JSON.stringify(op)) : undefined;
 	}
 	function drawTextureEditPanel(item, textureIndex, data) {
-	    if (state.poseSwitchMode) {
+	    if (state.poseSwitchMode === "select") {
 	        drawPoseSwitchPage();
 	        return;
 	    }
@@ -2653,11 +2862,13 @@
 	    updateDragMove();
 	    updateBarDrag();
 	    updateScaleDrag();
-	    const C = CharacterGetCurrent();
-	    const currentPoseKey = getPoseKey(C?.DrawPose);
-	    if (state.lastPoseKey !== currentPoseKey) {
-	        state.lastPoseKey = currentPoseKey;
-	        switchPose(currentPoseKey);
+	    if (!state.poseSwitchMode) {
+	        const C = CharacterGetCurrent();
+	        const currentPoseKey = getPoseKey(C?.DrawPose);
+	        if (state.lastPoseKey !== currentPoseKey) {
+	            state.lastPoseKey = currentPoseKey;
+	            switchPose(currentPoseKey);
+	        }
 	    }
 	    if (state.tempTextureData) {
 	        if (state._fieldsDirty) {
@@ -2667,7 +2878,13 @@
 	            const previousUrl = item.Property.Textures[textureIndex]?.TextureURL || "";
 	            const newUrl = state.tempTextureData.TextureURL || "";
 	            const urlChanged = previousUrl !== newUrl;
-	            item.Property.Textures[textureIndex] = JSON.parse(JSON.stringify(state.tempTextureData));
+	            const renderData = JSON.parse(JSON.stringify(state.tempTextureData));
+	            if (!state.poseViewMode && renderData.PoseSettings) {
+	                for (const key of Object.keys(renderData.PoseSettings)) {
+	                    renderData.PoseSettings[key].enabled = false;
+	                }
+	            }
+	            item.Property.Textures[textureIndex] = renderData;
 	            const layerName = LAYER_NAMES[textureIndex];
 	            if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
 	                item.Property.OverridePriority = {};
@@ -2684,6 +2901,18 @@
 	                    }, { once: true });
 	                }
 	            }
+	            if (state.poseSwitchMode === "special" && state.poseComboList.length > 1 && state.poseEditing) {
+	                const srcConfig = state.tempTextureData?.PoseSettings?.[state.poseEditing];
+	                if (srcConfig) {
+	                    for (const comboKey of state.poseComboList) {
+	                        if (comboKey !== state.poseEditing && state.tempTextureData.PoseSettings?.[comboKey]) {
+	                            const destEnabled = state.tempTextureData.PoseSettings[comboKey].enabled;
+	                            Object.assign(state.tempTextureData.PoseSettings[comboKey], srcConfig);
+	                            state.tempTextureData.PoseSettings[comboKey].enabled = destEnabled;
+	                        }
+	                    }
+	                }
+	            }
 	        }
 	        if (state._pendingTextureRefresh) {
 	            const now = Date.now();
@@ -2697,9 +2926,17 @@
 	            }
 	        }
 	    }
-	    drawPoseBar();
-	    DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
-	    DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press ✓ to return"), 1505, 405, "Yellow", "Black");
+	    if (state.poseSwitchMode === "special") {
+	        drawComboSelector();
+	    } else {
+	        drawPoseBar();
+	    }
+	    if (state.poseSwitchMode === "special") {
+	        DrawText(L("批量编辑", "Batch Edit"), 1500, 360, "White", "Gray");
+	    } else {
+	        DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
+	        DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press \u2713 to return"), 1505, 405, "Yellow", "Black");
+	    }
 	    DrawText(L("贴图", "Image"), 1100, 455, "White", "Gray");
 	    const currentUrl = getEditTarget()?.TextureURL || "";
 	    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
@@ -2724,18 +2961,27 @@
 	        drawBarField(field);
 	    }
 	    drawMirrorRow();
-	    DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
-	        L("保存该图层并返回列表", "Save this layer & back to list"));
-	    DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
-	        L("删除此图层", "Delete this layer"), false);
+	    if (!state.poseSwitchMode) {
+	        DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+	            L("保存该图层并返回列表", "Save this layer & back to list"));
+	        DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
+	            L("删除此图层", "Delete this layer"), false);
+	    }
 	}
 	function handleTextureEditClick(item, textureIndex, data) {
-	    if (state.poseSwitchMode) {
+	    if (state.poseSwitchMode === "select") {
 	        handlePoseSwitchClick();
 	        return;
 	    }
-	    if (handlePoseBarClick()) {
-	        return;
+	    if (state.poseSwitchMode === "special") {
+	        if (handlePoseSpecialConfigClick()) {
+	            return;
+	        }
+	    }
+	    if (!state.poseSwitchMode) {
+	        if (handlePoseBarClick()) {
+	            return;
+	        }
 	    }
 	    const currentUrl = getEditTarget()?.TextureURL || "";
 	    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
@@ -2748,8 +2994,10 @@
 	            state.originalOverridePriority = undefined;
 	            state._pendingTextureRefresh = false;
 	            state.poseEditing = null;
-	            state.tempGlobalData = null;
 	            state.poseSwitchMode = false;
+	            state.poseSelectedList = [];
+	            state.poseComboList = [];
+	            state.poseComboIndex = 0;
 	            unregisterPoseHook();
 	            resetDragState();
 	            return;
@@ -2772,7 +3020,7 @@
 	    if (handleMirrorRowClick()) {
 	        return;
 	    }
-	    if (MouseIn(1885, 245, 90, 90)) {
+	    if (!state.poseSwitchMode && MouseIn(1885, 245, 90, 90)) {
 	        item.Property.Textures.splice(textureIndex, 1);
 	        state.currentEditTexture = -1;
 	        state.tempTextureData = null;
@@ -2780,8 +3028,10 @@
 	        state._pendingTextureRefresh = false;
 	        state.currentListPage = 0;
 	        state.poseEditing = null;
-	        state.tempGlobalData = null;
 	        state.poseSwitchMode = false;
+	        state.poseSelectedList = [];
+	        state.poseComboList = [];
+	        state.poseComboIndex = 0;
 	        unregisterPoseHook();
 	        resetDragState();
 	        syncItemToServer(item);
@@ -2789,7 +3039,7 @@
 	        if (C) CharacterRefresh(C, false, false);
 	        return;
 	    }
-	    if (MouseIn(1885, 135, 90, 90)) {
+	    if (!state.poseSwitchMode && MouseIn(1885, 135, 90, 90)) {
 	        const toIntOr = (val, fallback) => {
 	            const n = parseInt(val, 10);
 	            return Number.isFinite(n) ? n : fallback;
@@ -2822,8 +3072,10 @@
 	        state._pendingTextureRefresh = false;
 	        state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
 	        state.poseEditing = null;
-	        state.tempGlobalData = null;
 	        state.poseSwitchMode = false;
+	        state.poseSelectedList = [];
+	        state.poseComboList = [];
+	        state.poseComboIndex = 0;
 	        unregisterPoseHook();
 	        resetDragState();
 	        const C = CharacterGetCurrent();
@@ -4360,6 +4612,11 @@
 	            state.originalOverridePriority = undefined;
 	            state.currentListPage = 0;
 	            state.currentView = "list";
+	            state.poseSwitchMode = false;
+	            state.poseSelectedList = [];
+	            state.poseComboList = [];
+	            state.poseComboIndex = 0;
+	            state.poseViewMode = false;
 	            resetDragState();
 	            unregisterPoseHook();
 	            removeEditPanelInputs();
