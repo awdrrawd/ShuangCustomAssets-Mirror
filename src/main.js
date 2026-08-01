@@ -10,6 +10,7 @@ import ModInfo from "./modInfo.js";
 import { registerAssets, initAssets } from "./lib/assetManager.js";
 import { Logger } from "./lib/utils.js";
 import { setupGifAnimationHooks } from "./lib/gifAnimationLoop.js";
+import { setupModTagHooks } from "./lib/modTag.js";
 import assets from "./assets/index.js";
 import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
 import { registerExtensionSetting } from "./assets/settings.js";
@@ -33,6 +34,8 @@ function init() {
         setupDialogHooks(HookManager);
         // 注册画面切换 / 登入时的动图续播钩子
         setupGifAnimationHooks(HookManager);
+        // 注册 mod 安装状态广播与状态图标（Hidden 消息收发 + 角色第二行图标）
+        setupModTagHooks(HookManager);
         // 注册扩展设置页面（玩家登录后可用）
         HookManager.afterPlayerLogin(() => {
             registerExtensionSetting();
