@@ -3845,6 +3845,7 @@
 	        });
 	}
 
+	const TEXTURE_GROUPS = new Set(ALL_ITEM_GROUPS);
 	function setupDialogHooks(HookManager) {
 	    if (typeof DrawAssetGroupZone === "function") {
 	        HookManager.hookFunction("DrawAssetGroupZone", 0, (args, next) => {
@@ -3871,6 +3872,19 @@
 	                }
 	                returnToListFromSubview();
 	                return;
+	            }
+	            return next(args);
+	        });
+	    }
+	    if (typeof InventoryGroupIsBlockedForCharacter === "function") {
+	        HookManager.hookFunction("InventoryGroupIsBlockedForCharacter", 0, (args, next) => {
+	            const C = args[0];
+	            const GroupName = args[1];
+	            if (C?.Appearance && TEXTURE_GROUPS.has(GroupName)) {
+	                const hasTexture = C.Appearance.some(
+	                    i => i.Asset?.Group?.Name === GroupName && i.Asset?.Name === ASSET_NAME
+	                );
+	                if (hasTexture) return false;
 	            }
 	            return next(args);
 	        });
@@ -4022,6 +4036,7 @@
 	            const assetObj = AssetGet("Female3DCG", group, asset.Name);
 	            if (assetObj) {
 	                assetObj.AllowHide = allAllowHide;
+	                assetObj.Block = [];
 	                if (assetObj.Wear === undefined) assetObj.Wear = true;
 	                if (assetObj.Enable === undefined) assetObj.Enable = true;
 	            }
