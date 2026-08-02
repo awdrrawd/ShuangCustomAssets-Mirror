@@ -4,7 +4,7 @@
  */
 
 import { Logger, L, isChineseLang } from "@lib/utils.js";
-import { BADGE_IMAGE_URL } from "./constants.js";
+import { BADGE_IMAGE_URL, ASSET_NAME } from "./constants.js";
 
 // === 常量 ===
 const EXTENSION_ID = "ShuangCustomAssets";
@@ -41,8 +41,13 @@ const DEFAULT_ALLOWED_DOMAINS = [
 ];
 
 // 设置页面状态
-let settingsPage = "main"; // "main" | "modeSelect" | "whitelist" | "unrestrictedConfirm"
+let settingsPage = "main"; // "main" | "modeSelect" | "whitelist" | "unrestrictedConfirm" | "roomScan"
 let whitelistPage = 0; // 白名单管理页面当前页码（0-indexed）
+let roomScanPage = 0; // 房间扫描页面当前页码（0-indexed）
+let roomScanResults = null; // 房间扫描结果缓存（null=需重新计算）
+let _copiedDomain = ""; // 最近复制的域名（用于"已复制"反馈）
+let _copiedTime = 0; // 复制时间戳
+let roomScanPendingDomain = null; // 房间扫描-待确认的信任域名
 
 // === 设置存储 ===
 
@@ -229,6 +234,9 @@ export function registerExtensionSetting() {
         load: () => {
             settingsPage = "main";
             whitelistPage = 0;
+            roomScanPage = 0;
+            roomScanResults = null;
+            roomScanPendingDomain = null;
             _createDomainInput();
             _createGifFpsInput();
         },
@@ -242,6 +250,8 @@ export function registerExtensionSetting() {
                 _drawWhitelistPage();
             } else if (settingsPage === "unrestrictedConfirm") {
                 _drawUnrestrictedConfirmPage();
+            } else if (settingsPage === "roomScan") {
+                _drawRoomScanPage();
             }
             _updateInputPosition();
             MainCanvas.textAlign = "center";
@@ -255,6 +265,8 @@ export function registerExtensionSetting() {
                 _clickWhitelistPage();
             } else if (settingsPage === "unrestrictedConfirm") {
                 _clickUnrestrictedConfirmPage();
+            } else if (settingsPage === "roomScan") {
+                _clickRoomScanPage();
             }
         },
         exit: () => {
@@ -262,6 +274,9 @@ export function registerExtensionSetting() {
             _removeGifFpsInput();
             settingsPage = "main";
             whitelistPage = 0;
+            roomScanPage = 0;
+            roomScanResults = null;
+            roomScanPendingDomain = null;
             return true;
         },
         unload: () => {
@@ -269,6 +284,9 @@ export function registerExtensionSetting() {
             _removeGifFpsInput();
             settingsPage = "main";
             whitelistPage = 0;
+            roomScanPage = 0;
+            roomScanResults = null;
+            roomScanPendingDomain = null;
         },
     });
 
@@ -430,6 +448,8 @@ function _drawWhitelistPage() {
         L("将白名单复制到剪贴板", "Copy the whitelist to clipboard"));
     DrawButton(1030, ieY - 17, 120, 35, L("导入配置", "Import"), "#2196F3", "#42A5F5", false,
         L("从 JSON 导入白名单", "Import a whitelist from JSON"));
+    DrawButton(1180, ieY - 17, 140, 35, L("扫描房间", "Scan Room"), "#B3E5FC",
+        null, L("扫描当前房间内所有玩家的不可信贴图域名", "Scan all players in the current room for untrusted texture domains"));
 
     // 返回按钮
     DrawButton(800, 720, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
@@ -720,6 +740,14 @@ function _clickWhitelistPage() {
         return;
     }
 
+    // 扫描房间
+    if (MouseIn(1180, ieY - 17, 140, 35)) {
+        settingsPage = "roomScan";
+        roomScanPage = 0;
+        roomScanResults = null;
+        return;
+    }
+
     // 返回按钮
     if (MouseIn(800, 720, 400, 60)) {
         settingsPage = "main";
@@ -842,4 +870,330 @@ function _createGifFpsInput() {
 function _removeGifFpsInput() {
     const input = document.getElementById(GIF_FPS_INPUT_ID);
     if (input) input.remove();
+}
+
+// === 房间不可信域名扫描 ===
+
+/**
+ * 复制文本到剪贴板（带降级方案）
+ */
+function _copyToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch(() => _fallbackCopy(text));
+    } else {
+        _fallbackCopy(text);
+    }
+}
+function _fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch {}
+    document.body.removeChild(ta);
+}
+
+/**
+ * 遍历当前房间所有玩家的自定义贴图道具，收集所有不在白名单中的贴图 URL
+ * 同时检查全局 TextureURL 和 PoseSettings 中各姿势覆盖的 TextureURL
+ * 按 (玩家名, URL) 去重，避免同一玩家的同一 URL（可能出现在多个图层/姿势）重复显示
+ * @returns {{name: string, url: string, domain: string}[]}
+ */
+function collectUntrustedUrls() {
+    const results = [];
+    const chars = [];
+    if (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)) {
+        chars.push(...ChatRoomCharacter);
+    }
+    // 确保 Player 始终被扫描：在房间时 Player 已在 ChatRoomCharacter 中，
+    // 不在房间时仍可扫描自己的贴图
+    if (typeof Player !== "undefined" && Player && !chars.includes(Player)) {
+        chars.push(Player);
+    }
+
+    for (const C of chars) {
+        if (!C || !C.Appearance) continue;
+        // 优先用 CharacterNickname 获取显示名，回退到 AccountName
+        const name = (typeof CharacterNickname === "function")
+            ? (CharacterNickname(C) || C.Name || "Unknown")
+            : (C.Name || "Unknown");
+
+        for (const item of C.Appearance) {
+            if (!item?.Asset || item.Asset.Name !== ASSET_NAME) continue;
+            const textures = item?.Property?.Textures;
+            if (!Array.isArray(textures)) continue;
+
+            for (const texture of textures) {
+                if (!texture) continue;
+                // 全局 URL
+                _addIfUntrusted(results, name, texture.TextureURL);
+                // 姿势级 URL（不同姿势可能使用不同贴图源）
+                if (texture.PoseSettings && typeof texture.PoseSettings === "object") {
+                    for (const ps of Object.values(texture.PoseSettings)) {
+                        if (ps && typeof ps === "object") {
+                            _addIfUntrusted(results, name, ps.TextureURL);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 按 (玩家名, URL) 去重
+    const seen = new Set();
+    return results.filter(r => {
+        const key = r.name + "|" + r.url;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+/**
+ * 若 URL 不可信则加入结果数组
+ */
+function _addIfUntrusted(results, name, url) {
+    if (!url || typeof url !== "string") return;
+    if (isDomainInWhitelist(url)) return; // 可信，跳过
+    const domain = extractDomain(url);
+    if (!domain) return;
+    results.push({ name, url, domain });
+}
+
+/**
+ * 获取缓存的扫描结果，未计算时自动计算
+ */
+function _getRoomScanResults() {
+    if (roomScanResults === null) {
+        roomScanResults = collectUntrustedUrls();
+    }
+    return roomScanResults;
+}
+
+/**
+ * 强制重新计算扫描结果（添加域名后调用）
+ */
+function _refreshRoomScanResults() {
+    roomScanResults = collectUntrustedUrls();
+    // 刷新后若当前页越界则回退
+    const maxShow = 8;
+    const totalPages = Math.max(1, Math.ceil(roomScanResults.length / maxShow));
+    if (roomScanPage >= totalPages) roomScanPage = totalPages - 1;
+    if (roomScanPage < 0) roomScanPage = 0;
+}
+
+/**
+ * 绘制房间扫描-添加可信域名确认页（文案与道具编辑中的确认页一致）
+ */
+function _drawRoomScanConfirm() {
+    DrawText(L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠"), 1000, 200, "Red", "Gray");
+
+    let y = 260;
+    const lines = isChineseLang() ? [
+        { t: `即将添加域名到白名单: ${roomScanPendingDomain}`, c: "Cyan" },
+        { t: "", c: "White" },
+        { t: "添加后，来自该域名的贴图 URL 将被允许加载", c: "White" },
+        { t: "", c: "White" },
+        { t: "请注意以下风险：", c: "White" },
+        { t: "1. 请确认您信任该域名提供者", c: "White" },
+        { t: "2. 该域名的所有 URL 都将被加载", c: "White" },
+        { t: "3. 恶意域名可能用于追踪您的 IP 地址", c: "White" },
+        { t: "4. 恶意域名可能导致隐私信息泄露", c: "White" },
+        { t: "", c: "White" },
+        { t: "确定要添加此域名到可信列表吗？", c: "Red" },
+    ] : [
+        { t: `About to add domain to whitelist: ${roomScanPendingDomain}`, c: "Cyan" },
+        { t: "", c: "White" },
+        { t: "Once added, texture URLs from this domain will be allowed", c: "White" },
+        { t: "", c: "White" },
+        { t: "Please note the following risks:", c: "White" },
+        { t: "1. Make sure you trust this domain's provider", c: "White" },
+        { t: "2. All URLs from this domain will be loaded", c: "White" },
+        { t: "3. A malicious domain may track your IP address", c: "White" },
+        { t: "4. A malicious domain may leak private info", c: "White" },
+        { t: "", c: "White" },
+        { t: "Add this domain to the trusted list?", c: "Red" },
+    ];
+
+    for (const line of lines) {
+        DrawText(line.t, 1000, y, line.c, "Black");
+        y += 32;
+    }
+
+    y += 10;
+    DrawButton(750, y, 220, 50, L("确认添加", "Add"), "#4CAF50", "#66BB6A", false,
+        L(`将 ${roomScanPendingDomain} 加入白名单`, `Add ${roomScanPendingDomain} to whitelist`));
+    DrawButton(1030, y, 220, 50, L("取消", "Cancel"), "#9E9E9E", "#BDBDBD", false,
+        L("放弃添加并返回", "Discard and go back"));
+}
+
+function _drawRoomScanPage() {
+    const settings = getSettings();
+
+    DrawText(L("房间不可信域名扫描", "Room Untrusted Domain Scan"), 1000, 100, "Black", "Gray");
+
+    // 非白名单模式下此功能无意义
+    if (settings.urlLoadMode !== "whitelist") {
+        DrawText(L("此功能仅在白名单模式下可用", "This feature is only available in Whitelist mode"), 1000, 220, "Gray", "White");
+        DrawText(L("请先切换到白名单模式", "Please switch to Whitelist mode first"), 1000, 260, "Gray", "White");
+        DrawButton(800, 720, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
+        DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
+        return;
+    }
+
+    // 确认添加域名
+    if (roomScanPendingDomain) {
+        _drawRoomScanConfirm();
+        DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
+        return;
+    }
+
+    // 不在房间时仍扫描自己（collectUntrustedUrls 会兜底加入 Player）
+    const inRoom = typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.length > 0;
+    const results = _getRoomScanResults();
+
+    DrawText(inRoom
+        ? L("当前房间内所有玩家身上的不可信贴图域名", "Untrusted texture domains from all players in the current room")
+        : L("当前不在房间中，仅扫描了自己的贴图", "Not in a room, only your own textures were scanned"),
+        1000, 140, "Gray", "White");
+
+    if (results.length === 0) {
+        DrawText(L("✔ 未发现不可信域名", "✔ No untrusted domains found"), 1000, 300, "#4CAF50", "White");
+        DrawText(L("当前房间内所有玩家的贴图域名均已在白名单中", "All texture domains in the current room are already whitelisted"), 1000, 340, "Gray", "White");
+    } else {
+        DrawText(L(`发现 ${results.length} 个不可信域名`, `${results.length} untrusted domains found`), 1000, 175, "Orange", "White");
+
+        // 列表布局
+        const listStartY = 210;
+        const lineH = 50;
+        const maxShow = 8;
+        const totalPages = Math.max(1, Math.ceil(results.length / maxShow));
+        if (roomScanPage >= totalPages) roomScanPage = totalPages - 1;
+        if (roomScanPage < 0) roomScanPage = 0;
+        const pageStart = roomScanPage * maxShow;
+        const pageEnd = Math.min(pageStart + maxShow, results.length);
+
+        for (let i = pageStart; i < pageEnd; i++) {
+            const displayIdx = i - pageStart;
+            const y = listStartY + displayIdx * lineH;
+            const r = results[i];
+            const nameStr = r.name.length > 12 ? r.name.substring(0, 12) + "…" : r.name;
+            const domainDisplay = r.domain.length > 30 ? r.domain.substring(0, 30) + "…" : r.domain;
+            const urlDisplay = r.url.length > 45 ? r.url.substring(0, 45) + "…" : r.url;
+            const justCopiedDomain = r.domain === _copiedDomain && Date.now() - _copiedTime < 1500;
+            const justCopiedUrl = r.url === _copiedDomain && Date.now() - _copiedTime < 1500;
+
+            _drawTextLeft(`${i + 1}. ${nameStr}`, 250, y, "Black", "White");
+            // 域名按钮：悬停显示完整域名，点击复制
+            DrawButton(420, y - 18, 400, 36,
+                justCopiedDomain ? L("✔ 已复制", "✔ Copied") : domainDisplay,
+                justCopiedDomain ? "#4CAF50" : "White",
+                null, r.domain);
+            // URL 按钮：悬停显示完整 URL，点击复制
+            DrawButton(840, y - 18, 640, 36,
+                justCopiedUrl ? L("✔ 已复制", "✔ Copied") : urlDisplay,
+                justCopiedUrl ? "#4CAF50" : "White",
+                null, r.url);
+            // 信任按钮
+            DrawButton(1500, y - 18, 140, 36, L("信任", "Trust"), "#4CAF50", "#66BB6A", false,
+                L(`将 ${r.domain} 加入白名单`, `Add ${r.domain} to whitelist`));
+        }
+
+        // 翻页控制
+        const paginationY = listStartY + maxShow * lineH + 10;
+        const hasPrev = roomScanPage > 0;
+        const hasNext = roomScanPage < totalPages - 1;
+        DrawText(L(`第 ${roomScanPage + 1}/${totalPages} 页  (共 ${results.length} 个)`,
+            `Page ${roomScanPage + 1}/${totalPages}  (${results.length} items)`), 1000, paginationY, "Gray", "White");
+        DrawButton(1180, paginationY - 17, 80, 35, L("上一页", "Prev"), "#555555", "#777777", !hasPrev,
+            L("上一页", "Previous page"));
+        DrawButton(1270, paginationY - 17, 80, 35, L("下一页", "Next"), "#555555", "#777777", !hasNext,
+            L("下一页", "Next page"));
+    }
+
+    DrawButton(800, 720, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
+    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
+}
+
+function _clickRoomScanPage() {
+    const settings = getSettings();
+
+    if (MouseIn(1815, 75, 90, 90)) {
+        PreferenceSubscreenExtensionsClear();
+        return;
+    }
+
+    // 确认添加域名
+    if (roomScanPendingDomain) {
+        const confirmY = 260 + 32 * 11 + 10;
+        if (MouseIn(750, confirmY, 220, 50)) {
+            const success = addDomainToWhitelist(roomScanPendingDomain);
+            if (success) Logger.info(`从房间扫描添加可信域名: ${roomScanPendingDomain}`);
+            roomScanPendingDomain = null;
+            _refreshRoomScanResults();
+            return;
+        }
+        if (MouseIn(1030, confirmY, 220, 50)) {
+            roomScanPendingDomain = null;
+            return;
+        }
+        return;
+    }
+
+    if (MouseIn(800, 720, 400, 60)) {
+        settingsPage = "whitelist";
+        roomScanPage = 0;
+        roomScanResults = null;
+        return;
+    }
+
+    // 非白名单模式时无列表可点
+    if (settings.urlLoadMode !== "whitelist") return;
+
+    const results = _getRoomScanResults();
+    if (results.length === 0) return;
+
+    const listStartY = 210;
+    const lineH = 50;
+    const maxShow = 8;
+    const totalPages = Math.max(1, Math.ceil(results.length / maxShow));
+
+    // 域名按钮 + URL 按钮 + 信任按钮
+    for (let i = 0; i < maxShow; i++) {
+        const idx = roomScanPage * maxShow + i;
+        if (idx >= results.length) break;
+        const y = listStartY + i * lineH;
+        // 域名按钮 - 点击复制域名
+        if (MouseIn(420, y - 18, 400, 36)) {
+            _copyToClipboard(results[idx].domain);
+            _copiedDomain = results[idx].domain;
+            _copiedTime = Date.now();
+            return;
+        }
+        // URL 按钮 - 点击复制完整 URL
+        if (MouseIn(840, y - 18, 640, 36)) {
+            _copyToClipboard(results[idx].url);
+            _copiedDomain = results[idx].url;
+            _copiedTime = Date.now();
+            return;
+        }
+        // 信任按钮 - 弹出确认
+        if (MouseIn(1500, y - 18, 140, 36)) {
+            roomScanPendingDomain = results[idx].domain;
+            return;
+        }
+    }
+
+    // 翻页控制
+    const paginationY = listStartY + maxShow * lineH + 10;
+    const hasPrev = roomScanPage > 0;
+    const hasNext = roomScanPage < totalPages - 1;
+    if (hasPrev && MouseIn(1180, paginationY - 17, 80, 35)) {
+        roomScanPage--;
+        return;
+    }
+    if (hasNext && MouseIn(1270, paginationY - 17, 80, 35)) {
+        roomScanPage++;
+        return;
+    }
 }
