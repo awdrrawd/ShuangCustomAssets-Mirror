@@ -462,8 +462,8 @@ export const LOGIN_BADGE_TEXTURE = {
     TextureURL: BADGE_IMAGE_URL,
     OffsetX: 153,
     OffsetY: -200,
-    ScaleX: 21,
-    ScaleY: 21,
+    ScaleX: 50,
+    ScaleY: 50,
     Rotation: 0,
     Opacity: 100,
     Visible: true

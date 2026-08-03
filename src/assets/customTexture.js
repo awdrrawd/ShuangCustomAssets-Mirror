@@ -26,10 +26,22 @@ import {
 } from "./listView.js";
 import { drawTutorial, handleTutorialClick } from "./tutorial.js";
 import { renderTexture } from "./render.js";
+import { L } from "@lib/utils.js";
 
 // 为 main.js 向后兼容重新导出
 export { setupLoginBadge } from "./loginBadge.js";
 export { setupDialogHooks } from "./dialogHooks.js";
+
+/**
+ * 检查道具是否被锁且当前玩家无权解锁
+ * noarch archetype 的 ChangeWhenLocked 不会自动生效，需手动检查
+ */
+function isItemLockedForPlayer(item) {
+    if (!item?.Property?.LockedBy) return false;
+    const C = CharacterGetCurrent();
+    if (!C) return false;
+    return !DialogCanUnlock(C, item);
+}
 
 /**
  * 道具定义
@@ -157,6 +169,11 @@ const extended = {
             } else {
                 drawTextureListMain(item);
             }
+
+            // 锁状态指示器：道具被锁且当前玩家无权解锁时，在顶部显示红色提示
+            if (isItemLockedForPlayer(item)) {
+                DrawText(L("已上锁", "Locked"), 1500, 95, "#FF4444", "Black");
+            }
         },
 
         Click: (data, originalFunction) => {
@@ -181,6 +198,21 @@ const extended = {
 
             originalFunction();
             if (!item) return;
+
+            // 锁权限检查：道具被锁且当前玩家无权解锁时，阻止所有自定义操作
+            // noarch archetype 不会自动检查 ChangeWhenLocked，需在此手动拦截
+            // 例外：允许翻页浏览（列表页翻页按钮 1885,810,90,90）
+            const isLocked = isItemLockedForPlayer(item);
+            const isPaginationClick = state.currentView === "list"
+                && state.currentEditTexture < 0
+                && MouseIn(1885, 810, 90, 90);
+            if (isLocked && !isPaginationClick) {
+                DialogExtendedMessage = L(
+                    "此道具已上锁，无权限的玩家无法修改配置",
+                    "This item is locked. Players without permission cannot modify configuration."
+                );
+                return;
+            }
 
             if (state.currentView === "addDomainConfirm") {
                 handleAddDomainConfirmClick(item, data);

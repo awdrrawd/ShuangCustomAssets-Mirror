@@ -105,7 +105,7 @@ export function renderTexture(data, originalFunction, drawData) {
         imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
         offsetX = 167;
         offsetY = -256;
-        scaleX = scaleY = 16 / 100;
+        scaleX = scaleY = 50 / 100;
         rotation = 0;
         displayOpacity = 1.0;
         mirrorH = false;
