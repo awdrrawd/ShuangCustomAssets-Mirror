@@ -5,7 +5,7 @@
 
 import {
     MAX_TEXTURE_COUNT, TEXTURES_PER_PAGE,
-    DEFAULT_TEXTURE, DEFAULT_PROPS, HIDE_CATEGORIES
+    DEFAULT_TEXTURE, DEFAULT_PROPS, HIDE_CATEGORIES, trimTrailingNulls
 } from "./constants.js";
 import { state, resetDragState, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
@@ -159,71 +159,71 @@ export function drawTextureListMain(item) {
     const textures = item.Property?.Textures || [];
 
     DrawText(L("贴图管理", "Texture Manager"), 1500, 360, "White", "Gray");
-    DrawText(L(`已添加${textures.length}个贴图（最多${MAX_TEXTURE_COUNT}个）`,
-        `${textures.length} textures added (max ${MAX_TEXTURE_COUNT})`), 1505, 410, "#ebfe58", "Gray");
+    const usedSlots = textures.filter(t => t != null).length;
+    DrawText(L(`已使用 ${usedSlots}/${MAX_TEXTURE_COUNT} 个槽位`,
+        `${usedSlots}/${MAX_TEXTURE_COUNT} slots used`), 1505, 410, "#ebfe58", "Gray");
 
     // 隐藏设置跳转（右上角图标按钮）
     DrawButton(1665, 25, 90, 90, "", "White", "Icons/Private.png",
         L("隐藏设置：隐藏身体部位/服饰等", "Hide settings: hide body parts / clothing"));
 
+    // 教程按钮（确认并退出按钮下方）
+    DrawButton(1885, 235, 90, 90, "", "White", "Icons/Question.png",
+        L("使用教程", "Tutorial"));
+
     const startY = 450;
     const itemHeight = 60;
-    // 新增按钮基准 Y 与每多一层的下移步长
-    const ADD_BTN_BASE_Y = 450;
-    const ADD_BTN_STEP = 60;
 
-    // 分页计算
-    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+    // 分页计算：基于固定 16 个槽位
+    const totalPages = Math.max(1, Math.ceil(MAX_TEXTURE_COUNT / TEXTURES_PER_PAGE));
     if (state.currentListPage >= totalPages) state.currentListPage = totalPages - 1;
     if (state.currentListPage < 0) state.currentListPage = 0;
     const pageStart = state.currentListPage * TEXTURES_PER_PAGE;
-    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
-    // 当前页已有的图层数（0~TEXTURES_PER_PAGE）
-    const itemsOnPage = pageEnd - pageStart;
+    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, MAX_TEXTURE_COUNT);
 
     for (let i = pageStart; i < pageEnd; i++) {
         const y = startY + (i - pageStart) * itemHeight;
         const texture = textures[i];
 
-        const urlPreview = texture?.TextureURL
-            ? (texture.TextureURL.length > 12 ? texture.TextureURL.substring(0, 12) + "..." : texture.TextureURL)
-            : "(空)";
+        DrawText(L(`槽位${i + 1}:`, `Slot ${i + 1}:`), 1100, y + 20, "White");
 
-        DrawText(L(`图层${i + 1} :`, `Layer ${i + 1}:`), 1100, y + 20, "White");
-        DrawButton(1200, y, 400, 40, urlPreview, "White", null,
-            texture?.TextureURL || L("(空)", "(empty)"), false);
+        if (texture) {
+            // 已使用槽位：别名/URL 预览、显示/隐藏开关、编辑按钮、信任按钮
+            const urlPreview = texture.TextureURL
+                ? (texture.TextureURL.length > 12 ? texture.TextureURL.substring(0, 12) + "..." : texture.TextureURL)
+                : L("(空)", "(empty)");
+            const displayText = texture.Alias || urlPreview;
 
-        // 可见开关
-        const isVisible = texture?.Visible !== false;
-        DrawButton(1620, y, 100, 40, isVisible ? L("显示", "Shown") : L("隐藏", "Hidden"),
-            isVisible ? "#4CAF50" : "#666666", null,
-            L("点击切换该图层显示/隐藏", "Toggle this layer's visibility"), false);
+            DrawButton(1200, y, 400, 40, displayText, "White", null,
+                L("点击修改别名", "Click to edit alias"), false);
 
-        DrawButton(1740, y, 100, 40, L("编辑", "Edit"), "White", null,
-            L("编辑该图层的 URL 与参数", "Edit this layer's URL and parameters"), false);
+            const isVisible = texture.Visible !== false;
+            DrawButton(1620, y, 100, 40, isVisible ? L("显示", "Shown") : L("隐藏", "Hidden"),
+                isVisible ? "#4CAF50" : "#666666", null,
+                L("点击切换该图层显示/隐藏", "Toggle this layer's visibility"), false);
 
-        // 信任按钮：白名单模式下，URL 域名不在白名单时显示
-        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL)) {
-            DrawButton(1860, y, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
-                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
+            DrawButton(1740, y, 100, 40, L("编辑", "Edit"), "White", null,
+                L("编辑该图层的 URL 与参数", "Edit this layer's URL and parameters"), false);
+
+            if (texture.TextureURL && !isDomainInWhitelist(texture.TextureURL)) {
+                DrawButton(1860, y, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
+                    L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
+            }
+        } else {
+            // 空槽位：显示添加按钮
+            DrawButton(1200, y, 400, 40, L("（空槽位）", "(empty slot)"), "#333333", null,
+                L("点击添加贴图到此槽位", "Click to add a texture to this slot"), false);
+            DrawButton(1740, y, 100, 40, L("添加", "Add"), "#D4FFD4", null,
+                L("在此槽位添加新贴图", "Add a new texture to this slot"), false);
         }
     }
 
-    // 新增按钮：紧跟在当前页最后一个图层后面，1 个时 500，2 个时 560，每多一层再 +60；
-    // 当本页已满 6 层时，按钮停在对应位置，点击后新图层会落到下一页（沿用原本翻页逻辑）
-    if (textures.length < MAX_TEXTURE_COUNT) {
-        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
-        DrawButton(1450, addBtnY, 90, 90, "", "White", "Icons/Plus.png",
-            L("添加一个新贴图图层", "Add a new texture layer"));
-    }
-
-    // 底部按钮固定位置，基于每页最大行数计算，不随本页图层数变化
+    // 底部按钮固定位置
     const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
 
-    // 翻页按钮：只有「下一页」，循环到最后一页后自动跳回第一页，不显示页码
-    // 仅当图层总数 >= 7（即超过一页）时才显示
+    // 翻页按钮：16 个槽位 = 3 页，始终显示
     const hasPages = totalPages > 1;
-    if (textures.length >= 7) {
+    if (hasPages) {
         DrawButton(1885, 810, 90, 90, "", "White", "Icons/Down.png",
             L("下一页", "Next page"), !hasPages);
     }
@@ -258,78 +258,87 @@ export function handleTextureListClick(item, data) {
         return;
     }
 
+    // 教程按钮
+    if (MouseIn(1885, 235, 90, 90)) {
+        state.currentView = "tutorial";
+        state.tutorialPage = 0;
+        return;
+    }
+
     const startY = 450;
     const itemHeight = 60;
-    const ADD_BTN_BASE_Y = 450;
-    const ADD_BTN_STEP = 60;
 
-    // 分页计算
-    const totalPages = Math.max(1, Math.ceil(textures.length / TEXTURES_PER_PAGE));
+    // 分页计算：基于固定 16 个槽位
+    const totalPages = Math.max(1, Math.ceil(MAX_TEXTURE_COUNT / TEXTURES_PER_PAGE));
     if (state.currentListPage >= totalPages) state.currentListPage = totalPages - 1;
     if (state.currentListPage < 0) state.currentListPage = 0;
     const pageStart = state.currentListPage * TEXTURES_PER_PAGE;
-    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, textures.length);
-    const itemsOnPage = pageEnd - pageStart;
+    const pageEnd = Math.min(pageStart + TEXTURES_PER_PAGE, MAX_TEXTURE_COUNT);
 
     for (let i = pageStart; i < pageEnd; i++) {
         const y = startY + (i - pageStart) * itemHeight;
         const texture = textures[i];
-        // 可见开关
-        if (MouseIn(1620, y, 100, 40)) {
-            textures[i].Visible = textures[i].Visible === false ? true : false;
-            // 切换可见性后立即同步到服务器
-            syncItemToServer(item);
-            const C = CharacterGetCurrent();
-            if (C) CharacterRefresh(C, false, false);
-            return;
-        }
-        // 编辑按钮
-        if (MouseIn(1740, y, 100, 40)) {
-            state.currentEditTexture = i;
-            // 深拷贝：PoseSettings 是引用类型，浅拷贝会导致取消编辑时无法还原
-            state.tempTextureData = JSON.parse(JSON.stringify(textures[i]));
-            state.originalEditTexture = JSON.parse(JSON.stringify(textures[i]));
-            if (!data.PersistentData) data.PersistentData = {};
-            data.PersistentData._originalTexture = JSON.parse(JSON.stringify(textures[i]));
-            createEditInputs(textures[i]);
-            resetDragState();
-            return;
-        }
-        // 信任按钮
-        if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1860, y, 100, 40)) {
-            const domain = extractDomain(texture.TextureURL);
-            if (domain) {
-                state.pendingDomainToAdd = domain;
-                state.currentView = "addDomainConfirm";
+
+        if (texture) {
+            // 已使用槽位：别名编辑、可见开关、编辑、信任按钮
+            // 槽位按钮：点击修改别名
+            if (MouseIn(1200, y, 400, 40)) {
+                const current = texture.Alias || "";
+                const newAlias = prompt(L("请输入图层别名（留空清除别名）：", "Enter layer alias (leave empty to clear):"), current);
+                if (newAlias !== null) {
+                    texture.Alias = newAlias.trim();
+                    syncItemToServer(item);
+                }
+                return;
             }
-            return;
+            // 可见开关
+            if (MouseIn(1620, y, 100, 40)) {
+                textures[i].Visible = textures[i].Visible === false ? true : false;
+                syncItemToServer(item);
+                const C = CharacterGetCurrent();
+                if (C) CharacterRefresh(C, false, false);
+                return;
+            }
+            if (MouseIn(1740, y, 100, 40)) {
+                state.currentEditTexture = i;
+                state.tempTextureData = JSON.parse(JSON.stringify(textures[i]));
+                state.originalEditTexture = JSON.parse(JSON.stringify(textures[i]));
+                if (!data.PersistentData) data.PersistentData = {};
+                data.PersistentData._originalTexture = JSON.parse(JSON.stringify(textures[i]));
+                createEditInputs(textures[i]);
+                resetDragState();
+                return;
+            }
+            if (texture?.TextureURL && !isDomainInWhitelist(texture.TextureURL) && MouseIn(1860, y, 100, 40)) {
+                const domain = extractDomain(texture.TextureURL);
+                if (domain) {
+                    state.pendingDomainToAdd = domain;
+                    state.currentView = "addDomainConfirm";
+                }
+                return;
+            }
+        } else {
+            // 空槽位：点击"添加"或空槽位区域 = 新增贴图到此槽位
+            if (MouseIn(1740, y, 100, 40) || MouseIn(1200, y, 400, 40)) {
+                const newTexture = JSON.parse(JSON.stringify(DEFAULT_TEXTURE));
+                if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+                if (!item.Property.Textures) item.Property.Textures = [];
+                item.Property.Textures[i] = newTexture;
+                state.currentEditTexture = i;
+                state.tempTextureData = JSON.parse(JSON.stringify(newTexture));
+                state.originalEditTexture = null;
+                if (!data.PersistentData) data.PersistentData = {};
+                data.PersistentData._originalTexture = JSON.parse(JSON.stringify(newTexture));
+                createEditInputs(newTexture);
+                resetDragState();
+                return;
+            }
         }
     }
 
-    // 新增按钮：位置跟随当前页图层数量浮动，需与绘制逻辑保持一致
-    if (textures.length < MAX_TEXTURE_COUNT) {
-        const addBtnY = ADD_BTN_BASE_Y + itemsOnPage * ADD_BTN_STEP;
-        if (MouseIn(1450, addBtnY, 90, 90)) {
-            // 深拷贝 DEFAULT_TEXTURE，避免 PoseSettings 引用共享
-            const newTexture = JSON.parse(JSON.stringify(DEFAULT_TEXTURE));
-            item.Property.Textures.push(newTexture);
-            state.currentEditTexture = textures.length - 1;
-            state.tempTextureData = JSON.parse(JSON.stringify(newTexture));
-            state.originalEditTexture = null; // 新增的图层没有「原始数据」，退出=删除该空图层
-            if (!data.PersistentData) data.PersistentData = {};
-            data.PersistentData._originalTexture = JSON.parse(JSON.stringify(newTexture));
-            createEditInputs(newTexture);
-            resetDragState();
-            return;
-        }
-    }
-
-    // 按钮位置固定基于每页最大行数，不随本页图层数变化
-    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
+    // 翻页按钮
     const hasPages = totalPages > 1;
-
-    // 翻页按钮：只有「下一页」，循环到最后一页后跳回第一页（仅图层>=7时可用）
-    if (textures.length >= 7 && hasPages && MouseIn(1885, 810, 90, 90)) {
+    if (hasPages && MouseIn(1885, 810, 90, 90)) {
         state.currentListPage = (state.currentListPage + 1) % totalPages;
         return;
     }
@@ -356,6 +365,7 @@ export function handleTextureListClick(item, data) {
     }
 
     // 导入导出按钮
+    const btnY = startY + TEXTURES_PER_PAGE * itemHeight;
     const ioBtnY = btnY + 120;
 
     // 导出配置
@@ -372,8 +382,9 @@ export function handleTextureListClick(item, data) {
 
     // 追加导入
     if (MouseIn(1610, ioBtnY, 200, 50)) {
-        // 预检查：当前图层已达上限，无法追加
-        if ((item.Property?.Textures || []).length >= MAX_TEXTURE_COUNT) {
+        // 预检查：当前已使用槽位达上限，无法追加
+        const usedSlots = (item.Property?.Textures || []).filter(t => t != null).length;
+        if (usedSlots >= MAX_TEXTURE_COUNT) {
             showStatus(L(`✘ 超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`,
                 `✘ Texture limit reached (max ${MAX_TEXTURE_COUNT})`), "#E53935");
             return;
@@ -397,8 +408,9 @@ export function returnToListFromSubview() {
                 // 编辑已存在图层：深拷贝还原（避免 PoseSettings 引用共享）
                 item.Property.Textures[state.currentEditTexture] = JSON.parse(JSON.stringify(state.originalEditTexture));
             } else {
-                // 新增但未确认的图层：取消即移除
-                item.Property.Textures.splice(state.currentEditTexture, 1);
+                // 新增但未确认的图层：取消即清空该槽位
+                item.Property.Textures[state.currentEditTexture] = null;
+                trimTrailingNulls(item.Property.Textures);
             }
             syncItemToServer(item);
             const C = CharacterGetCurrent();

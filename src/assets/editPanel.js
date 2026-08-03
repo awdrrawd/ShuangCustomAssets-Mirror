@@ -29,7 +29,7 @@ import {
     POSE_COMBO_LEFT_X, POSE_COMBO_RIGHT_X, POSE_COMBO_BTN_W, POSE_COMBO_NAME_Y,
     POSE_COMBO_DROPDOWN_ID, POSE_COMBO_DROPDOWN_X, POSE_COMBO_DROPDOWN_Y, POSE_COMBO_DROPDOWN_W, POSE_COMBO_DROPDOWN_H,
     POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y,
-    POSE_CATEGORIES
+    POSE_CATEGORIES, trimTrailingNulls
 } from "./constants.js";
 import { state, resetDragState, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
@@ -1519,9 +1519,10 @@ export function handleTextureEditClick(item, textureIndex, data) {
         return;
     }
 
-    // 删除此贴图（仅正常编辑模式）
+    // 删除此贴图（仅正常编辑模式）：清空槽位而非移除，保持其他槽位的渲染优先级不变
     if (!state.poseSwitchMode && MouseIn(1885, 245, 90, 90)) {
-        item.Property.Textures.splice(textureIndex, 1);
+        item.Property.Textures[textureIndex] = null;
+        trimTrailingNulls(item.Property.Textures);
         state.currentEditTexture = -1;
         state.tempTextureData = null;
         state.originalOverridePriority = undefined;

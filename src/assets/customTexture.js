@@ -24,6 +24,7 @@ import {
     drawHideSettings, handleHideSettingsClick,
     drawTextureListMain, handleTextureListClick
 } from "./listView.js";
+import { drawTutorial, handleTutorialClick } from "./tutorial.js";
 import { renderTexture } from "./render.js";
 
 // 为 main.js 向后兼容重新导出
@@ -46,6 +47,10 @@ const asset = {
     DynamicGroupName: "ItemMisc",
     AllowColorize: false,
     Extended: true,
+    AllowLock: true,       // 允许上锁
+    AllowTighten: true,    // 允许调节松紧度
+    DrawLocks: false,      // 不自动添加 Lock 图层（避免干扰 16 层贴图结构）
+    Difficulty: 2,         // 基础松紧度
     Layer: LAYER_NAMES.map(name => ({ Name: name, AllowColorize: false }))
 };
 
@@ -65,6 +70,7 @@ const layerNames = {
 const extended = {
     Archetype: "noarch",
     DrawImages: false,
+    ChangeWhenLocked: false, // 上锁后禁止切换配置（标准束缚道具行为）
     // 声明自定义属性的字段及默认值类型
     // BC 的 Crafting 系统会根据 baselineProperty 的键来决定保存哪些属性
     //
@@ -142,6 +148,8 @@ const extended = {
 
             if (state.currentView === "addDomainConfirm") {
                 drawAddDomainConfirm();
+            } else if (state.currentView === "tutorial") {
+                drawTutorial();
             } else if (state.currentEditTexture >= 0) {
                 drawTextureEditPanel(item, state.currentEditTexture, data);
             } else if (state.currentView === "hide") {
@@ -176,6 +184,8 @@ const extended = {
 
             if (state.currentView === "addDomainConfirm") {
                 handleAddDomainConfirmClick(item, data);
+            } else if (state.currentView === "tutorial") {
+                handleTutorialClick();
             } else if (state.currentEditTexture >= 0) {
                 handleTextureEditClick(item, state.currentEditTexture, data);
             } else if (state.currentView === "hide") {
@@ -211,6 +221,7 @@ const extended = {
             state.originalOverridePriority = undefined;
             state.currentListPage = 0;
             state.currentView = "list";
+            state.tutorialPage = 0;
             state.poseSwitchMode = false;
             state.poseSelectedList = [];
             state.poseComboList = [];
@@ -265,6 +276,9 @@ export default function register(AssetManager) {
                 assetObj.AllowHide = allAllowHide;
                 // 自定义贴图不应 block 任何其他部位（不阻止其他道具装备/使用）
                 assetObj.Block = [];
+                // 允许上锁和松紧度（SDK 可能不透传，在此确保）
+                assetObj.AllowLock = true;
+                assetObj.AllowTighten = true;
                 // 确保道具可用于制作系统（CraftingAssetsPopulate 会过滤 Wear/Enable）
                 if (assetObj.Wear === undefined) assetObj.Wear = true;
                 if (assetObj.Enable === undefined) assetObj.Enable = true;

@@ -2,7 +2,7 @@
  * 自定义贴图道具 - 配置导入/导出
  */
 
-import { LAYER_NAMES, MAX_TEXTURE_COUNT, HIDE_CATEGORIES, DEFAULT_PROPS, migrateScaleField } from "./constants.js";
+import { LAYER_NAMES, MAX_TEXTURE_COUNT, HIDE_CATEGORIES, DEFAULT_PROPS, migrateScaleField, trimTrailingNulls } from "./constants.js";
 import { state, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
 import { updateHideArray } from "./hideArray.js";
@@ -13,13 +13,14 @@ import { Logger, L } from "@lib/utils.js";
  */
 export function exportConfig(item) {
     const textures = item.Property?.Textures || [];
+    const usedCount = textures.filter(t => t != null).length;
     const overridePriority = (item.Property?.OverridePriority && typeof item.Property.OverridePriority === "object")
         ? item.Property.OverridePriority
         : {};
     const config = {
         type: "ShuangCustomAssets",
         version: 7,
-        textures: textures,
+        textures: textures, // 保留 null 以维持槽位位置
         overridePriority: overridePriority, // 图层优先级（键为 LayerN，值为 -99~99）
     };
 
@@ -32,8 +33,8 @@ export function exportConfig(item) {
     // 复制到剪贴板
     navigator.clipboard.writeText(json).then(() => {
         Logger.info("配置已复制到剪贴板");
-        showStatus(L(`✔ 已复制到剪贴板，共 ${textures.length} 个图层`,
-            `✔ Copied to clipboard, ${textures.length} layers`), "#4CAF50");
+        showStatus(L(`✔ 已复制到剪贴板，共 ${usedCount} 个图层`,
+            `✔ Copied to clipboard, ${usedCount} layers`), "#4CAF50");
     }).catch(err => {
         Logger.error("复制失败:", err);
         // 降级方案：创建下载
@@ -92,9 +93,11 @@ export function importConfig(item, mode) {
                 return Number.isFinite(n) ? n : fallback;
             };
             const validTextures = config.textures.map(t => {
+                if (t == null) return null; // 保留空槽位
                 // 兼容旧版单一 Scale 字段导出的配置文件：没有 ScaleX/ScaleY 时用旧 Scale 值填充两者
                 const legacyScale = toIntOr(t.Scale, 100);
                 const cleaned = {
+                    Alias: String(t.Alias || ""),
                     TextureURL: String(t.TextureURL || ""),
                     OffsetX: toIntOr(t.OffsetX, 0),
                     OffsetY: toIntOr(t.OffsetY, 0),
@@ -119,35 +122,56 @@ export function importConfig(item, mode) {
             if (!item.Property.Textures) item.Property.Textures = [];
 
             if (mode === "append") {
-                // 追加导入：将剪贴板图层追加到现有图层后
-                const currentCount = item.Property.Textures.length;
-                const totalCount = currentCount + validTextures.length;
-                if (totalCount > MAX_TEXTURE_COUNT) {
-                    throw new Error(`超过贴图数量上限（当前 ${currentCount} + 导入 ${validTextures.length} = ${totalCount}，最多 ${MAX_TEXTURE_COUNT}）`);
+                // 追加导入：优先填入现有空槽位，剩余追加到末尾
+                const nonNullImports = [];
+                for (let i = 0; i < validTextures.length; i++) {
+                    if (validTextures[i] != null) {
+                        nonNullImports.push({ texture: validTextures[i], sourceIdx: i });
+                    }
                 }
-                item.Property.Textures = [...item.Property.Textures, ...validTextures];
-                // 追加模式不修改隐藏开关
 
-                // 图层优先级：导入的 LayerN 键需按追加偏移量重新映射（如 Layer1 -> Layer(currentCount+1)）
-                const importedPriority = sanitizePriorityMap(config.overridePriority, validTextures.length);
-                const shiftedPriority = {};
-                for (const key in importedPriority) {
-                    const idx = LAYER_NAMES.indexOf(key);
-                    const newIdx = idx + currentCount;
-                    if (newIdx < MAX_TEXTURE_COUNT) shiftedPriority[LAYER_NAMES[newIdx]] = importedPriority[key];
+                const existing = item.Property.Textures;
+                const targetMappings = []; // { source, target }
+                let importIdx = 0;
+                // 先填入现有空槽位
+                for (let i = 0; i < existing.length && importIdx < nonNullImports.length; i++) {
+                    if (existing[i] == null) {
+                        existing[i] = nonNullImports[importIdx].texture;
+                        targetMappings.push({ source: nonNullImports[importIdx].sourceIdx, target: i });
+                        importIdx++;
+                    }
                 }
-                if (Object.keys(shiftedPriority).length > 0) {
+                // 剩余的追加到末尾
+                while (importIdx < nonNullImports.length) {
+                    if (existing.length >= MAX_TEXTURE_COUNT) {
+                        throw new Error(`超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`);
+                    }
+                    existing.push(nonNullImports[importIdx].texture);
+                    targetMappings.push({ source: nonNullImports[importIdx].sourceIdx, target: existing.length - 1 });
+                    importIdx++;
+                }
+
+                // 图层优先级：按实际目标位置映射
+                const importedPriority = sanitizePriorityMap(config.overridePriority, MAX_TEXTURE_COUNT);
+                if (Object.keys(importedPriority).length > 0) {
                     if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
                         item.Property.OverridePriority = {};
                     }
-                    Object.assign(item.Property.OverridePriority, shiftedPriority);
+                    for (const mapping of targetMappings) {
+                        const sourceKey = LAYER_NAMES[mapping.source];
+                        const targetKey = LAYER_NAMES[mapping.target];
+                        if (sourceKey && targetKey && importedPriority[sourceKey] !== undefined) {
+                            item.Property.OverridePriority[targetKey] = importedPriority[sourceKey];
+                        }
+                    }
                 }
             } else {
-                // 覆盖导入：用剪贴板内容完全替换
+                // 覆盖导入：用剪贴板内容完全替换（保留 null 槽位位置）
                 if (validTextures.length > MAX_TEXTURE_COUNT) {
                     throw new Error(`超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个，当前 ${validTextures.length} 个）`);
                 }
                 item.Property.Textures = validTextures;
+                trimTrailingNulls(item.Property.Textures);
                 // 覆盖模式同步导入隐藏分类开关（兼容旧版配置：无该字段时默认 false）
                 for (const cat of HIDE_CATEGORIES) {
                     item.Property[cat.key] = config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] === true;
@@ -160,7 +184,7 @@ export function importConfig(item, mode) {
                 }
 
                 // 图层优先级：覆盖模式直接用导入内容替换（兼容旧版配置：无该字段时清空）
-                const importedPriority = sanitizePriorityMap(config.overridePriority, validTextures.length);
+                const importedPriority = sanitizePriorityMap(config.overridePriority, MAX_TEXTURE_COUNT);
                 if (Object.keys(importedPriority).length > 0) {
                     item.Property.OverridePriority = importedPriority;
                 } else {
@@ -170,7 +194,7 @@ export function importConfig(item, mode) {
 
             updateHideArray(item);
 
-            const count = item.Property.Textures.length;
+            const count = item.Property.Textures.filter(t => t != null).length;
             const modeText = mode === "append" ? "追加" : "覆盖";
             const modeTextEn = mode === "append" ? "Append" : "Replace";
             Logger.info(`${modeText}导入成功:`, count, "个图层");

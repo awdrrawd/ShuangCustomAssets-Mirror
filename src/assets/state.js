@@ -9,8 +9,9 @@ export const state = {
     currentEditTexture: -1,
     tempTextureData: null,
     currentListPage: 0,
-    currentView: "list", // "list" | "hide" | "addDomainConfirm"
+    currentView: "list", // "list" | "hide" | "addDomainConfirm" | "tutorial"
     pendingDomainToAdd: null, // 待确认添加的域名
+    tutorialPage: 0, // 教程当前页码（0-indexed）
     // 进入编辑前的原始贴图数据（用于「退出=取消编辑并返回列表」时还原）
     originalEditTexture: null,
 

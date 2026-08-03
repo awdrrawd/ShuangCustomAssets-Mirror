@@ -14,6 +14,7 @@ export const ASSET_NAME = "自定义贴图";
  */
 export const DEFAULT_TEXTURE = {
     // === 全局设置（所有姿势共用）===
+    Alias: "",        // 图层别名（玩家自定义，方便管理）
     TextureURL: "",
     OffsetX: 1,
     OffsetY: 1,
@@ -102,6 +103,18 @@ export const POSE_LABELS = {
  * @param {string[]} drawPose - C.DrawPose 数组
  * @returns {string|null}
  */
+/**
+ * 清除数组尾部的 null 元素（槽位制：删除中间槽位设为 null，尾部连续 null 可安全移除以节省空间）
+ * 就地修改传入数组
+ * @param {Array} textures
+ */
+export function trimTrailingNulls(textures) {
+    if (!Array.isArray(textures)) return;
+    while (textures.length > 0 && textures[textures.length - 1] === null) {
+        textures.pop();
+    }
+}
+
 /**
  * 旧数据兼容：单一 Scale 字段拆分为 ScaleX/ScaleY 两个字段（保留缩放比例的旧行为，默认等比锁定）
  * 就地修改传入对象；同时处理 texture 本身与其 PoseSettings 里每个姿势覆盖对象
