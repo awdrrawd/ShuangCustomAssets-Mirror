@@ -1092,8 +1092,8 @@
 	    TextureURL: BADGE_IMAGE_URL,
 	    OffsetX: 153,
 	    OffsetY: -200,
-	    ScaleX: 21,
-	    ScaleY: 21,
+	    ScaleX: 50,
+	    ScaleY: 50,
 	    Rotation: 0,
 	    Opacity: 100,
 	    Visible: true
@@ -4789,7 +4789,7 @@
 	        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
 	        offsetX = 167;
 	        offsetY = -256;
-	        scaleX = scaleY = 16 / 100;
+	        scaleX = scaleY = 50 / 100;
 	        rotation = 0;
 	        displayOpacity = 1.0;
 	        mirrorH = false;
@@ -4964,6 +4964,12 @@
 	    }
 	}
 
+	function isItemLockedForPlayer(item) {
+	    if (!item?.Property?.LockedBy) return false;
+	    const C = CharacterGetCurrent();
+	    if (!C) return false;
+	    return !DialogCanUnlock(C, item);
+	}
 	const asset = {
 	    Name: ASSET_NAME,
 	    Random: false,
@@ -5051,6 +5057,9 @@
 	            } else {
 	                drawTextureListMain(item);
 	            }
+	            if (isItemLockedForPlayer(item)) {
+	                DrawText(L("已上锁", "Locked"), 1500, 95, "#FF4444", "Black");
+	            }
 	        },
 	        Click: (data, originalFunction) => {
 	            const item = DialogFocusItem;
@@ -5066,6 +5075,17 @@
 	            }
 	            originalFunction();
 	            if (!item) return;
+	            const isLocked = isItemLockedForPlayer(item);
+	            const isPaginationClick = state.currentView === "list"
+	                && state.currentEditTexture < 0
+	                && MouseIn(1885, 810, 90, 90);
+	            if (isLocked && !isPaginationClick) {
+	                DialogExtendedMessage = L(
+	                    "此道具已上锁，无权限的玩家无法修改配置",
+	                    "This item is locked. Players without permission cannot modify configuration."
+	                );
+	                return;
+	            }
 	            if (state.currentView === "addDomainConfirm") {
 	                handleAddDomainConfirmClick();
 	            } else if (state.currentView === "tutorial") {
