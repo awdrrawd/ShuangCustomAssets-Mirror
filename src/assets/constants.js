@@ -30,7 +30,10 @@ export const DEFAULT_TEXTURE = {
     // 每个姿势可独立开启，开启后其设置覆盖全局
     // 未设置的字段自动回退到全局值
     // 格式: { "Yoked": { enabled: true, OffsetX: 15, TextureURL: "..." }, ... }
-    PoseSettings: {}
+    PoseSettings: {},
+    // === 追踪字段 ===
+    TextureURLSource: 0,       // 此贴图 URL 是谁添加的（MemberNumber，0=未追踪）
+    CurrentConfigurator: 0,    // 最近一次谁修改了此贴图参数（MemberNumber，0=未追踪）
 };
 
 /**

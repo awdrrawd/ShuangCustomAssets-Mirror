@@ -41,7 +41,7 @@ const DEFAULT_ALLOWED_DOMAINS = [
 ];
 
 // 设置页面状态
-let settingsPage = "main"; // "main" | "modeSelect" | "whitelist" | "unrestrictedConfirm" | "roomScan"
+let settingsPage = "main"; // "main" | "modeSelect" | "whitelist" | "unrestrictedConfirm" | "roomScan" | "blocked"
 let whitelistPage = 0; // 白名单管理页面当前页码（0-indexed）
 let roomScanPage = 0; // 房间扫描页面当前页码（0-indexed）
 let roomScanResults = null; // 房间扫描结果缓存（null=需重新计算）
@@ -65,6 +65,7 @@ export function getSettings() {
             animatedImageEnabled: true,
             gifFrameRate: 100,
             gifFpsSyncGame: false,
+            blockedPlayers: [],
         };
     }
     return Player.ExtensionSettings[EXTENSION_ID];
@@ -252,6 +253,8 @@ export function registerExtensionSetting() {
                 _drawUnrestrictedConfirmPage();
             } else if (settingsPage === "roomScan") {
                 _drawRoomScanPage();
+            } else if (settingsPage === "blocked") {
+                _drawBlockedPage();
             }
             _updateInputPosition();
             MainCanvas.textAlign = "center";
@@ -267,6 +270,8 @@ export function registerExtensionSetting() {
                 _clickUnrestrictedConfirmPage();
             } else if (settingsPage === "roomScan") {
                 _clickRoomScanPage();
+            } else if (settingsPage === "blocked") {
+                _clickBlockedPage();
             }
         },
         exit: () => {
@@ -359,6 +364,13 @@ function _drawMainPage() {
         isSyncGame ? "#4CAF50" : "#666666",
         isSyncGame ? "#66BB6A" : "#999999", false,
         L("勾选后动图帧率跟随游戏帧率设置", "Sync GIF frame rate with game FPS setting"));
+
+    // 屏蔽玩家管理
+    const blockY = fpsY + 70;
+    DrawButton(800, blockY, 400, 60, L("屏蔽玩家管理 >>>", "Blocked Players >>>"), "White",
+        null, L("管理被屏蔽的玩家，其贴图将显示为占位图", "Manage blocked players; their textures will show as placeholders"));
+    const blocked = settings.blockedPlayers || [];
+    DrawText(L(`已屏蔽 ${blocked.length} 名玩家`, `${blocked.length} player(s) blocked`), 1000, blockY + 80, "Gray", "White");
 
     DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 }
@@ -548,6 +560,13 @@ function _clickMainPage() {
             const input = document.getElementById(GIF_FPS_INPUT_ID);
             if (input) input.value = String(Math.round(1000 / getGifFrameRate()));
         }
+        return;
+    }
+
+    // 屏蔽玩家管理
+    const blockY = fpsY + 70;
+    if (MouseIn(800, blockY, 400, 60)) {
+        settingsPage = "blocked";
         return;
     }
 }
@@ -1195,5 +1214,94 @@ function _clickRoomScanPage() {
     if (hasNext && MouseIn(1270, paginationY - 17, 80, 35)) {
         roomScanPage++;
         return;
+    }
+}
+
+// === 屏蔽玩家管理页面 ===
+
+function _drawBlockedPage() {
+    const settings = getSettings();
+    const blocked = settings.blockedPlayers || [];
+
+    DrawText(L("屏蔽玩家管理", "Blocked Players"), 1000, 100, "Black", "Gray");
+    DrawText(L("被屏蔽的玩家，其贴图来源或配置的贴图将显示为占位图", "Textures from or configured by blocked players will show as placeholders"), 1000, 140, "Gray", "White");
+
+    // 输入框：输入玩家 MemberNumber
+    const inputY = 200;
+    DrawText(L("输入玩家 ID (MemberNumber) 添加屏蔽:", "Enter player ID (MemberNumber) to block:"), 1000, inputY, "Black", "White");
+    DrawButton(800, inputY + 10, 400, 35, L("添加屏蔽", "Add Block"), "White", null,
+        L("输入玩家 MemberNumber 后点击此按钮", "Enter a player's MemberNumber and click this button"));
+
+    // 列表
+    const listStartY = 300;
+    const lineH = 40;
+    const maxShow = 12;
+    const totalPages = Math.max(1, Math.ceil(blocked.length / maxShow));
+    let page = 0;
+
+    _drawTextLeft(L("已屏蔽的玩家:", "Blocked Players:"), 800, listStartY - 25, "Black", "White");
+    if (blocked.length === 0) {
+        DrawText(L("（暂无屏蔽）", "(None)"), 1000, listStartY + 20, "Gray", "White");
+    } else {
+        const start = page * maxShow;
+        const end = Math.min(start + maxShow, blocked.length);
+        for (let i = start; i < end; i++) {
+            const y = listStartY + (i - start) * lineH;
+            DrawText(`#${blocked[i]}`, 800, y + 22, "Black", "White");
+            DrawButton(1200, y, 100, 35, L("取消屏蔽", "Unblock"), "#E53935", "#FF6659", false,
+                L("移除该玩家屏蔽", "Remove this player from block list"));
+        }
+
+        // 翻页
+        if (totalPages > 1) {
+            const pagY = listStartY + maxShow * lineH + 10;
+            DrawText(L(`第 ${page + 1}/${totalPages} 页`, `Page ${page + 1}/${totalPages}`), 1000, pagY + 22, "Gray", "White");
+        }
+    }
+
+    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("返回", "Back"));
+}
+
+function _clickBlockedPage() {
+    const settings = getSettings();
+
+    // 退出/返回
+    if (MouseIn(1815, 75, 90, 90)) {
+        settingsPage = "main";
+        return;
+    }
+
+    // 添加屏蔽：通过 prompt 输入 MemberNumber
+    if (MouseIn(800, 210, 400, 35)) {
+        const input = prompt(L("输入要屏蔽的玩家 MemberNumber:", "Enter the player's MemberNumber to block:"));
+        if (input) {
+            const num = parseInt(input.trim(), 10);
+            if (Number.isFinite(num) && num > 0) {
+                let blocked = settings.blockedPlayers || [];
+                if (blocked.indexOf(num) === -1) {
+                    blocked.push(num);
+                    settings.blockedPlayers = blocked;
+                    saveSettings();
+                }
+            }
+        }
+        return;
+    }
+
+    // 取消屏蔽
+    const blocked = settings.blockedPlayers || [];
+    const listStartY = 300;
+    const lineH = 40;
+    const maxShow = 12;
+    const start = 0;
+    const end = Math.min(start + maxShow, blocked.length);
+    for (let i = start; i < end; i++) {
+        const y = listStartY + (i - start) * lineH;
+        if (MouseIn(1200, y, 100, 35)) {
+            blocked.splice(i, 1);
+            settings.blockedPlayers = blocked;
+            saveSettings();
+            return;
+        }
     }
 }

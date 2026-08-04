@@ -1567,6 +1567,17 @@ export function handleTextureEditClick(item, textureIndex, data) {
         finalTexture.Visible = (existing && existing.Visible !== undefined) ? existing.Visible : true;
         // PoseSettings is already in finalTexture from the deep copy
 
+        // 追踪字段
+        const mn = typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0;
+        // TextureURLSource: 仅当 URL 变更时才更新（来源方变了）
+        if (finalTexture.TextureURL !== (existing?.TextureURL || "")) {
+            finalTexture.TextureURLSource = mn;
+        } else if (existing) {
+            // URL 未变，保留原来的来源方
+            finalTexture.TextureURLSource = existing.TextureURLSource || 0;
+        }
+        finalTexture.CurrentConfigurator = mn;
+
         if (!item.Property) item.Property = { Textures: [] };
         if (!item.Property.Textures) item.Property.Textures = [];
 

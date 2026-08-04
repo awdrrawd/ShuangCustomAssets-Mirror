@@ -285,7 +285,7 @@ export function handleTextureListClick(item, data) {
             if (MouseIn(1200, y, 400, 40)) {
                 const current = texture.Alias || "";
                 const newAlias = prompt(L("请输入图层别名（留空清除别名）：", "Enter layer alias (leave empty to clear):"), current);
-                if (newAlias !== null) {
+                if (newAlias !== null && newAlias !== undefined) {
                     texture.Alias = newAlias.trim();
                     syncItemToServer(item);
                 }
@@ -294,6 +294,7 @@ export function handleTextureListClick(item, data) {
             // 可见开关
             if (MouseIn(1620, y, 100, 40)) {
                 textures[i].Visible = textures[i].Visible === false ? true : false;
+                textures[i].CurrentConfigurator = typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0;
                 syncItemToServer(item);
                 const C = CharacterGetCurrent();
                 if (C) CharacterRefresh(C, false, false);

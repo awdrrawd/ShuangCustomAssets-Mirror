@@ -108,7 +108,10 @@ export function importConfig(item, mode) {
                     Visible: t.Visible !== false,
                     Opacity: Math.max(0, Math.min(100, toIntOr(t.Opacity, 100))),
                     MirrorH: t.MirrorH === true,
-                    MirrorV: t.MirrorV === true
+                    MirrorV: t.MirrorV === true,
+                    // 导入者成为 URL 来源和配置者
+                    TextureURLSource: typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0,
+                    CurrentConfigurator: typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0,
                 };
                 // 保留姿势设置（验证为纯对象），同样迁移其中可能存在的旧版 Scale 字段
                 if (t.PoseSettings && typeof t.PoseSettings === "object" && !Array.isArray(t.PoseSettings)) {

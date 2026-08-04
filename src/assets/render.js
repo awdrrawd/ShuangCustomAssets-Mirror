@@ -95,6 +95,30 @@ export function renderTexture(data, originalFunction, drawData) {
     if (!params.TextureURL) return;
     if (params.Visible === false) return;
 
+    // 屏蔽玩家检查：贴图来源方或配置者在屏蔽列表中时，不渲染实际内容
+    const blockedPlayers = (() => {
+        try {
+            const s = Player?.ExtensionSettings?.ShuangCustomAssets;
+            return Array.isArray(s?.blockedPlayers) ? s.blockedPlayers : [];
+        } catch (_) { return []; }
+    })();
+    if (blockedPlayers.length > 0) {
+        const texSource = texture.TextureURLSource || 0;
+        const texConfig = texture.CurrentConfigurator || 0;
+        if ((texSource > 0 && blockedPlayers.indexOf(texSource) !== -1) ||
+            (texConfig > 0 && blockedPlayers.indexOf(texConfig) !== -1)) {
+            // 用占位图替代（搭载不可信域名警告图，复用该逻辑）
+            imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
+            offsetX = 167;
+            offsetY = -256;
+            scaleX = scaleY = 50 / 100;
+            rotation = 0;
+            displayOpacity = 1.0;
+            mirrorH = false;
+            mirrorV = false;
+        }
+    }
+
     // 域名警告处理（检查解析后的 URL，支持姿势级切换不同图片源）
     const warnEnabled = getDomainWarningEnabled();
 

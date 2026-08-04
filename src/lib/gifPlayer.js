@@ -1,11 +1,17 @@
 /**
- * 内容导向的 GIF 解析与播放器。
+ * 内容导向的 GIF / APNG / Animated WebP 解析与播放器。
  *
  * 与「用副檔名猜測」不同，这里的判断依据全部来自档案实际内容：
- * 1. 读取文件的前几个字节，确认 magic header 是不是 "GIF87a"/"GIF89a"
- *    （不管网址后缀写 .gif、.png、还是没有后缀，都一律照实际内容判断）
- * 2. 用 gifuct-js 把档案完整解压成一张一张的帧，帧数 > 1 才视为「动图」，
- *    帧数只有 1 张的 .gif 就当成一般静态图处理
+ * 1. 读取文件的前几个字节，确认 magic header 是 "GIF87a"/"GIF89a"、PNG 签名，
+ *    还是 WebP 的 "RIFF....WEBP" 签名（不管网址后缀写什么，都一律照实际内容判断）
+ * 2. GIF：用 gifuct-js 把档案完整解压成一张一张的帧；
+ *    PNG：用 UPNG.js 解析，若含有 acTL chunk（APNG 动画标记）才视为动图；
+ *    WebP：交给浏览器原生的 ImageDecoder（WebCodecs API）解码每一帧——WebP
+ *    的动画编码复杂度很高，不像前两者适合手刻或找现成的轻量纯 JS 解码库，
+ *    改用浏览器内建解码器可以省去自己啃 VP8/VP8L 格式规范；不支持 ImageDecoder
+ *    的浏览器（例如未支持前的 Firefox）会优雅降级为「解析失败」，交还静态图
+ *    片管线处理，只是不会动，不会崩溃。
+ *    三种格式都以帧数 > 1 才视为「动图」，只有 1 帧就当成一般静态图处理。
  *
  * 解码只会做一次：结果依网址缓存在 Map 里，之后同一个网址不会重复下载、
  * 不会重复解压缩。播放时只是从已经解码好的帧数组里，依时间挑出该显示的
@@ -17,6 +23,7 @@
  * canvas）清除掉，释放内存；详见 cacheGC.js。
  */
 import { parseGIF, decompressFrames } from "gifuct-js";
+import UPNG from "upng-js";
 import { Logger, L } from "./utils.js";
 import { registerPrunableCache } from "./cacheGC.js";
 
@@ -107,6 +114,124 @@ function _yieldToMainThread() {
 }
 
 /**
+ * 用 UPNG.js 解析 APNG，填入传入的 entry。
+ *
+ * 与 GIF 分支不同：UPNG.toRGBA8() 会依据每一帧 fcTL 里的 dispose_op / blend_op，
+ * 直接吐出「合成好的完整画面」RGBA8 缓冲区数组，不需要像 GIF 那样自己手刻
+ * disposal 合成逻辑（UPNG.js 内部已经做了等价的事）。
+ *
+ * 若该 PNG 没有 acTL chunk（代表只是普通静态 PNG，不是 APNG），或解压后只有
+ * 1 帧，一律视为「不是动图」，交还给一般静态图片管线（entry.failed = true），
+ * 行为与「不是 GIF 的一般图片」一致。
+ * @param {ArrayBuffer} buffer
+ * @param {GifEntry} entry
+ */
+async function decodeApng(buffer, entry) {
+    const png = UPNG.decode(buffer);
+    entry.width = png.width;
+    entry.height = png.height;
+
+    const frameCount = png.tabs && png.tabs.acTL ? png.frames.length : 1;
+    entry.isAnimated = frameCount > 1;
+
+    if (!entry.isAnimated) {
+        entry.failed = true;
+        return;
+    }
+
+    const rgbaFrames = UPNG.toRGBA8(png);
+
+    for (let i = 0; i < rgbaFrames.length; i++) {
+        const frameCanvas = document.createElement("canvas");
+        frameCanvas.width = entry.width || 1;
+        frameCanvas.height = entry.height || 1;
+        const ctx = frameCanvas.getContext("2d");
+        const imageData = new ImageData(
+            new Uint8ClampedArray(rgbaFrames[i]),
+            entry.width,
+            entry.height
+        );
+        ctx.putImageData(imageData, 0, 0);
+
+        // fcTL 的 delay 已被 UPNG.js 换算成毫秒；0 或极短延迟比照 GIF 分支的惯例视为 100ms
+        const rawDelay = png.frames[i].delay;
+        const delay = rawDelay > 10 ? rawDelay : 100;
+
+        entry.frames.push({ canvas: frameCanvas, delay });
+        entry.totalDuration += delay;
+
+        if ((i + 1) % COMPOSE_CHUNK_SIZE === 0 && i + 1 < rgbaFrames.length) {
+            await _yieldToMainThread();
+        }
+    }
+}
+
+/**
+ * 用浏览器原生 WebCodecs `ImageDecoder` API 解析 Animated WebP，填入传入的 entry。
+ *
+ * WebP 动画（VP8/VP8L 有损/无损混合帧 + ANIM/ANMF chunk）的编解码复杂度很高，
+ * 不像 GIF/APNG 那样容易手刻或找到轻量的纯 JS 解码库，这里改用浏览器内建的
+ * `ImageDecoder` 直接吐出每一帧解码好的 VideoFrame，画到 canvas 存成静态帧，
+ * 用法与前两种格式共用同一份 entry.frames 结构，播放逻辑完全不用另外处理。
+ *
+ * 目前仅 Chromium 系（Chrome/Edge）与较新版本的 Safari 支持 `ImageDecoder`；
+ * 不支持的浏览器（例如未支持前的 Firefox）一律视为「解析失败」，交还静态图片
+ * 管线处理——退化成只显示第一帧、不会动，但不会报错或崩溃。
+ * @param {ArrayBuffer} buffer
+ * @param {GifEntry} entry
+ */
+async function decodeAnimatedWebp(buffer, entry) {
+    if (typeof ImageDecoder === "undefined") {
+        // 当前浏览器不支持 WebCodecs ImageDecoder，优雅降级为静态图处理
+        entry.failed = true;
+        return;
+    }
+
+    const decoder = new ImageDecoder({ data: buffer, type: "image/webp" });
+    await decoder.tracks.ready;
+    const track = decoder.tracks.selectedTrack;
+
+    // 没有 animated 标记，或只解出 1 帧：视为普通静态 WebP，交还静态图片管线
+    if (!track || !track.animated || track.frameCount <= 1) {
+        entry.failed = true;
+        decoder.close();
+        return;
+    }
+
+    const frameCount = track.frameCount;
+
+    for (let i = 0; i < frameCount; i++) {
+        const { image } = await decoder.decode({ frameIndex: i });
+
+        if (i === 0) {
+            entry.width = image.displayWidth;
+            entry.height = image.displayHeight;
+        }
+
+        const frameCanvas = document.createElement("canvas");
+        frameCanvas.width = entry.width || 1;
+        frameCanvas.height = entry.height || 1;
+        frameCanvas.getContext("2d").drawImage(image, 0, 0);
+
+        // VideoFrame.duration 单位是微秒；0 或极短延迟比照 GIF/APNG 分支的惯例视为 100ms
+        const rawDelayMs = image.duration ? image.duration / 1000 : 0;
+        const delay = rawDelayMs > 10 ? rawDelayMs : 100;
+
+        image.close();
+
+        entry.frames.push({ canvas: frameCanvas, delay });
+        entry.totalDuration += delay;
+
+        if ((i + 1) % COMPOSE_CHUNK_SIZE === 0 && i + 1 < frameCount) {
+            await _yieldToMainThread();
+        }
+    }
+
+    entry.isAnimated = true;
+    decoder.close();
+}
+
+/**
  * 依内容解析动图，结果按网址缓存，同一网址只会解析一次。
  *
  * @param {string} url
@@ -150,11 +275,32 @@ export function getAnimatedImage(url, onReady) {
                 return res.arrayBuffer();
             })
             .then(async (buffer) => {
-                const header = new Uint8Array(buffer, 0, 3);
+                const header = new Uint8Array(buffer, 0, Math.min(12, buffer.byteLength));
                 const isGifHeader = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46; // "GIF"
+                // PNG 完整签名是 8 bytes（89 50 4E 47 0D 0A 1A 0A），这里取前 4 bytes 已足够判断类型，
+                // 真正校验交给 UPNG.decode 自己做（签名不对会 throw，被下面的 .catch 接住）
+                const isPngHeader = header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4e && header[3] === 0x47; // PNG
+                // WebP 是 RIFF 容器格式：bytes 0-3 "RIFF"，bytes 4-7 是档案长度（不检查），
+                // bytes 8-11 才是真正标示内容类型的 "WEBP"
+                const isWebpHeader = header[0] === 0x52 && header[1] === 0x49 && header[2] === 0x46 && header[3] === 0x46 // "RIFF"
+                    && header[8] === 0x57 && header[9] === 0x45 && header[10] === 0x42 && header[11] === 0x50; // "WEBP"
+
+                if (isPngHeader) {
+                    await decodeApng(buffer, entry);
+                    entry.loaded = true;
+                    notifyReady(entry);
+                    return;
+                }
+
+                if (isWebpHeader) {
+                    await decodeAnimatedWebp(buffer, entry);
+                    entry.loaded = true;
+                    notifyReady(entry);
+                    return;
+                }
 
                 if (!isGifHeader) {
-                    // 内容根本不是 GIF（例如网址是 .gif 但实际给的是 png/jpg，或反过来）
+                    // 内容既不是 GIF、PNG 也不是 WebP（例如网址是 .gif 但实际给的是 jpg，或反过来）
                     // -> 交还给一般的静态图片管线（getCorsImage）处理，这里只标记失败即可
                     entry.failed = true;
                     entry.loaded = true;
@@ -256,8 +402,8 @@ export function getAnimatedImage(url, onReady) {
                 entry.loaded = true;
                 notifyReady(entry);
                 Logger.warn(L(
-                    `GIF 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
-                    `Failed to parse GIF (the host may not support CORS, or the file is corrupted): ${url}`
+                    `GIF/APNG/WebP 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
+                    `Failed to parse GIF/APNG/WebP (the host may not support CORS, or the file is corrupted): ${url}`
                 ), err);
             })
     );

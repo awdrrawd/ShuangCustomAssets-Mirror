@@ -45,6 +45,7 @@
     },
     "homepage": "https://github.com/yourname/ShuangCustomAssets#readme",
     "dependencies": {
-        "gifuct-js": "^2.1.2"
+        "gifuct-js": "^2.1.2",
+        "upng-js": "^2.1.0"
     }
 }
