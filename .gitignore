@@ -1,13 +1,7 @@
-# 统一行尾符为 LF，避免 Windows checkout 时 LF→CRLF 转换导致
-# git status 误报「假修改」（仅行尾符不同的文件也被标记为 modified）
-* text=auto eol=lf
-
-# 二进制文件不做任何转换
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.ico binary
-*.webp binary
-*.woff binary
-*.woff2 binary
+node_modules/
+dist/
+*.log
+.DS_Store
+tmp/
+# Local Netlify folder
+.netlify
