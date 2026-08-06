@@ -13,7 +13,7 @@ import { setupGifAnimationHooks } from "./lib/gifAnimationLoop.js";
 import { setupModTagHooks } from "./lib/modTag.js";
 import assets from "./assets/index.js";
 import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
-import { registerExtensionSetting } from "./assets/settings.js";
+import { initSettings } from "./assets/settings.js";
 
 // 立即输出日志，确认脚本已被 Toolbox / 加载器成功执行到（不代表初始化已完成）
 console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
@@ -38,7 +38,7 @@ function init() {
         setupModTagHooks(HookManager);
         // 注册扩展设置页面（玩家登录后可用）
         HookManager.afterPlayerLogin(() => {
-            registerExtensionSetting();
+            initSettings();
         });
         Logger.info(`${ModInfo.fullName} v${ModInfo.version} 初始化完成`);
     });

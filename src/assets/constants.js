@@ -388,7 +388,7 @@ export const STEPPER_FIELDS = [
 // 保持与 X偏移/Y偏移/缩放 等字段完全一致的外观；数值框右侧额外追加一条可拖动的 BAR 滑桿
 // （方形手柄，轨道可点击跳转/拖动手柄两种方式调值，与旁边的数值框相互同步）
 export const BAR_FIELDS = [
-    { id: FIELD_ROTATION, y: 730, labelCn: "旋转",     labelEn: "Rotation",      labelY: 750, prop: "Rotation", def: 0,   min: 0,   max: 360, bar: true },
+    { id: FIELD_ROTATION, y: 730, labelCn: "旋转",     labelEn: "Rotation",      labelY: 750, prop: "Rotation", def: 0,   min: -360, max: 360, bar: true },
     { id: FIELD_OPACITY,  y: 780, labelCn: "透明度%", labelEn: "Opacity %",     labelY: 800, prop: "Opacity",   def: 100, min: 0,   max: 100, bar: true },
     { id: FIELD_PRIORITY, y: 830, labelCn: "图层优先级", labelEn: "Layer Priority", labelY: 850, prop: null,       def: 50,  min: -99, max: 99,  bar: true }
 ];

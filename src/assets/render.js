@@ -95,7 +95,7 @@ export function renderTexture(data, originalFunction, drawData) {
     if (!params.TextureURL) return;
     if (params.Visible === false) return;
 
-    // 屏蔽玩家检查：贴图来源方或配置者在屏蔽列表中时，不渲染实际内容
+    // 屏蔽玩家检查：贴图来源方或配置者在屏蔽列表中时，跳过渲染
     const blockedPlayers = (() => {
         try {
             const s = Player?.ExtensionSettings?.ShuangCustomAssets;
@@ -107,15 +107,7 @@ export function renderTexture(data, originalFunction, drawData) {
         const texConfig = texture.CurrentConfigurator || 0;
         if ((texSource > 0 && blockedPlayers.indexOf(texSource) !== -1) ||
             (texConfig > 0 && blockedPlayers.indexOf(texConfig) !== -1)) {
-            // 用占位图替代（搭载不可信域名警告图，复用该逻辑）
-            imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
-            offsetX = 167;
-            offsetY = -256;
-            scaleX = scaleY = 50 / 100;
-            rotation = 0;
-            displayOpacity = 1.0;
-            mirrorH = false;
-            mirrorV = false;
+            return;
         }
     }
 
@@ -124,21 +116,8 @@ export function renderTexture(data, originalFunction, drawData) {
 
     let imageUrl, offsetX, offsetY, scaleX, scaleY, rotation, displayOpacity, mirrorH, mirrorV;
 
-    if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
-        // 不可信域名：使用固定参数显示警告图片
-        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
-        offsetX = 167;
-        offsetY = -256;
-        scaleX = scaleY = 50 / 100;
-        rotation = 0;
-        displayOpacity = 1.0;
-        mirrorH = false;
-        mirrorV = false;
-    } else if (!isUrlAllowed(params.TextureURL)) {
-        // 域不可信提示关闭（或不限制模式）：跳过渲染
-        return;
-    } else {
-        // 正常显示：使用姿势解析后的参数
+    if (isUrlAllowed(params.TextureURL)) {
+        // 不限制模式 或 域名在白名单中：正常显示
         imageUrl = params.TextureURL;
         offsetX = params.OffsetX || 0;
         offsetY = params.OffsetY || 0;
@@ -149,6 +128,19 @@ export function renderTexture(data, originalFunction, drawData) {
         displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
         mirrorH = params.MirrorH === true;
         mirrorV = params.MirrorV === true;
+    } else if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
+        // 不可信域名：使用固定参数显示警告图片
+        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
+        offsetX = 167;
+        offsetY = -256;
+        scaleX = scaleY = 50 / 100;
+        rotation = 0;
+        displayOpacity = 1.0;
+        mirrorH = false;
+        mirrorV = false;
+    } else {
+        // 域不可信提示关闭 且 不限制模式未开启：跳过渲染
+        return;
     }
 
     // 固定资源（插件自身 CDN）：主源加载失败时自动回退到 Netlify 备用源

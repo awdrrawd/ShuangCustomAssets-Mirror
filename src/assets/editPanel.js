@@ -1558,7 +1558,7 @@ export function handleTextureEditClick(item, textureIndex, data) {
         finalTexture.ScaleX = toIntOr(state.tempTextureData?.ScaleX, 100);
         finalTexture.ScaleY = toIntOr(state.tempTextureData?.ScaleY, 100);
         finalTexture.ScaleLocked = state.tempTextureData?.ScaleLocked !== false;
-        finalTexture.Rotation = Math.max(0, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
+        finalTexture.Rotation = Math.max(-360, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
         finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
         finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
         finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
