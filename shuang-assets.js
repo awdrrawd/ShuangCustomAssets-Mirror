@@ -1042,7 +1042,7 @@
 	    { id: FIELD_SCALE_Y,  y: 680, labelCn: "缩放Y%",  labelEn: "Scale Y %",  labelY: 700, prop: "ScaleY",  def: 100, min: null, max: null }
 	];
 	const BAR_FIELDS = [
-	    { id: FIELD_ROTATION, y: 730, labelCn: "旋转",     labelEn: "Rotation",      labelY: 750, prop: "Rotation", def: 0,   min: 0,   max: 360, bar: true },
+	    { id: FIELD_ROTATION, y: 730, labelCn: "旋转",     labelEn: "Rotation",      labelY: 750, prop: "Rotation", def: 0,   min: -360, max: 360, bar: true },
 	    { id: FIELD_OPACITY,  y: 780, labelCn: "透明度%", labelEn: "Opacity %",     labelY: 800, prop: "Opacity",   def: 100, min: 0,   max: 100, bar: true },
 	    { id: FIELD_PRIORITY, y: 830, labelCn: "图层优先级", labelEn: "Layer Priority", labelY: 850, prop: null,       def: 50,  min: -99, max: 99,  bar: true }
 	];
@@ -1108,34 +1108,18 @@
 	};
 
 	const EXTENSION_ID = "ShuangCustomAssets";
-	const GIF_FPS_INPUT_ID = "ShuangTextureGifFpsInput";
-	const ALWAYS_ALLOWED_DOMAINS = [
-	    "shuang-custom-assets.pages.dev"
-	];
+	const CONTAINER_ID = "ShuangSettingsContainer";
+	const ALWAYS_ALLOWED_DOMAINS = ["shuang-custom-assets.pages.dev"];
 	const DEFAULT_ALLOWED_DOMAINS = [
-	    "github.io",
-	    "gitlab.io",
-	    "ibb.co",
-	    "imgbb.com",
-	    "imgchest.com",
-	    "imgur.com",
-	    "postimg.cc",
-	    "hd-r.icu",
-	    "catbox.moe",
-	    "litter.catbox.moe",
-	    "pub-*.r2.dev",
-	    "r2.cloudflarestorage.com",
-	    "cdn.discordapp.com",
-	    "media.discordapp.net",
+	    "github.io", "gitlab.io", "ibb.co", "imgbb.com", "imgchest.com",
+	    "imgur.com", "postimg.cc", "hd-r.icu",
+	    "catbox.moe", "litter.catbox.moe",
+	    "pub-*.r2.dev", "r2.cloudflarestorage.com",
+	    "cdn.discordapp.com", "media.discordapp.net",
 	    ...ALWAYS_ALLOWED_DOMAINS
 	];
 	let settingsPage = "main";
-	let whitelistPage = 0;
-	let roomScanPage = 0;
-	let roomScanResults = null;
-	let _copiedDomain = "";
-	let _copiedTime = 0;
-	let roomScanPendingDomain = null;
+	let _pageHistory = [];
 	function getSettings() {
 	    if (!Player.ExtensionSettings) Player.ExtensionSettings = {};
 	    if (!Player.ExtensionSettings[EXTENSION_ID]) {
@@ -1152,279 +1136,337 @@
 	    return Player.ExtensionSettings[EXTENSION_ID];
 	}
 	function saveSettings() {
-	    if (typeof ServerPlayerExtensionSettingsSync === "function") {
+	    if (typeof ServerPlayerExtensionSettingsSync === "function")
 	        ServerPlayerExtensionSettingsSync(EXTENSION_ID);
-	    }
 	}
 	function getDomainWarningEnabled() {
-	    const settings = getSettings();
-	    return settings.domainWarningEnabled !== false;
+	    return getSettings().domainWarningEnabled !== false;
 	}
 	function getAnimatedImageEnabled() {
-	    const settings = getSettings();
-	    return settings.animatedImageEnabled !== false;
+	    return getSettings().animatedImageEnabled !== false;
 	}
 	function getGifFrameRate() {
-	    const settings = getSettings();
-	    if (settings.gifFpsSyncGame) {
-	        const gameFps = Player?.GraphicsSettings?.MaxFPS ?? 60;
-	        const fps = gameFps === 0 ? 60 : gameFps;
+	    const s = getSettings();
+	    if (s.gifFpsSyncGame) {
+	        const fps = (Player?.GraphicsSettings?.MaxFPS ?? 60) || 60;
 	        return Math.max(16, Math.round(1000 / fps));
 	    }
-	    const v = settings.gifFrameRate;
-	    return (typeof v === "number" && v >= 33) ? v : 100;
+	    return (typeof s.gifFrameRate === "number" && s.gifFrameRate >= 33) ? s.gifFrameRate : 100;
 	}
 	function extractDomain(url) {
-	    try {
-	        const u = new URL(url);
-	        return u.hostname;
-	    } catch {
-	        return null;
-	    }
-	}
-	function domainMatches(domain, pattern) {
-	    if (!domain || !pattern) return false;
-	    if (pattern.includes("*")) {
-	        const re = new RegExp(
-	            "^" + pattern.split("*").map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[^.]*") + "$",
-	            "i"
-	        );
-	        return re.test(domain);
-	    }
-	    return domain === pattern || domain.endsWith("." + pattern);
-	}
-	function isUrlAllowed(url) {
-	    if (!url || typeof url !== "string") return false;
-	    if (!url.startsWith("https://")) return false;
-	    const domain = extractDomain(url);
-	    if (domain && ALWAYS_ALLOWED_DOMAINS.some(d => domainMatches(domain, d))) {
-	        return true;
-	    }
-	    if (!domain) return false;
-	    const settings = getSettings();
-	    if (settings.urlLoadMode === "unrestricted") {
-	        return true;
-	    }
-	    const allowed = settings.allowedDomains || [];
-	    return allowed.some(entry => domainMatches(domain, entry));
+	    try { return new URL(url).hostname; } catch { return null; }
 	}
 	function isDomainInWhitelist(url) {
-	    const settings = getSettings();
-	    if (settings.urlLoadMode !== "whitelist") return true;
 	    const domain = extractDomain(url);
 	    if (!domain) return false;
-	    if (ALWAYS_ALLOWED_DOMAINS.some(d => domainMatches(domain, d))) return true;
-	    const allowed = settings.allowedDomains || [];
-	    return allowed.some(a => domainMatches(domain, a));
+	    const settings = getSettings();
+	    const allowed = [...(settings.allowedDomains || []), ...ALWAYS_ALLOWED_DOMAINS];
+	    return allowed.some(d => {
+	        if (d.includes("*")) {
+	            const p = new RegExp("^" + d.replace(/\./g, "\\.").replace(/\*/g, "[^/]+") + "$");
+	            return p.test(domain);
+	        }
+	        return domain === d || domain.endsWith("." + d);
+	    });
+	}
+	function isUrlAllowed(url) {
+	    if (!url || !url.startsWith("https://")) return false;
+	    const s = getSettings();
+	    if (s.urlLoadMode === "unrestricted") return true;
+	    return isDomainInWhitelist(url);
 	}
 	function addDomainToWhitelist(domain) {
 	    if (!domain) return false;
 	    domain = domain.toLowerCase().trim();
 	    if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(domain)) return false;
-	    const settings = getSettings();
-	    if (!settings.allowedDomains) settings.allowedDomains = [];
-	    if (settings.allowedDomains.includes(domain)) return false;
-	    settings.allowedDomains.push(domain);
+	    const s = getSettings();
+	    if (!s.allowedDomains) s.allowedDomains = [];
+	    if (s.allowedDomains.includes(domain)) return false;
+	    s.allowedDomains.push(domain);
 	    saveSettings();
 	    return true;
 	}
-	function registerExtensionSetting() {
-	    if (typeof PreferenceRegisterExtensionSetting !== "function") {
-	        Logger.warn("PreferenceRegisterExtensionSetting 不可用，延迟注册");
-	        return;
+	let _styleInjected = false;
+	function _injectStyle() {
+	    if (_styleInjected) return;
+	    _styleInjected = true;
+	    const s = document.createElement("style");
+	    s.id = "ShuangSettingsStyle";
+	    s.textContent = `
+#${CONTAINER_ID} * { box-sizing:border-box; }
+#${CONTAINER_ID} .sca-page { display:none; }
+#${CONTAINER_ID} .sca-page.active { display:block; }
+#${CONTAINER_ID} .sca-table-wrap { flex:1; min-height:200px; overflow-y:auto; }
+#${CONTAINER_ID} .sca-table-wrap table { width:100%; border-collapse:collapse; }
+#${CONTAINER_ID} .sca-table-wrap th { text-align:left; padding:10px 14px; color:#666; font-weight:normal; font-size:14px; border-bottom:2px solid #e0e0e0; background:#fafafa; position:sticky; top:0; z-index:1; }
+#${CONTAINER_ID} .sca-table-wrap td { padding:10px 14px; font-size:15px; }
+#${CONTAINER_ID} .sca-table-wrap tr:nth-child(even) td { background:#f8f8f8; }
+#${CONTAINER_ID} .sca-table-wrap tr:nth-child(odd) td { background:#fff; }
+#${CONTAINER_ID} .sca-table-wrap tr:hover td { background:#eef6ff; }
+#${CONTAINER_ID} .sca-bottom { flex-shrink:0; padding-top:12px; border-top:1px solid #eee; margin-top:10px; }
+#${CONTAINER_ID} .sca-card { background:#fafafa; border:1px solid #e8e8e8; border-radius:8px; padding:16px; margin-bottom:12px; }
+#${CONTAINER_ID} .sca-card:hover { border-color:#d0d0d0; }
+#${CONTAINER_ID} .sca-card.active { border-color:#4caf50; background:#f1faf1; }
+#${CONTAINER_ID} .sca-card-title { font-size:16px; font-weight:600; margin-bottom:4px; }
+#${CONTAINER_ID} .sca-card-desc { font-size:13px; color:#888; }
+#${CONTAINER_ID} .sca-tag { display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:600; margin-left:8px; }
+#${CONTAINER_ID} .sca-tag.green { background:#e8f5e9; color:#2e7d32; }
+#${CONTAINER_ID} .sca-tag.orange { background:#fff3e0; color:#e65100; }
+#${CONTAINER_ID} .sca-btn { display:inline-flex; align-items:center; justify-content:center; padding:9px 22px; border:1px solid #ccc; border-radius:6px; cursor:pointer; font-size:15px; user-select:none; transition:all 0.12s; background:#fff; color:#333; }
+#${CONTAINER_ID} .sca-btn:hover { filter:brightness(0.92); transform:translateY(-1px); box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+#${CONTAINER_ID} .sca-btn:active { filter:brightness(0.8); transform:translateY(0); }
+#${CONTAINER_ID} .sca-btn:disabled { opacity:0.4; cursor:default; filter:none; transform:none; box-shadow:none; }
+#${CONTAINER_ID} .sca-btn.danger { background:#e53935; color:#fff; border-color:#c62828; }
+#${CONTAINER_ID} .sca-btn.primary { background:#4caf50; color:#fff; border-color:#388e3c; }
+#${CONTAINER_ID} .sca-btn.small { padding:6px 14px; font-size:13px; border-radius:4px; }
+#${CONTAINER_ID} .sca-input { padding:9px 12px; border:1px solid #ccc; border-radius:6px; font-size:15px; outline:none; background:#fff; }
+#${CONTAINER_ID} .sca-input:focus { border-color:#4caf50; box-shadow:0 0 0 3px rgba(76,175,80,0.15); }
+#${CONTAINER_ID} .sca-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+#${CONTAINER_ID} .sca-title { font-size:22px; font-weight:700; margin-bottom:4px; color:#1a1a1a; letter-spacing:-0.3px; }
+#${CONTAINER_ID} .sca-subtitle { font-size:14px; color:#999; margin-bottom:14px; }
+#${CONTAINER_ID} .sca-section-title { font-size:17px; font-weight:600; margin:16px 0 10px; color:#333; }
+#${CONTAINER_ID} .sca-page.active.sca-flex { display:flex; flex-direction:column; height:100%; }
+`;
+	    document.head.appendChild(s);
+	}
+	function _getContainer() {
+	    let el = document.getElementById(CONTAINER_ID);
+	    if (!el) {
+	        _injectStyle();
+	        el = document.createElement("div");
+	        el.id = CONTAINER_ID;
+	        el.style.cssText = "position:fixed;overflow:hidden;background:transparent;z-index:1000;font-family:Arial,'Microsoft YaHei',sans-serif";
+	        document.body.appendChild(el);
 	    }
-	    PreferenceRegisterExtensionSetting({
-	        Identifier: EXTENSION_ID,
-	        ButtonText: L("自定义贴图设置", "Custom Texture Settings"),
-	        Image: BADGE_IMAGE_URL,
-	        load: () => {
-	            settingsPage = "main";
-	            whitelistPage = 0;
-	            roomScanPage = 0;
-	            roomScanResults = null;
-	            roomScanPendingDomain = null;
-	            _createDomainInput();
-	            _createGifFpsInput();
-	        },
-	        run: () => {
-	            MainCanvas.textAlign = "center";
-	            if (settingsPage === "main") {
-	                _drawMainPage();
-	            } else if (settingsPage === "modeSelect") {
-	                _drawModeSelectPage();
-	            } else if (settingsPage === "whitelist") {
-	                _drawWhitelistPage();
-	            } else if (settingsPage === "unrestrictedConfirm") {
-	                _drawUnrestrictedConfirmPage();
-	            } else if (settingsPage === "roomScan") {
-	                _drawRoomScanPage();
-	            } else if (settingsPage === "blocked") {
-	                _drawBlockedPage();
-	            }
-	            _updateInputPosition();
-	            MainCanvas.textAlign = "center";
-	        },
-	        click: () => {
-	            if (settingsPage === "main") {
-	                _clickMainPage();
-	            } else if (settingsPage === "modeSelect") {
-	                _clickModeSelectPage();
-	            } else if (settingsPage === "whitelist") {
-	                _clickWhitelistPage();
-	            } else if (settingsPage === "unrestrictedConfirm") {
-	                _clickUnrestrictedConfirmPage();
-	            } else if (settingsPage === "roomScan") {
-	                _clickRoomScanPage();
-	            } else if (settingsPage === "blocked") {
-	                _clickBlockedPage();
-	            }
-	        },
-	        exit: () => {
-	            _removeDomainInput();
-	            _removeGifFpsInput();
-	            settingsPage = "main";
-	            whitelistPage = 0;
-	            roomScanPage = 0;
-	            roomScanResults = null;
-	            roomScanPendingDomain = null;
-	            return true;
-	        },
-	        unload: () => {
-	            _removeDomainInput();
-	            _removeGifFpsInput();
-	            settingsPage = "main";
-	            whitelistPage = 0;
-	            roomScanPage = 0;
-	            roomScanResults = null;
-	            roomScanPendingDomain = null;
-	        },
-	    });
-	    Logger.info("扩展设置已注册");
+	    return el;
 	}
-	function _drawTextLeft(text, x, y, color, backColor) {
-	    MainCanvas.textAlign = "left";
-	    DrawText(text, x, y, color, backColor);
-	    MainCanvas.textAlign = "center";
+	function _removeContainer() {
+	    const el = document.getElementById(CONTAINER_ID);
+	    if (el) el.remove();
 	}
-	function _drawMainPage() {
-	    const settings = getSettings();
-	    DrawText(L("自定义贴图 - 安全设置", "Custom Texture - Security Settings"), 1000, 100, "Black", "Gray");
-	    const modeText = settings.urlLoadMode === "whitelist"
-	        ? L("当前模式：白名单模式", "Current mode: Whitelist")
-	        : L("当前模式：不限制模式", "Current mode: Unrestricted");
-	    DrawText(modeText, 1000, 180, "Black", "Gray");
-	    const descText = settings.urlLoadMode === "whitelist"
-	        ? L("仅加载来自可信域名的贴图 URL", "Only load texture URLs from trusted domains")
-	        : L("加载所有 HTTPS 贴图 URL（可能存在隐私风险）", "Load all HTTPS texture URLs (privacy risk)");
-	    DrawText(descText, 1000, 220, "Gray", "White");
-	    DrawButton(800, 280, 400, 60, L("加载模式设置 >>>", "Load Mode Settings >>>"), "White",
-	        null, L("选择白名单/不限制加载模式", "Choose whitelist / unrestricted load mode"));
-	    if (settings.urlLoadMode === "whitelist") {
-	        DrawButton(800, 360, 400, 60, L("域名白名单管理 >>>", "Domain Whitelist >>>"), "White",
-	            null, L("添加或删除可信域名", "Add or remove trusted domains"));
-	        DrawText(L(`已配置 ${settings.allowedDomains?.length || 0} 个可信域名`,
-	            `${settings.allowedDomains?.length || 0} trusted domains configured`), 1000, 440, "Gray", "White");
+	function _posContainer() {
+	    const el = document.getElementById(CONTAINER_ID);
+	    if (!el) return;
+	    const sx = MainCanvas.canvas.clientWidth / MainCanvasWidth;
+	    const sy = MainCanvas.canvas.clientHeight / MainCanvasHeight;
+	    el.style.left = (MainCanvas.canvas.offsetLeft + 380 * sx) + "px";
+	    el.style.top = (MainCanvas.canvas.offsetTop + 160 * sy) + "px";
+	    el.style.width = ((MainCanvasWidth - 760) * sx) + "px";
+	    el.style.height = ((MainCanvasHeight - 240) * sy) + "px";
+	}
+	function _navigateTo(page) {
+	    _pageHistory.push(settingsPage);
+	    settingsPage = page;
+	    _renderCurrentPage();
+	}
+	function _goBack() {
+	    if (_pageHistory.length > 0) {
+	        settingsPage = _pageHistory.pop();
+	    } else {
+	        settingsPage = "main";
 	    }
-	    const warnY = settings.urlLoadMode === "whitelist" ? 500 : 360;
-	    const isWarnOn = settings.domainWarningEnabled !== false;
-	    DrawText(L("不可信域名提示", "Untrusted domain warning"), 800, warnY + 22, "Black", "White");
-	    DrawButton(1150, warnY - 5, 80, 35, isWarnOn ? L("开", "On") : L("关", "Off"),
-	        isWarnOn ? "#4CAF50" : "#666666",
-	        isWarnOn ? "#66BB6A" : "#999999", false,
-	        L("是否对不在白名单的域名显示警告图片", "Whether to show a warning image for non-whitelisted domains"));
-	    const animY = warnY + 70;
-	    const isAnimOn = settings.animatedImageEnabled !== false;
-	    DrawText(L("启用动态图片", "Enable animated images"), 800, animY + 22, "Black", "White");
-	    DrawButton(1150, animY - 5, 80, 35, isAnimOn ? L("开", "On") : L("关", "Off"),
-	        isAnimOn ? "#4CAF50" : "#666666",
-	        isAnimOn ? "#66BB6A" : "#999999", false,
-	        L("关闭后动图（GIF）只显示第一帧，不再播放动画", "When off, animated GIFs only show their first frame and won't play"));
-	    const fpsY = animY + 70;
-	    const isSyncGame = settings.gifFpsSyncGame === true;
-	    DrawText(L("动图帧率", "GIF Frame Rate"), 800, fpsY + 22, "Black", "White");
-	    DrawText("fps", 1290, fpsY + 22, "Gray", "White");
-	    DrawButton(1360, fpsY - 5, 200, 35,
-	        L(`同步游戏帧率: ${isSyncGame ? "开" : "关"}`, `Game FPS sync: ${isSyncGame ? "On" : "Off"}`),
-	        isSyncGame ? "#4CAF50" : "#666666",
-	        isSyncGame ? "#66BB6A" : "#999999", false,
-	        L("勾选后动图帧率跟随游戏帧率设置", "Sync GIF frame rate with game FPS setting"));
-	    const blockY = fpsY + 70;
-	    DrawButton(800, blockY, 400, 60, L("屏蔽玩家管理 >>>", "Blocked Players >>>"), "White",
-	        null, L("管理被屏蔽的玩家，其贴图将显示为占位图", "Manage blocked players; their textures will show as placeholders"));
-	    const blocked = settings.blockedPlayers || [];
-	    DrawText(L(`已屏蔽 ${blocked.length} 名玩家`, `${blocked.length} player(s) blocked`), 1000, blockY + 80, "Gray", "White");
-	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
+	    _renderCurrentPage();
 	}
-	function _drawModeSelectPage() {
-	    const settings = getSettings();
-	    DrawText(L("选择贴图加载模式", "Select texture load mode"), 1000, 100, "Black", "Gray");
-	    const whitelistActive = settings.urlLoadMode === "whitelist";
-	    DrawButton(700, 200, 600, 80,
-	        L(`白名单模式${whitelistActive ? "（当前）" : ""}`, `Whitelist${whitelistActive ? " (current)" : ""}`),
-	        whitelistActive ? "#D4FFD4" : "White",
-	        null, L("仅加载可信域名的贴图（推荐）", "Only load textures from trusted domains (recommended)"));
-	    DrawText(L("仅加载来自可信域名的贴图 URL", "Only load texture URLs from trusted domains"), 1000, 300, "Gray", "White");
-	    const unrestrictedActive = settings.urlLoadMode === "unrestricted";
-	    DrawButton(700, 360, 600, 80,
-	        L(`不限制模式${unrestrictedActive ? "（当前）" : ""}`, `Unrestricted${unrestrictedActive ? " (current)" : ""}`),
-	        unrestrictedActive ? "#FFE4D4" : "White",
-	        null, L("加载任意 HTTPS 贴图（有隐私风险）", "Load any HTTPS texture (privacy risk)"));
-	    DrawText(L("加载所有 HTTPS 贴图 URL", "Load all HTTPS texture URLs"), 1000, 460, "Gray", "White");
-	    DrawButton(800, 560, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
-	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
+	function _renderMainPage() {
+	    const s = getSettings();
+	    const modeLabel = s.urlLoadMode === "whitelist"
+	        ? L("白名单模式", "Whitelist")
+	        : L("不限制模式", "Unrestricted");
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title">${L("自定义贴图 - 安全设置", "Custom Texture - Security Settings")}</div>
+            <div class="sca-row" style="margin:6px 0 14px">
+                <span style="font-size:15px;color:#555">${L("当前模式：", "Current mode: ")}<strong>${modeLabel}</strong></span>
+            </div>
+
+            <div class="sca-card" onclick="ShuangSettings.nav('modeSelect')" style="cursor:pointer">
+                <div class="sca-card-title">${L("加载模式设置", "Load Mode Settings")} <span class="sca-tag ${s.urlLoadMode === 'whitelist' ? 'green' : 'orange'}">${modeLabel}</span></div>
+                <div class="sca-card-desc">${L("选择白名单模式或不限制模式", "Choose whitelist or unrestricted mode")}</div>
+            </div>
+
+            ${s.urlLoadMode === "whitelist" ? `
+            <div class="sca-card" onclick="ShuangSettings.nav('whitelist')" style="cursor:pointer">
+                <div class="sca-card-title">${L("域名白名单管理", "Domain Whitelist")} <span style="font-size:13px;color:#999;font-weight:normal">${L(`${s.allowedDomains?.length || 0} 个域名`, `${s.allowedDomains?.length || 0} domains`)}</span></div>
+                <div class="sca-card-desc">${L("添加或移除可信域名，仅这些域名下的贴图会加载", "Add or remove trusted domains")}</div>
+            </div>
+            ` : ""}
+
+            <div style="margin:12px 0;border-top:1px solid #eee;padding-top:12px">
+                <div class="sca-row" style="margin-bottom:8px">
+                    <span class="sca-label">${L("不可信域名提示", "Untrusted domain warning")}</span>
+                    <button class="sca-btn ${s.domainWarningEnabled !== false ? 'primary' : ''}" onclick="ShuangSettings.toggle('domainWarningEnabled')" style="width:70px">
+                        ${s.domainWarningEnabled !== false ? L("开", "On") : L("关", "Off")}
+                    </button>
+                </div>
+                <div class="sca-row" style="margin-bottom:8px">
+                    <span class="sca-label">${L("启用动态图片", "Enable animated images")}</span>
+                    <button class="sca-btn ${s.animatedImageEnabled !== false ? 'primary' : ''}" onclick="ShuangSettings.toggle('animatedImageEnabled')" style="width:70px">
+                        ${s.animatedImageEnabled !== false ? L("开", "On") : L("关", "Off")}
+                    </button>
+                </div>
+                <div class="sca-row">
+                    <span class="sca-label">${L("动图帧率", "GIF Frame Rate")}</span>
+                    <input class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:80px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? "disabled" : ""}>
+                    <span style="font-size:14px;color:#666">fps</span>
+                    <button class="sca-btn ${s.gifFpsSyncGame ? 'primary' : ''}" onclick="ShuangSettings.toggle('gifFpsSyncGame')" style="min-width:160px">
+                        ${L(`同步游戏帧率: ${s.gifFpsSyncGame ? "开" : "关"}`, `Sync FPS: ${s.gifFpsSyncGame ? "On" : "Off"}`)}
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-top:auto;padding-top:12px;border-top:1px solid #eee">
+                <div class="sca-card" onclick="ShuangSettings.nav('blocked')" style="cursor:pointer">
+                    <div class="sca-card-title">${L("屏蔽玩家管理", "Blocked Players")} <span style="font-size:13px;color:#999;font-weight:normal">${L(`${(s.blockedPlayers || []).length} 人`, `${(s.blockedPlayers || []).length} players`)}</span></div>
+                    <div class="sca-card-desc">${L("屏蔽某玩家的贴图来源或配置，其贴图将不显示", "Block textures from or configured by specific players")}</div>
+                </div>
+            </div>
+        </div>
+    `;
 	}
-	function _drawWhitelistPage() {
-	    const settings = getSettings();
-	    const domains = settings.allowedDomains || [];
-	    const listStartY = 190;
-	    const lineH = 45;
-	    const maxShow = 8;
-	    const domainTextX = 400;
-	    const deleteBtnX = 1300;
-	    const deleteBtnW = 120;
-	    const totalPages = Math.max(1, Math.ceil(domains.length / maxShow));
-	    if (whitelistPage >= totalPages) whitelistPage = totalPages - 1;
-	    if (whitelistPage < 0) whitelistPage = 0;
-	    const pageStart = whitelistPage * maxShow;
-	    const pageEnd = Math.min(pageStart + maxShow, domains.length);
-	    const hasPrev = whitelistPage > 0;
-	    const hasNext = whitelistPage < totalPages - 1;
-	    DrawText(L("域名白名单管理", "Domain Whitelist"), 1000, 100, "Black", "Gray");
-	    DrawText(L("仅来自这些域名的贴图 URL 会被加载", "Only texture URLs from these domains will load"), 1000, 140, "Gray", "White");
-	    for (let i = pageStart; i < pageEnd; i++) {
-	        const displayIdx = i - pageStart;
-	        const y = listStartY + displayIdx * lineH;
-	        _drawTextLeft(`${i + 1}. ${domains[i]}`, domainTextX, y, "Black", "White");
-	        DrawButton(deleteBtnX, y - 17, deleteBtnW, 35, L("删除", "Delete"), "#FFD4D4",
-	            null, L(`从白名单移除 ${domains[i]}`, `Remove ${domains[i]} from whitelist`));
+	function _renderModeSelectPage() {
+	    const s = getSettings();
+	    const isWhitelist = s.urlLoadMode === "whitelist";
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title">${L("选择贴图加载模式", "Select Load Mode")}</div>
+            <div class="sca-subtitle">${L("选择白名单模式或不限制模式", "Choose whitelist or unrestricted mode")}</div>
+
+            <div class="sca-card ${isWhitelist ? 'active' : ''}" onclick="ShuangSettings.setMode('whitelist')" style="cursor:pointer">
+                <div class="sca-card-title">${L("白名单模式", "Whitelist Mode")} ${isWhitelist ? `<span class="sca-tag green">${L("当前", "Current")}</span>` : ""}</div>
+                <div class="sca-card-desc">${L("仅加载来自可信域名的贴图 URL（推荐）", "Only load textures from trusted domains (recommended)")}</div>
+            </div>
+
+            <div class="sca-card ${!isWhitelist ? 'active' : ''}" onclick="ShuangSettings.nav('unrestrictedConfirm')" style="cursor:pointer">
+                <div class="sca-card-title">${L("不限制模式", "Unrestricted Mode")} ${!isWhitelist ? `<span class="sca-tag orange">${L("当前", "Current")}</span>` : ""}</div>
+                <div class="sca-card-desc">${L("加载所有 HTTPS 贴图 URL（存在隐私风险）", "Load any HTTPS texture URL (privacy risk)")}</div>
+            </div>
+
+            ${isWhitelist ? "" : `
+            <div style="margin-top:16px;padding:12px;background:#fff3e0;border-radius:8px;border:1px solid #ffcc02">
+                <span style="color:#e65100;font-size:14px">⚠️ ${L("不限制模式下，所有 HTTPS 贴图都会加载，可能包含不适宜内容。", "In unrestricted mode, all HTTPS textures will load. This may include inappropriate content.")}</span>
+            </div>
+            `}
+        </div>
+    `;
+	}
+	function _renderWhitelistPage() {
+	    const s = getSettings();
+	    const domains = s.allowedDomains || [];
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title">${L("域名白名单管理", "Domain Whitelist")}</div>
+            <div class="sca-subtitle">${L("仅来自这些域名的贴图 URL 会被加载", "Only texture URLs from these domains will load")}</div>
+
+            <div class="sca-table-wrap" style="flex:1;min-height:200px">
+                <table class="sca-table">
+                    <thead><tr><th style="width:40px">#</th><th>${L("域名", "Domain")}</th><th style="width:100px">${L("操作", "Action")}</th></tr></thead>
+                    <tbody>
+                        ${domains.length === 0 ? `
+                            <tr><td colspan="3" style="text-align:center;color:#999;padding:30px">${L("（暂无域名，请添加）", "(No domains, add one)")}</td></tr>
+                        ` : domains.map((d, i) => `
+                            <tr>
+                                <td style="color:#999">${i + 1}</td>
+                                <td>${d}</td>
+                                <td><button class="sca-btn danger small" onclick="ShuangSettings.removeDomain(${i})">${L("删除", "Delete")}</button></td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sca-bottom">
+                <div class="sca-row">
+                    <span class="sca-label">${L("添加域名:", "Add domain:")}</span>
+                    <input class="sca-input" id="ShuangDomainInput" type="text" placeholder="${L("example.com", "example.com")}" style="width:250px" onkeydown="if(event.key==='Enter')ShuangSettings.addDomain()">
+                    <button class="sca-btn primary" onclick="ShuangSettings.addDomain()">${L("添加", "Add")}</button>
+                    <button class="sca-btn" onclick="ShuangSettings.addDefaultDomains()" style="background:#e3f2fd;border-color:#90caf9">${L("添加推荐域名", "Add Defaults")}</button>
+                    <button class="sca-btn danger" onclick="ShuangSettings.clearDomains()">${L("清空全部", "Clear All")}</button>
+                </div>
+            </div>
+        </div>
+    `;
+	    const input = document.getElementById("ShuangDomainInput");
+	    if (input) setTimeout(() => input.focus(), 50);
+	}
+	function _renderBlockedPage() {
+	    const s = getSettings();
+	    const blocked = s.blockedPlayers || [];
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title">${L("屏蔽玩家管理", "Blocked Players")}</div>
+            <div class="sca-subtitle">${L("被屏蔽的玩家，其贴图来源或配置的贴图将不会显示",
+                "Textures from or configured by blocked players will be hidden")}</div>
+
+            <div class="sca-table-wrap" style="flex:1;min-height:200px">
+                <table class="sca-table">
+                    <thead><tr><th style="width:100px">${L("ID", "ID")}</th><th>${L("昵称", "Nickname")}</th><th style="width:120px">${L("操作", "Action")}</th></tr></thead>
+                    <tbody id="ShuangBlockedTableBody">
+                        ${blocked.length === 0 ? `
+                            <tr><td colspan="3" style="text-align:center;color:#999;padding:30px">${L("（暂无屏蔽的玩家）", "(No blocked players)")}</td></tr>
+                        ` : blocked.map((mn, i) => {
+                            const name = _getPlayerName(mn);
+                            return `<tr>
+                                <td>#${mn}</td>
+                                <td>${name || "-"}</td>
+                                <td><button class="sca-btn danger small" onclick="ShuangSettings.unblock(${i})">${L("取消屏蔽", "Unblock")}</button></td>
+                            </tr>`;
+                        }).join("")}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sca-bottom">
+                <div class="sca-section-title" style="margin-top:0">${L("添加屏蔽", "Add Block")}</div>
+                <div class="sca-row">
+                    <span class="sca-label">MemberNumber:</span>
+                    <input class="sca-input" id="ShuangBlockedNewInput" type="text" placeholder="${L("输入 MemberNumber", "Enter MemberNumber")}" style="width:200px">
+                    <button class="sca-btn primary" onclick="ShuangSettings.addBlocked()">${L("添加", "Add")}</button>
+                    <button class="sca-btn" onclick="ShuangSettings.nav('roomPick')">${L("从房间中选择 >>>", "From Room >>>")}</button>
+                </div>
+            </div>
+        </div>
+    `;
+	    const inp = document.getElementById("ShuangBlockedNewInput");
+	    if (inp) {
+	        inp.onkeydown = (e) => {
+	            if (e.key === "Enter") ShuangSettings.addBlocked();
+	        };
+	        setTimeout(() => inp.focus(), 50);
 	    }
-	    const paginationY = listStartY + maxShow * lineH + 10;
-	    DrawText(L(`第 ${whitelistPage + 1}/${totalPages} 页  (共 ${domains.length} 个域名)`,
-	        `Page ${whitelistPage + 1}/${totalPages}  (${domains.length} domains)`), 1000, paginationY, "Gray", "White");
-	    DrawButton(1180, paginationY - 17, 80, 35, L("上一页", "Prev"), "#555555", "#777777", !hasPrev,
-	        L("上一页", "Previous page"));
-	    DrawButton(1270, paginationY - 17, 80, 35, L("下一页", "Next"), "#555555", "#777777", !hasNext,
-	        L("下一页", "Next page"));
-	    const inputY = paginationY + 40;
-	    _drawTextLeft(L("添加域名:", "Add domain:"), domainTextX, inputY, "Black", "White");
-	    DrawButton(900, inputY - 17, 100, 35, L("添加", "Add"), "#D4FFD4",
-	        null, L("将输入框中的域名加入白名单", "Add the entered domain to the whitelist"));
-	    DrawButton(1010, inputY - 17, 100, 35, L("清空全部", "Clear All"), "#FFD4D4",
-	        null, L("移除所有可信域名", "Remove all trusted domains"));
-	    DrawButton(1120, inputY - 17, 120, 35, L("添加推荐域名", "Add Defaults"), "#B3E5FC",
-	        null, L("添加内置推荐图床域名", "Add the built-in recommended image hosts"));
-	    const ieY = inputY + 50;
-	    DrawButton(900, ieY - 17, 120, 35, L("导出配置", "Export"), "#FF9800", "#FFB74D", false,
-	        L("将白名单复制到剪贴板", "Copy the whitelist to clipboard"));
-	    DrawButton(1030, ieY - 17, 120, 35, L("导入配置", "Import"), "#2196F3", "#42A5F5", false,
-	        L("从 JSON 导入白名单", "Import a whitelist from JSON"));
-	    DrawButton(1180, ieY - 17, 140, 35, L("扫描房间", "Scan Room"), "#B3E5FC",
-	        null, L("扫描当前房间内所有玩家的不可信贴图域名", "Scan all players in the current room for untrusted texture domains"));
-	    DrawButton(800, 720, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
-	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
 	}
-	function _drawUnrestrictedConfirmPage() {
-	    DrawText(L("⚠ 隐私安全警告 ⚠", "⚠ Privacy & Security Warning ⚠"), 1000, 120, "Red", "Yellow");
+	function _renderRoomPickPage() {
+	    const chars = (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter))
+	        ? ChatRoomCharacter : [];
+	    if (Player && chars.indexOf(Player) === -1) chars.push(Player);
+	    const blocked = getSettings().blockedPlayers || [];
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title">${L("从房间选择要屏蔽的玩家", "Select from Room")}</div>
+
+            <div class="sca-table-wrap" style="flex:1;min-height:200px">
+                <table class="sca-table">
+                    <thead><tr><th style="width:100px">${L("ID", "ID")}</th><th>${L("昵称", "Nickname")}</th><th style="width:120px">${L("操作", "Action")}</th></tr></thead>
+                    <tbody>
+                        ${chars.filter(c => c.MemberNumber).map(c => {
+                            const mn = c.MemberNumber;
+                            const name = (typeof CharacterNickname === "function" ? CharacterNickname(c) : "") || c.Nickname || c.Name || "";
+                            const isBlocked = blocked.indexOf(mn) !== -1;
+                            return `<tr>
+                                <td>#${mn}</td>
+                                <td>${name || "-"}</td>
+                                <td>${isBlocked
+                                    ? `<span style="color:#999;font-size:14px">${L("已屏蔽", "Blocked")}</span>`
+                                    : `<button class="sca-btn danger small" onclick="ShuangSettings.blockFromRoom(${mn})">${L("屏蔽", "Block")}</button>`
+                                }</td>
+                            </tr>`;
+                        }).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+	}
+	function _renderUnrestrictedConfirmPage() {
 	    const lines = isChineseLang() ? [
 	        "不限制模式将加载来自任意 HTTPS 地址的贴图 URL",
 	        "",
@@ -1450,639 +1492,209 @@
 	        "",
 	        "Are you sure you want to enable Unrestricted mode?",
 	    ];
-	    let y = 180;
-	    for (let i = 0; i < lines.length; i++) {
-	        const line = lines[i];
-	        const color = (i === lines.length - 1) ? "Red" : "Black";
-	        DrawText(line, 1000, y, color, "White");
-	        y += 35;
-	    }
-	    DrawButton(700, y + 20, 280, 60, L("我已了解风险，确认开启", "I understand, enable it"), "#FFD4D4",
-	        null, L("切换到不限制模式", "Switch to Unrestricted mode"));
-	    DrawButton(1020, y + 20, 280, 60, L("取消，保持白名单模式", "Cancel, keep Whitelist"), "#D4FFD4",
-	        null, L("保持白名单模式", "Keep Whitelist mode"));
-	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title" style="color:#e53935">${L("⚠ 隐私安全警告 ⚠", "⚠ Privacy & Security Warning ⚠")}</div>
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;margin:8px 0">
+                ${lines.map(line => line ? `<div style="font-size:15px;color:#333;padding:3px 0">${line}</div>` : `<div style="height:8px"></div>`).join("")}
+            </div>
+            <div class="sca-row" style="justify-content:center;gap:16px;padding-top:12px;border-top:1px solid #eee">
+                <button class="sca-btn danger" onclick="ShuangSettings.confirmUnrestricted()" style="min-width:160px;font-size:17px;padding:12px 30px">
+                    ${L("确定开启", "Enable")}
+                </button>
+                <button class="sca-btn secondary" onclick="ShuangSettings.cancelUnrestricted()" style="min-width:160px;font-size:17px;padding:12px 30px">
+                    ${L("取消", "Cancel")}
+                </button>
+            </div>
+        </div>
+    `;
 	}
-	function _clickMainPage() {
-	    const settings = getSettings();
-	    if (MouseIn(1815, 75, 90, 90)) {
-	        PreferenceSubscreenExtensionsClear();
-	        return;
-	    }
-	    if (MouseIn(800, 280, 400, 60)) {
-	        settingsPage = "modeSelect";
-	        return;
-	    }
-	    if (settings.urlLoadMode === "whitelist" && MouseIn(800, 360, 400, 60)) {
-	        settingsPage = "whitelist";
-	        return;
-	    }
-	    const warnY = settings.urlLoadMode === "whitelist" ? 500 : 360;
-	    if (MouseIn(1150, warnY - 5, 80, 35)) {
-	        settings.domainWarningEnabled = !(settings.domainWarningEnabled !== false);
+	window.ShuangSettings = {
+	    nav: (page) => _navigateTo(page),
+	    back: () => _goBack(),
+	    toggle: (key) => {
+	        const s = getSettings();
+	        s[key] = !s[key];
 	        saveSettings();
-	        return;
-	    }
-	    const animY = warnY + 70;
-	    if (MouseIn(1150, animY - 5, 80, 35)) {
-	        settings.animatedImageEnabled = !(settings.animatedImageEnabled !== false);
+	        _renderCurrentPage();
+	    },
+	    setFps: (val) => {
+	        const p = parseInt(val);
+	        if (isNaN(p)) return;
+	        const c = Math.max(2, Math.min(30, p));
+	        const ms = Math.round(1000 / c);
+	        const s = getSettings();
+	        if (s.gifFrameRate !== ms) { s.gifFrameRate = ms; saveSettings(); }
+	    },
+	    setMode: (mode) => {
+	        const s = getSettings();
+	        s.urlLoadMode = mode;
 	        saveSettings();
-	        return;
-	    }
-	    const fpsY = animY + 70;
-	    if (MouseIn(1360, fpsY - 5, 200, 35)) {
-	        settings.gifFpsSyncGame = !(settings.gifFpsSyncGame === true);
+	        _renderModeSelectPage();
+	    },
+	    unblock: (index) => {
+	        const s = getSettings();
+	        const b = s.blockedPlayers || [];
+	        b.splice(index, 1);
+	        s.blockedPlayers = b;
 	        saveSettings();
-	        if (!settings.gifFpsSyncGame) {
-	            const input = document.getElementById(GIF_FPS_INPUT_ID);
-	            if (input) input.value = String(Math.round(1000 / getGifFrameRate()));
-	        }
-	        return;
-	    }
-	    const blockY = fpsY + 70;
-	    if (MouseIn(800, blockY, 400, 60)) {
-	        settingsPage = "blocked";
-	        return;
-	    }
-	}
-	function _clickModeSelectPage() {
-	    const settings = getSettings();
-	    if (MouseIn(1815, 75, 90, 90)) {
-	        PreferenceSubscreenExtensionsClear();
-	        return;
-	    }
-	    if (MouseIn(700, 200, 600, 80)) {
-	        if (settings.urlLoadMode !== "whitelist") {
-	            settings.urlLoadMode = "whitelist";
-	            saveSettings();
-	            Logger.info("切换到白名单模式");
-	        }
-	        settingsPage = "main";
-	        return;
-	    }
-	    if (MouseIn(700, 360, 600, 80)) {
-	        if (settings.urlLoadMode !== "unrestricted") {
-	            settingsPage = "unrestrictedConfirm";
-	            return;
-	        }
-	        settings.urlLoadMode = "whitelist";
-	        saveSettings();
-	        settingsPage = "main";
-	        return;
-	    }
-	    if (MouseIn(800, 560, 400, 60)) {
-	        settingsPage = "main";
-	        return;
-	    }
-	}
-	function _clickWhitelistPage() {
-	    const settings = getSettings();
-	    const domains = settings.allowedDomains || [];
-	    if (MouseIn(1815, 75, 90, 90)) {
-	        PreferenceSubscreenExtensionsClear();
-	        return;
-	    }
-	    const listStartY = 190;
-	    const lineH = 45;
-	    const maxShow = 8;
-	    const deleteBtnX = 1300;
-	    const deleteBtnW = 120;
-	    const totalPages = Math.max(1, Math.ceil(domains.length / maxShow));
-	    for (let i = 0; i < maxShow; i++) {
-	        const idx = whitelistPage * maxShow + i;
-	        if (idx >= domains.length) break;
-	        const y = listStartY + i * lineH;
-	        if (MouseIn(deleteBtnX, y - 17, deleteBtnW, 35)) {
-	            const removed = domains.splice(idx, 1)[0];
-	            settings.allowedDomains = domains;
-	            saveSettings();
-	            if (domains.length > 0 && whitelistPage >= Math.ceil(domains.length / maxShow)) {
-	                whitelistPage = Math.max(0, Math.ceil(domains.length / maxShow) - 1);
-	            }
-	            Logger.info(`删除域名: ${removed}`);
-	            return;
-	        }
-	    }
-	    const paginationY = listStartY + maxShow * lineH + 10;
-	    const hasPrev = whitelistPage > 0;
-	    const hasNext = whitelistPage < totalPages - 1;
-	    if (hasPrev && MouseIn(1180, paginationY - 17, 80, 35)) {
-	        whitelistPage--;
-	        return;
-	    }
-	    if (hasNext && MouseIn(1270, paginationY - 17, 80, 35)) {
-	        whitelistPage++;
-	        return;
-	    }
-	    const inputY = paginationY + 40;
-	    if (MouseIn(900, inputY - 17, 100, 35)) {
-	        const input = document.getElementById("ShuangTextureDomainInput");
-	        const domain = input?.value?.trim()?.toLowerCase();
-	        if (domain && !domains.includes(domain)) {
-	            if (/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(domain)) {
-	                domains.push(domain);
-	                settings.allowedDomains = domains;
+	        _refreshRoomCharacters();
+	        _renderBlockedPage();
+	    },
+	    addBlocked: () => {
+	        const inp = document.getElementById("ShuangBlockedNewInput");
+	        if (!inp) return;
+	        const val = parseInt(inp.value, 10);
+	        if (Number.isFinite(val) && val > 0) {
+	            const s = getSettings();
+	            const b = s.blockedPlayers || [];
+	            if (b.indexOf(val) === -1) {
+	                b.push(val);
+	                s.blockedPlayers = b;
 	                saveSettings();
-	                input.value = "";
-	                whitelistPage = Math.max(0, Math.ceil(domains.length / maxShow) - 1);
-	                Logger.info(`添加域名: ${domain}`);
+	                _refreshRoomCharacters();
 	            }
+	            inp.value = "";
+	            _renderBlockedPage();
 	        }
-	        return;
-	    }
-	    if (MouseIn(1010, inputY - 17, 100, 35)) {
-	        if (confirm(L("确定要清空所有可信域名吗？", "Clear all trusted domains?"))) {
-	            settings.allowedDomains = [];
+	    },
+	    blockFromRoom: (mn) => {
+	        const s = getSettings();
+	        const b = s.blockedPlayers || [];
+	        if (b.indexOf(mn) === -1) {
+	            b.push(mn);
+	            s.blockedPlayers = b;
 	            saveSettings();
-	            whitelistPage = 0;
-	            Logger.info("清空所有域名");
+	            _refreshRoomCharacters();
 	        }
-	        return;
-	    }
-	    if (MouseIn(1120, inputY - 17, 120, 35)) {
-	        const existing = new Set(settings.allowedDomains || []);
-	        let added = 0;
+	        _renderRoomPickPage();
+	    },
+	    addDomain: () => {
+	        const inp = document.getElementById("ShuangDomainInput");
+	        if (!inp || !inp.value.trim()) return;
+	        addDomainToWhitelist(inp.value.trim());
+	        inp.value = "";
+	        _renderWhitelistPage();
+	    },
+	    removeDomain: (index) => {
+	        const s = getSettings();
+	        s.allowedDomains.splice(index, 1);
+	        saveSettings();
+	        _renderWhitelistPage();
+	    },
+	    clearDomains: () => {
+	        const s = getSettings();
+	        s.allowedDomains = [];
+	        saveSettings();
+	        _renderWhitelistPage();
+	    },
+	    addDefaultDomains: () => {
+	        const s = getSettings();
 	        for (const d of DEFAULT_ALLOWED_DOMAINS) {
-	            if (!existing.has(d)) {
-	                settings.allowedDomains.push(d);
-	                existing.add(d);
-	                added++;
-	            }
+	            if (!s.allowedDomains.includes(d)) s.allowedDomains.push(d);
 	        }
-	        if (added > 0) {
-	            saveSettings();
-	            whitelistPage = Math.max(0, Math.ceil(settings.allowedDomains.length / maxShow) - 1);
-	            Logger.info(`添加了 ${added} 个推荐域名`);
-	        }
-	        return;
-	    }
-	    const ieY = inputY + 50;
-	    if (MouseIn(900, ieY - 17, 120, 35)) {
-	        const json = JSON.stringify(settings.allowedDomains || [], null, 2);
-	        navigator.clipboard.writeText(json).then(() => {
-	            Logger.info("域名白名单已复制到剪贴板");
-	        }).catch(() => {
-	            const ta = document.createElement("textarea");
-	            ta.value = json;
-	            document.body.appendChild(ta);
-	            ta.select();
-	            document.execCommand("copy");
-	            document.body.removeChild(ta);
-	            Logger.info("域名白名单已复制到剪贴板");
-	        });
-	        return;
-	    }
-	    if (MouseIn(1030, ieY - 17, 120, 35)) {
-	        const jsonStr = prompt(L(
-	            "请粘贴域名白名单 JSON 配置：\n格式如: [\"domain1.com\", \"domain2.com\"]",
-	            "Paste the whitelist JSON config:\ne.g. [\"domain1.com\", \"domain2.com\"]"));
-	        if (jsonStr) {
-	            try {
-	                const imported = JSON.parse(jsonStr);
-	                if (!Array.isArray(imported)) throw new Error("不是数组格式");
-	                const existing = new Set(settings.allowedDomains || []);
-	                let added = 0;
-	                for (const d of imported) {
-	                    const domain = String(d).toLowerCase().trim();
-	                    if (domain && !existing.has(domain) && /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(domain)) {
-	                        settings.allowedDomains.push(domain);
-	                        existing.add(domain);
-	                        added++;
-	                    }
-	                }
-	                if (added > 0) {
-	                    saveSettings();
-	                    whitelistPage = Math.max(0, Math.ceil(settings.allowedDomains.length / maxShow) - 1);
-	                    Logger.info(`导入了 ${added} 个域名`);
-	                } else {
-	                    Logger.info("导入完成，无新增域名");
-	                }
-	            } catch (e) {
-	                Logger.error("导入域名配置失败:", e);
-	                alert(L("导入失败：JSON 格式错误，请检查后重试", "Import failed: invalid JSON, please check and retry"));
-	            }
-	        }
-	        return;
-	    }
-	    if (MouseIn(1180, ieY - 17, 140, 35)) {
-	        settingsPage = "roomScan";
-	        roomScanPage = 0;
-	        roomScanResults = null;
-	        return;
-	    }
-	    if (MouseIn(800, 720, 400, 60)) {
-	        settingsPage = "main";
-	        return;
-	    }
-	}
-	function _clickUnrestrictedConfirmPage() {
-	    const settings = getSettings();
-	    if (MouseIn(1815, 75, 90, 90)) {
-	        PreferenceSubscreenExtensionsClear();
-	        return;
-	    }
-	    const confirmY = 180 + 35 * 11 + 20;
-	    if (MouseIn(700, confirmY, 280, 60)) {
-	        settings.urlLoadMode = "unrestricted";
+	        saveSettings();
+	        _renderWhitelistPage();
+	    },
+	    confirmUnrestricted: () => {
+	        const s = getSettings();
+	        s.urlLoadMode = "unrestricted";
 	        saveSettings();
 	        Logger.info("已切换到不限制模式");
+	        _pageHistory = [];
 	        settingsPage = "main";
+	        _renderCurrentPage();
+	    },
+	    cancelUnrestricted: () => {
+	        _goBack();
+	    }
+	};
+	function _renderCurrentPage() {
+	    const container = _getContainer();
+	    switch (settingsPage) {
+	        case "main": _renderMainPage(); break;
+	        case "modeSelect": _renderModeSelectPage(); break;
+	        case "whitelist": _renderWhitelistPage(); break;
+	        case "blocked": _renderBlockedPage(); break;
+	        case "roomPick": _renderRoomPickPage(); break;
+	        case "unrestrictedConfirm": _renderUnrestrictedConfirmPage(); break;
+	        default: container.innerHTML = ""; break;
+	    }
+	    _posContainer();
+	}
+	function _refreshRoomCharacters() {
+	    try {
+	        const chars = (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter))
+	            ? ChatRoomCharacter : [];
+	        if (Player && chars.indexOf(Player) === -1) chars.push(Player);
+	        for (const C of chars) {
+	            if (typeof CharacterRefresh === "function") CharacterRefresh(C, false, false);
+	        }
+	    } catch (_) {}
+	}
+	function _getPlayerName(mn) {
+	    try {
+	        if (typeof CharacterNickname === "function") {
+	            const chars = (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter))
+	                ? ChatRoomCharacter : [];
+	            for (const C of chars) {
+	                if (C.MemberNumber === mn) return CharacterNickname(C) || C.Name || "";
+	            }
+	            if (Player && Player.MemberNumber === mn) return CharacterNickname(Player) || Player.Name || "";
+	        }
+	        if (Player && Player.MemberNumber === mn) return Player.Nickname || Player.Name || "";
+	    } catch (_) {}
+	    return "";
+	}
+	function initSettings() {
+	    if (typeof PreferenceRegisterExtensionSetting !== "function") {
+	        setTimeout(initSettings, 1000);
 	        return;
 	    }
-	    if (MouseIn(1020, confirmY, 280, 60)) {
-	        settingsPage = "main";
-	        return;
-	    }
-	}
-	function _createDomainInput() {
-	    ElementCreateInput("ShuangTextureDomainInput", "text", "", "example.com");
-	    _updateInputPosition();
-	}
-	function _updateInputPosition() {
-	    const input = document.getElementById("ShuangTextureDomainInput");
-	    if (input && settingsPage === "whitelist") {
-	        const inputY = 190 + 8 * 45 + 10 + 40;
-	        ElementPosition("ShuangTextureDomainInput", 720, inputY, 350, 40);
-	    } else if (input) {
-	        ElementPosition("ShuangTextureDomainInput", -999, -999, 0, 0);
-	    }
-	    const fpsInput = document.getElementById(GIF_FPS_INPUT_ID);
-	    if (fpsInput) {
-	        const s = getSettings();
-	        const animEnabled = s.animatedImageEnabled !== false;
-	        if (settingsPage === "main" && animEnabled) {
-	            const warnY = s.urlLoadMode === "whitelist" ? 500 : 360;
-	            const animY = warnY + 70;
-	            const fpsY = animY + 70;
-	            ElementPosition(GIF_FPS_INPUT_ID, 1200, fpsY + 12, 120, 35);
-	            const syncGame = s.gifFpsSyncGame === true;
-	            fpsInput.disabled = syncGame;
-	            if (syncGame) {
-	                const gameFps = Player?.GraphicsSettings?.MaxFPS ?? 60;
-	                const displayFps = gameFps === 0 ? 60 : gameFps;
-	                if (fpsInput.value !== String(displayFps)) {
-	                    fpsInput.value = String(displayFps);
+	    PreferenceRegisterExtensionSetting({
+	        Identifier: EXTENSION_ID,
+	        ButtonText: L("自定义贴图设置", "Custom Texture Settings"),
+	        Image: BADGE_IMAGE_URL,
+	        load: () => {
+	            settingsPage = "main";
+	            _pageHistory = [];
+	            _getContainer();
+	            _renderCurrentPage();
+	        },
+	        run: () => {
+	            MainCanvas.textAlign = "center";
+	            if (settingsPage !== "main") {
+	                DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png",
+	                    L("返回", "Back"));
+	            } else {
+	                DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png",
+	                    L("退出", "Exit"));
+	            }
+	            _posContainer();
+	            MainCanvas.textAlign = "center";
+	        },
+	        click: () => {
+	            if (MouseIn(1815, 75, 90, 90)) {
+	                if (settingsPage !== "main") {
+	                    _goBack();
+	                } else {
+	                    PreferenceSubscreenExtensionsClear();
 	                }
 	            }
-	        } else {
-	            ElementPosition(GIF_FPS_INPUT_ID, -999, -999, 0, 0);
-	        }
-	    }
-	}
-	function _removeDomainInput() {
-	    const input = document.getElementById("ShuangTextureDomainInput");
-	    if (input) input.remove();
-	}
-	function _createGifFpsInput() {
-	    const initialFps = Math.round(1000 / getGifFrameRate());
-	    const input = ElementCreateInput(GIF_FPS_INPUT_ID, "number", String(initialFps), "10");
-	    input.min = "2";
-	    input.max = "30";
-	    input.step = "1";
-	    input.addEventListener("input", () => {
-	        const parsed = parseInt(input.value);
-	        if (isNaN(parsed)) return;
-	        const clampedFps = Math.max(2, Math.min(30, parsed));
-	        const ms = Math.round(1000 / clampedFps);
-	        const settings = getSettings();
-	        if (settings.gifFrameRate !== ms) {
-	            settings.gifFrameRate = ms;
-	            saveSettings();
-	        }
+	        },
+	        exit: () => {
+	            _removeContainer();
+	            settingsPage = "main";
+	            _pageHistory = [];
+	            return true;
+	        },
+	        unload: () => {
+	            _removeContainer();
+	            settingsPage = "main";
+	            _pageHistory = [];
+	        },
 	    });
-	    input.addEventListener("change", () => {
-	        let parsed = parseInt(input.value);
-	        if (isNaN(parsed)) parsed = 10;
-	        const clampedFps = Math.max(2, Math.min(30, parsed));
-	        input.value = String(clampedFps);
-	        const ms = Math.round(1000 / clampedFps);
-	        const settings = getSettings();
-	        if (settings.gifFrameRate !== ms) {
-	            settings.gifFrameRate = ms;
-	            saveSettings();
-	        }
-	    });
-	}
-	function _removeGifFpsInput() {
-	    const input = document.getElementById(GIF_FPS_INPUT_ID);
-	    if (input) input.remove();
-	}
-	function _copyToClipboard(text) {
-	    if (navigator.clipboard?.writeText) {
-	        navigator.clipboard.writeText(text).catch(() => _fallbackCopy(text));
-	    } else {
-	        _fallbackCopy(text);
-	    }
-	}
-	function _fallbackCopy(text) {
-	    const ta = document.createElement("textarea");
-	    ta.value = text;
-	    document.body.appendChild(ta);
-	    ta.select();
-	    try { document.execCommand("copy"); } catch {}
-	    document.body.removeChild(ta);
-	}
-	function collectUntrustedUrls() {
-	    const results = [];
-	    const chars = [];
-	    if (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)) {
-	        chars.push(...ChatRoomCharacter);
-	    }
-	    if (typeof Player !== "undefined" && Player && !chars.includes(Player)) {
-	        chars.push(Player);
-	    }
-	    for (const C of chars) {
-	        if (!C || !C.Appearance) continue;
-	        const name = (typeof CharacterNickname === "function")
-	            ? (CharacterNickname(C) || C.Name || "Unknown")
-	            : (C.Name || "Unknown");
-	        for (const item of C.Appearance) {
-	            if (!item?.Asset || item.Asset.Name !== ASSET_NAME) continue;
-	            const textures = item?.Property?.Textures;
-	            if (!Array.isArray(textures)) continue;
-	            for (const texture of textures) {
-	                if (!texture) continue;
-	                _addIfUntrusted(results, name, texture.TextureURL);
-	                if (texture.PoseSettings && typeof texture.PoseSettings === "object") {
-	                    for (const ps of Object.values(texture.PoseSettings)) {
-	                        if (ps && typeof ps === "object") {
-	                            _addIfUntrusted(results, name, ps.TextureURL);
-	                        }
-	                    }
-	                }
-	            }
-	        }
-	    }
-	    const seen = new Set();
-	    return results.filter(r => {
-	        const key = r.name + "|" + r.url;
-	        if (seen.has(key)) return false;
-	        seen.add(key);
-	        return true;
-	    });
-	}
-	function _addIfUntrusted(results, name, url) {
-	    if (!url || typeof url !== "string") return;
-	    if (isDomainInWhitelist(url)) return;
-	    const domain = extractDomain(url);
-	    if (!domain) return;
-	    results.push({ name, url, domain });
-	}
-	function _getRoomScanResults() {
-	    if (roomScanResults === null) {
-	        roomScanResults = collectUntrustedUrls();
-	    }
-	    return roomScanResults;
-	}
-	function _refreshRoomScanResults() {
-	    roomScanResults = collectUntrustedUrls();
-	    const maxShow = 8;
-	    const totalPages = Math.max(1, Math.ceil(roomScanResults.length / maxShow));
-	    if (roomScanPage >= totalPages) roomScanPage = totalPages - 1;
-	    if (roomScanPage < 0) roomScanPage = 0;
-	}
-	function _drawRoomScanConfirm() {
-	    DrawText(L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠"), 1000, 200, "Red", "Gray");
-	    let y = 260;
-	    const lines = isChineseLang() ? [
-	        { t: `即将添加域名到白名单: ${roomScanPendingDomain}`, c: "Cyan" },
-	        { t: "", c: "White" },
-	        { t: "添加后，来自该域名的贴图 URL 将被允许加载", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "请注意以下风险：", c: "White" },
-	        { t: "1. 请确认您信任该域名提供者", c: "White" },
-	        { t: "2. 该域名的所有 URL 都将被加载", c: "White" },
-	        { t: "3. 恶意域名可能用于追踪您的 IP 地址", c: "White" },
-	        { t: "4. 恶意域名可能导致隐私信息泄露", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "确定要添加此域名到可信列表吗？", c: "Red" },
-	    ] : [
-	        { t: `About to add domain to whitelist: ${roomScanPendingDomain}`, c: "Cyan" },
-	        { t: "", c: "White" },
-	        { t: "Once added, texture URLs from this domain will be allowed", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "Please note the following risks:", c: "White" },
-	        { t: "1. Make sure you trust this domain's provider", c: "White" },
-	        { t: "2. All URLs from this domain will be loaded", c: "White" },
-	        { t: "3. A malicious domain may track your IP address", c: "White" },
-	        { t: "4. A malicious domain may leak private info", c: "White" },
-	        { t: "", c: "White" },
-	        { t: "Add this domain to the trusted list?", c: "Red" },
-	    ];
-	    for (const line of lines) {
-	        DrawText(line.t, 1000, y, line.c, "Black");
-	        y += 32;
-	    }
-	    y += 10;
-	    DrawButton(750, y, 220, 50, L("确认添加", "Add"), "#4CAF50", "#66BB6A", false,
-	        L(`将 ${roomScanPendingDomain} 加入白名单`, `Add ${roomScanPendingDomain} to whitelist`));
-	    DrawButton(1030, y, 220, 50, L("取消", "Cancel"), "#9E9E9E", "#BDBDBD", false,
-	        L("放弃添加并返回", "Discard and go back"));
-	}
-	function _drawRoomScanPage() {
-	    const settings = getSettings();
-	    DrawText(L("房间不可信域名扫描", "Room Untrusted Domain Scan"), 1000, 100, "Black", "Gray");
-	    if (settings.urlLoadMode !== "whitelist") {
-	        DrawText(L("此功能仅在白名单模式下可用", "This feature is only available in Whitelist mode"), 1000, 220, "Gray", "White");
-	        DrawText(L("请先切换到白名单模式", "Please switch to Whitelist mode first"), 1000, 260, "Gray", "White");
-	        DrawButton(800, 720, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
-	        DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
-	        return;
-	    }
-	    if (roomScanPendingDomain) {
-	        _drawRoomScanConfirm();
-	        DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
-	        return;
-	    }
-	    const inRoom = typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.length > 0;
-	    const results = _getRoomScanResults();
-	    DrawText(inRoom
-	        ? L("当前房间内所有玩家身上的不可信贴图域名", "Untrusted texture domains from all players in the current room")
-	        : L("当前不在房间中，仅扫描了自己的贴图", "Not in a room, only your own textures were scanned"),
-	        1000, 140, "Gray", "White");
-	    if (results.length === 0) {
-	        DrawText(L("✔ 未发现不可信域名", "✔ No untrusted domains found"), 1000, 300, "#4CAF50", "White");
-	        DrawText(L("当前房间内所有玩家的贴图域名均已在白名单中", "All texture domains in the current room are already whitelisted"), 1000, 340, "Gray", "White");
-	    } else {
-	        DrawText(L(`发现 ${results.length} 个不可信域名`, `${results.length} untrusted domains found`), 1000, 175, "Orange", "White");
-	        const listStartY = 210;
-	        const lineH = 50;
-	        const maxShow = 8;
-	        const totalPages = Math.max(1, Math.ceil(results.length / maxShow));
-	        if (roomScanPage >= totalPages) roomScanPage = totalPages - 1;
-	        if (roomScanPage < 0) roomScanPage = 0;
-	        const pageStart = roomScanPage * maxShow;
-	        const pageEnd = Math.min(pageStart + maxShow, results.length);
-	        for (let i = pageStart; i < pageEnd; i++) {
-	            const displayIdx = i - pageStart;
-	            const y = listStartY + displayIdx * lineH;
-	            const r = results[i];
-	            const nameStr = r.name.length > 12 ? r.name.substring(0, 12) + "…" : r.name;
-	            const domainDisplay = r.domain.length > 30 ? r.domain.substring(0, 30) + "…" : r.domain;
-	            const urlDisplay = r.url.length > 45 ? r.url.substring(0, 45) + "…" : r.url;
-	            const justCopiedDomain = r.domain === _copiedDomain && Date.now() - _copiedTime < 1500;
-	            const justCopiedUrl = r.url === _copiedDomain && Date.now() - _copiedTime < 1500;
-	            _drawTextLeft(`${i + 1}. ${nameStr}`, 250, y, "Black", "White");
-	            DrawButton(420, y - 18, 400, 36,
-	                justCopiedDomain ? L("✔ 已复制", "✔ Copied") : domainDisplay,
-	                justCopiedDomain ? "#4CAF50" : "White",
-	                null, r.domain);
-	            DrawButton(840, y - 18, 640, 36,
-	                justCopiedUrl ? L("✔ 已复制", "✔ Copied") : urlDisplay,
-	                justCopiedUrl ? "#4CAF50" : "White",
-	                null, r.url);
-	            DrawButton(1500, y - 18, 140, 36, L("信任", "Trust"), "#4CAF50", "#66BB6A", false,
-	                L(`将 ${r.domain} 加入白名单`, `Add ${r.domain} to whitelist`));
-	        }
-	        const paginationY = listStartY + maxShow * lineH + 10;
-	        const hasPrev = roomScanPage > 0;
-	        const hasNext = roomScanPage < totalPages - 1;
-	        DrawText(L(`第 ${roomScanPage + 1}/${totalPages} 页  (共 ${results.length} 个)`,
-	            `Page ${roomScanPage + 1}/${totalPages}  (${results.length} items)`), 1000, paginationY, "Gray", "White");
-	        DrawButton(1180, paginationY - 17, 80, 35, L("上一页", "Prev"), "#555555", "#777777", !hasPrev,
-	            L("上一页", "Previous page"));
-	        DrawButton(1270, paginationY - 17, 80, 35, L("下一页", "Next"), "#555555", "#777777", !hasNext,
-	            L("下一页", "Next page"));
-	    }
-	    DrawButton(800, 720, 400, 60, L("返回", "Back"), "White", null, L("返回上一页", "Back to previous page"));
-	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("退出", "Exit"));
-	}
-	function _clickRoomScanPage() {
-	    const settings = getSettings();
-	    if (MouseIn(1815, 75, 90, 90)) {
-	        PreferenceSubscreenExtensionsClear();
-	        return;
-	    }
-	    if (roomScanPendingDomain) {
-	        const confirmY = 260 + 32 * 11 + 10;
-	        if (MouseIn(750, confirmY, 220, 50)) {
-	            const success = addDomainToWhitelist(roomScanPendingDomain);
-	            if (success) Logger.info(`从房间扫描添加可信域名: ${roomScanPendingDomain}`);
-	            roomScanPendingDomain = null;
-	            _refreshRoomScanResults();
-	            return;
-	        }
-	        if (MouseIn(1030, confirmY, 220, 50)) {
-	            roomScanPendingDomain = null;
-	            return;
-	        }
-	        return;
-	    }
-	    if (MouseIn(800, 720, 400, 60)) {
-	        settingsPage = "whitelist";
-	        roomScanPage = 0;
-	        roomScanResults = null;
-	        return;
-	    }
-	    if (settings.urlLoadMode !== "whitelist") return;
-	    const results = _getRoomScanResults();
-	    if (results.length === 0) return;
-	    const listStartY = 210;
-	    const lineH = 50;
-	    const maxShow = 8;
-	    const totalPages = Math.max(1, Math.ceil(results.length / maxShow));
-	    for (let i = 0; i < maxShow; i++) {
-	        const idx = roomScanPage * maxShow + i;
-	        if (idx >= results.length) break;
-	        const y = listStartY + i * lineH;
-	        if (MouseIn(420, y - 18, 400, 36)) {
-	            _copyToClipboard(results[idx].domain);
-	            _copiedDomain = results[idx].domain;
-	            _copiedTime = Date.now();
-	            return;
-	        }
-	        if (MouseIn(840, y - 18, 640, 36)) {
-	            _copyToClipboard(results[idx].url);
-	            _copiedDomain = results[idx].url;
-	            _copiedTime = Date.now();
-	            return;
-	        }
-	        if (MouseIn(1500, y - 18, 140, 36)) {
-	            roomScanPendingDomain = results[idx].domain;
-	            return;
-	        }
-	    }
-	    const paginationY = listStartY + maxShow * lineH + 10;
-	    const hasPrev = roomScanPage > 0;
-	    const hasNext = roomScanPage < totalPages - 1;
-	    if (hasPrev && MouseIn(1180, paginationY - 17, 80, 35)) {
-	        roomScanPage--;
-	        return;
-	    }
-	    if (hasNext && MouseIn(1270, paginationY - 17, 80, 35)) {
-	        roomScanPage++;
-	        return;
-	    }
-	}
-	function _drawBlockedPage() {
-	    const settings = getSettings();
-	    const blocked = settings.blockedPlayers || [];
-	    DrawText(L("屏蔽玩家管理", "Blocked Players"), 1000, 100, "Black", "Gray");
-	    DrawText(L("被屏蔽的玩家，其贴图来源或配置的贴图将显示为占位图", "Textures from or configured by blocked players will show as placeholders"), 1000, 140, "Gray", "White");
-	    const inputY = 200;
-	    DrawText(L("输入玩家 ID (MemberNumber) 添加屏蔽:", "Enter player ID (MemberNumber) to block:"), 1000, inputY, "Black", "White");
-	    DrawButton(800, inputY + 10, 400, 35, L("添加屏蔽", "Add Block"), "White", null,
-	        L("输入玩家 MemberNumber 后点击此按钮", "Enter a player's MemberNumber and click this button"));
-	    const listStartY = 300;
-	    const lineH = 40;
-	    const maxShow = 12;
-	    const totalPages = Math.max(1, Math.ceil(blocked.length / maxShow));
-	    let page = 0;
-	    _drawTextLeft(L("已屏蔽的玩家:", "Blocked Players:"), 800, listStartY - 25, "Black", "White");
-	    if (blocked.length === 0) {
-	        DrawText(L("（暂无屏蔽）", "(None)"), 1000, listStartY + 20, "Gray", "White");
-	    } else {
-	        const start = page * maxShow;
-	        const end = Math.min(start + maxShow, blocked.length);
-	        for (let i = start; i < end; i++) {
-	            const y = listStartY + (i - start) * lineH;
-	            DrawText(`#${blocked[i]}`, 800, y + 22, "Black", "White");
-	            DrawButton(1200, y, 100, 35, L("取消屏蔽", "Unblock"), "#E53935", "#FF6659", false,
-	                L("移除该玩家屏蔽", "Remove this player from block list"));
-	        }
-	        if (totalPages > 1) {
-	            const pagY = listStartY + maxShow * lineH + 10;
-	            DrawText(L(`第 ${page + 1}/${totalPages} 页`, `Page ${page + 1}/${totalPages}`), 1000, pagY + 22, "Gray", "White");
-	        }
-	    }
-	    DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png", L("返回", "Back"));
-	}
-	function _clickBlockedPage() {
-	    const settings = getSettings();
-	    if (MouseIn(1815, 75, 90, 90)) {
-	        settingsPage = "main";
-	        return;
-	    }
-	    if (MouseIn(800, 210, 400, 35)) {
-	        const input = prompt(L("输入要屏蔽的玩家 MemberNumber:", "Enter the player's MemberNumber to block:"));
-	        if (input) {
-	            const num = parseInt(input.trim(), 10);
-	            if (Number.isFinite(num) && num > 0) {
-	                let blocked = settings.blockedPlayers || [];
-	                if (blocked.indexOf(num) === -1) {
-	                    blocked.push(num);
-	                    settings.blockedPlayers = blocked;
-	                    saveSettings();
-	                }
-	            }
-	        }
-	        return;
-	    }
-	    const blocked = settings.blockedPlayers || [];
-	    const listStartY = 300;
-	    const lineH = 40;
-	    const maxShow = 12;
-	    const start = 0;
-	    const end = Math.min(start + maxShow, blocked.length);
-	    for (let i = start; i < end; i++) {
-	        const y = listStartY + (i - start) * lineH;
-	        if (MouseIn(1200, y, 100, 35)) {
-	            blocked.splice(i, 1);
-	            settings.blockedPlayers = blocked;
-	            saveSettings();
-	            return;
-	        }
-	    }
+	    Logger.info("扩展设置已注册");
 	}
 
 	function refreshCharacterAppearance(C) {
@@ -3420,7 +3032,7 @@
 	        finalTexture.ScaleX = toIntOr(state.tempTextureData?.ScaleX, 100);
 	        finalTexture.ScaleY = toIntOr(state.tempTextureData?.ScaleY, 100);
 	        finalTexture.ScaleLocked = state.tempTextureData?.ScaleLocked !== false;
-	        finalTexture.Rotation = Math.max(0, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
+	        finalTexture.Rotation = Math.max(-360, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
 	        finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
 	        finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
 	        finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
@@ -9596,30 +9208,12 @@
 	        const texConfig = texture.CurrentConfigurator || 0;
 	        if ((texSource > 0 && blockedPlayers.indexOf(texSource) !== -1) ||
 	            (texConfig > 0 && blockedPlayers.indexOf(texConfig) !== -1)) {
-	            imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
-	            offsetX = 167;
-	            offsetY = -256;
-	            scaleX = scaleY = 50 / 100;
-	            rotation = 0;
-	            displayOpacity = 1.0;
-	            mirrorH = false;
-	            mirrorV = false;
+	            return;
 	        }
 	    }
 	    const warnEnabled = getDomainWarningEnabled();
 	    let imageUrl, offsetX, offsetY, scaleX, scaleY, rotation, displayOpacity, mirrorH, mirrorV;
-	    if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
-	        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
-	        offsetX = 167;
-	        offsetY = -256;
-	        scaleX = scaleY = 50 / 100;
-	        rotation = 0;
-	        displayOpacity = 1.0;
-	        mirrorH = false;
-	        mirrorV = false;
-	    } else if (!isUrlAllowed(params.TextureURL)) {
-	        return;
-	    } else {
+	    if (isUrlAllowed(params.TextureURL)) {
 	        imageUrl = params.TextureURL;
 	        offsetX = params.OffsetX || 0;
 	        offsetY = params.OffsetY || 0;
@@ -9629,6 +9223,17 @@
 	        displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
 	        mirrorH = params.MirrorH === true;
 	        mirrorV = params.MirrorV === true;
+	    } else if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
+	        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
+	        offsetX = 167;
+	        offsetY = -256;
+	        scaleX = scaleY = 50 / 100;
+	        rotation = 0;
+	        displayOpacity = 1.0;
+	        mirrorH = false;
+	        mirrorV = false;
+	    } else {
+	        return;
 	    }
 	    if (imageUrl.startsWith(ASSETS_CDN_PRIMARY + "/")) {
 	        imageUrl = resolveFixedAssetUrl(imageUrl.substring((ASSETS_CDN_PRIMARY + "/").length));
@@ -10006,7 +9611,7 @@
 	        setupGifAnimationHooks(u$1);
 	        setupModTagHooks(u$1);
 	        u$1.afterPlayerLogin(() => {
-	            registerExtensionSetting();
+	            initSettings();
 	        });
 	        Logger.info(`${ModInfo.fullName} v${ModInfo.version} 初始化完成`);
 	    });
