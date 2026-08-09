@@ -109,38 +109,59 @@ function _injectStyle() {
     const s = document.createElement("style");
     s.id = "ShuangSettingsStyle";
     s.textContent = `
+#${CONTAINER_ID} {
+    /* 亮色（默认）：面板背景透明，保持原有外观 */
+    --sca-fg:#1a1a1a; --sca-muted:#888; --sca-line:#eee; --sca-bg:transparent;
+    --sca-card-bg:#fafafa; --sca-card-border:#e8e8e8; --sca-card-border-hover:#d0d0d0;
+    --sca-btn-bg:#fff; --sca-btn-fg:#333; --sca-btn-border:#ccc;
+    --sca-input-bg:#fff; --sca-input-fg:#333; --sca-input-border:#ccc;
+    --sca-th-bg:#fafafa; --sca-th-fg:#666; --sca-th-line:#e0e0e0;
+    --sca-td-even:#f8f8f8; --sca-td-odd:#fff; --sca-td-hover:#eef6ff;
+    background:var(--sca-bg); box-sizing:border-box;
+}
+#${CONTAINER_ID}.sca-dark {
+    /* 暗色：检测到暗背景时切换（见 _applyTheme） */
+    --sca-fg:#e8e8e8; --sca-muted:#a0a6ae; --sca-line:#3a3d44; --sca-bg:#23252b;
+    --sca-card-bg:#2c2f36; --sca-card-border:#3a3d44; --sca-card-border-hover:#4a4e57;
+    --sca-btn-bg:#33363d; --sca-btn-fg:#e8e8e8; --sca-btn-border:#4a4e57;
+    --sca-input-bg:#2c2f36; --sca-input-fg:#e8e8e8; --sca-input-border:#4a4e57;
+    --sca-th-bg:#2c2f36; --sca-th-fg:#a0a6ae; --sca-th-line:#3a3d44;
+    --sca-td-even:#282b31; --sca-td-odd:#23252b; --sca-td-hover:#31343c;
+}
 #${CONTAINER_ID} * { box-sizing:border-box; }
 #${CONTAINER_ID} .sca-page { display:none; }
 #${CONTAINER_ID} .sca-page.active { display:block; }
 #${CONTAINER_ID} .sca-table-wrap { flex:1; min-height:200px; overflow-y:auto; }
 #${CONTAINER_ID} .sca-table-wrap table { width:100%; border-collapse:collapse; }
-#${CONTAINER_ID} .sca-table-wrap th { text-align:left; padding:10px 14px; color:#666; font-weight:normal; font-size:14px; border-bottom:2px solid #e0e0e0; background:#fafafa; position:sticky; top:0; z-index:1; }
-#${CONTAINER_ID} .sca-table-wrap td { padding:10px 14px; font-size:15px; }
-#${CONTAINER_ID} .sca-table-wrap tr:nth-child(even) td { background:#f8f8f8; }
-#${CONTAINER_ID} .sca-table-wrap tr:nth-child(odd) td { background:#fff; }
-#${CONTAINER_ID} .sca-table-wrap tr:hover td { background:#eef6ff; }
-#${CONTAINER_ID} .sca-bottom { flex-shrink:0; padding-top:12px; border-top:1px solid #eee; margin-top:10px; }
-#${CONTAINER_ID} .sca-card { background:#fafafa; border:1px solid #e8e8e8; border-radius:8px; padding:16px; margin-bottom:12px; }
-#${CONTAINER_ID} .sca-card:hover { border-color:#d0d0d0; }
+#${CONTAINER_ID} .sca-table-wrap th { text-align:left; padding:10px 14px; color:var(--sca-th-fg); font-weight:normal; font-size:14px; border-bottom:2px solid var(--sca-th-line); background:var(--sca-th-bg); position:sticky; top:0; z-index:1; }
+#${CONTAINER_ID} .sca-table-wrap td { padding:10px 14px; font-size:15px; color:var(--sca-fg); }
+#${CONTAINER_ID} .sca-table-wrap tr:nth-child(even) td { background:var(--sca-td-even); }
+#${CONTAINER_ID} .sca-table-wrap tr:nth-child(odd) td { background:var(--sca-td-odd); }
+#${CONTAINER_ID} .sca-table-wrap tr:hover td { background:var(--sca-td-hover); }
+#${CONTAINER_ID} .sca-bottom { flex-shrink:0; padding-top:12px; border-top:1px solid var(--sca-line); margin-top:10px; }
+#${CONTAINER_ID} .sca-card { background:var(--sca-card-bg); border:1px solid var(--sca-card-border); border-radius:8px; padding:16px; margin-bottom:12px; }
+#${CONTAINER_ID} .sca-card:hover { border-color:var(--sca-card-border-hover); }
 #${CONTAINER_ID} .sca-card.active { border-color:#4caf50; background:#f1faf1; }
-#${CONTAINER_ID} .sca-card-title { font-size:16px; font-weight:600; margin-bottom:4px; }
-#${CONTAINER_ID} .sca-card-desc { font-size:13px; color:#888; }
+#${CONTAINER_ID}.sca-dark .sca-card.active { background:#1f2e22; }
+#${CONTAINER_ID} .sca-card-title { font-size:16px; font-weight:600; margin-bottom:4px; color:var(--sca-fg); }
+#${CONTAINER_ID} .sca-card-desc { font-size:13px; color:var(--sca-muted); }
 #${CONTAINER_ID} .sca-tag { display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; font-weight:600; margin-left:8px; }
 #${CONTAINER_ID} .sca-tag.green { background:#e8f5e9; color:#2e7d32; }
 #${CONTAINER_ID} .sca-tag.orange { background:#fff3e0; color:#e65100; }
-#${CONTAINER_ID} .sca-btn { display:inline-flex; align-items:center; justify-content:center; padding:9px 22px; border:1px solid #ccc; border-radius:6px; cursor:pointer; font-size:15px; user-select:none; transition:all 0.12s; background:#fff; color:#333; }
+#${CONTAINER_ID} .sca-btn { display:inline-flex; align-items:center; justify-content:center; padding:9px 22px; border:1px solid var(--sca-btn-border); border-radius:6px; cursor:pointer; font-size:15px; user-select:none; transition:all 0.12s; background:var(--sca-btn-bg); color:var(--sca-btn-fg); }
 #${CONTAINER_ID} .sca-btn:hover { filter:brightness(0.92); transform:translateY(-1px); box-shadow:0 2px 6px rgba(0,0,0,0.1); }
 #${CONTAINER_ID} .sca-btn:active { filter:brightness(0.8); transform:translateY(0); }
 #${CONTAINER_ID} .sca-btn:disabled { opacity:0.4; cursor:default; filter:none; transform:none; box-shadow:none; }
 #${CONTAINER_ID} .sca-btn.danger { background:#e53935; color:#fff; border-color:#c62828; }
 #${CONTAINER_ID} .sca-btn.primary { background:#4caf50; color:#fff; border-color:#388e3c; }
 #${CONTAINER_ID} .sca-btn.small { padding:6px 14px; font-size:13px; border-radius:4px; }
-#${CONTAINER_ID} .sca-input { padding:9px 12px; border:1px solid #ccc; border-radius:6px; font-size:15px; outline:none; background:#fff; }
+#${CONTAINER_ID} .sca-input { padding:9px 12px; border:1px solid var(--sca-input-border); border-radius:6px; font-size:15px; outline:none; background:var(--sca-input-bg); color:var(--sca-input-fg); }
 #${CONTAINER_ID} .sca-input:focus { border-color:#4caf50; box-shadow:0 0 0 3px rgba(76,175,80,0.15); }
 #${CONTAINER_ID} .sca-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-#${CONTAINER_ID} .sca-title { font-size:22px; font-weight:700; margin-bottom:4px; color:#1a1a1a; letter-spacing:-0.3px; }
-#${CONTAINER_ID} .sca-subtitle { font-size:14px; color:#999; margin-bottom:14px; }
-#${CONTAINER_ID} .sca-section-title { font-size:17px; font-weight:600; margin:16px 0 10px; color:#333; }
+#${CONTAINER_ID} .sca-label { color:var(--sca-fg); }
+#${CONTAINER_ID} .sca-title { font-size:22px; font-weight:700; margin-bottom:4px; color:var(--sca-fg); letter-spacing:-0.3px; }
+#${CONTAINER_ID} .sca-subtitle { font-size:14px; color:var(--sca-muted); margin-bottom:14px; }
+#${CONTAINER_ID} .sca-section-title { font-size:17px; font-weight:600; margin:16px 0 10px; color:var(--sca-fg); }
 #${CONTAINER_ID} .sca-page.active.sca-flex { display:flex; flex-direction:column; height:100%; }
 `;
     document.head.appendChild(s);
@@ -152,7 +173,8 @@ function _getContainer() {
         _injectStyle();
         el = document.createElement("div");
         el.id = CONTAINER_ID;
-        el.style.cssText = "position:fixed;overflow:hidden;background:transparent;z-index:1000;font-family:Arial,'Microsoft YaHei',sans-serif";
+        // 背景交由样式表的 --sca-bg 控制（亮色透明 / 暗色纯色面板），此处不写死 background
+        el.style.cssText = "position:fixed;overflow:hidden;z-index:1000;font-family:Arial,'Microsoft YaHei',sans-serif";
         document.body.appendChild(el);
     }
     return el;
@@ -172,6 +194,26 @@ function _posContainer() {
     el.style.top = (MainCanvas.canvas.offsetTop + 160 * sy) + "px";
     el.style.width = ((MainCanvasWidth - 760) * sx) + "px";
     el.style.height = ((MainCanvasHeight - 240) * sy) + "px";
+}
+
+// 面板背景是游戏 canvas，无法用 CSS prefers-color-scheme 判断明暗；
+// 改为采样 canvas 面板中心处的像素亮度来决定亮/暗主题（切换 .sca-dark）
+let _lastThemeCheck = 0;
+function _applyTheme() {
+    const el = document.getElementById(CONTAINER_ID);
+    if (!el) return;
+    const now = Date.now();
+    if (now - _lastThemeCheck < 500) return; // 节流：无需每帧采样
+    _lastThemeCheck = now;
+    let dark = false;
+    try {
+        // 采样面板区域中心（逻辑坐标 1000,460）的背景像素
+        const px = MainCanvas.getImageData(1000, 460, 1, 1).data;
+        const lum = 0.299 * px[0] + 0.587 * px[1] + 0.114 * px[2];
+        dark = lum < 128;
+        // ponytail: canvas 若被跨域贴图污染，getImageData 抛错 -> 回退亮色主题
+    } catch (_) { dark = false; }
+    el.classList.toggle("sca-dark", dark);
 }
 
 // === 导航 ===
@@ -202,7 +244,7 @@ function _renderMainPage() {
         <div class="sca-page active sca-flex" style="height:100%">
             <div class="sca-title">${L("自定义贴图 - 安全设置", "Custom Texture - Security Settings")}</div>
             <div class="sca-row" style="margin:6px 0 14px">
-                <span style="font-size:15px;color:#555">${L("当前模式：", "Current mode: ")}<strong>${modeLabel}</strong></span>
+                <span style="font-size:15px;color:var(--sca-muted)">${L("当前模式：", "Current mode: ")}<strong style="color:var(--sca-fg)">${modeLabel}</strong></span>
             </div>
 
             <div class="sca-card" onclick="ShuangSettings.nav('modeSelect')" style="cursor:pointer">
@@ -212,12 +254,12 @@ function _renderMainPage() {
 
             ${s.urlLoadMode === "whitelist" ? `
             <div class="sca-card" onclick="ShuangSettings.nav('whitelist')" style="cursor:pointer">
-                <div class="sca-card-title">${L("域名白名单管理", "Domain Whitelist")} <span style="font-size:13px;color:#999;font-weight:normal">${L(`${s.allowedDomains?.length || 0} 个域名`, `${s.allowedDomains?.length || 0} domains`)}</span></div>
+                <div class="sca-card-title">${L("域名白名单管理", "Domain Whitelist")} <span style="font-size:13px;color:var(--sca-muted);font-weight:normal">${L(`${s.allowedDomains?.length || 0} 个域名`, `${s.allowedDomains?.length || 0} domains`)}</span></div>
                 <div class="sca-card-desc">${L("添加或移除可信域名，仅这些域名下的贴图会加载", "Add or remove trusted domains")}</div>
             </div>
             ` : ""}
 
-            <div style="margin:12px 0;border-top:1px solid #eee;padding-top:12px">
+            <div style="margin:12px 0;border-top:1px solid var(--sca-line);padding-top:12px">
                 <div class="sca-row" style="margin-bottom:8px">
                     <span class="sca-label">${L("不可信域名提示", "Untrusted domain warning")}</span>
                     <button class="sca-btn ${s.domainWarningEnabled !== false ? 'primary' : ''}" onclick="ShuangSettings.toggle('domainWarningEnabled')" style="width:70px">
@@ -233,16 +275,16 @@ function _renderMainPage() {
                 <div class="sca-row">
                     <span class="sca-label">${L("动图帧率", "GIF Frame Rate")}</span>
                     <input class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:80px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? "disabled" : ""}>
-                    <span style="font-size:14px;color:#666">fps</span>
+                    <span style="font-size:14px;color:var(--sca-muted)">fps</span>
                     <button class="sca-btn ${s.gifFpsSyncGame ? 'primary' : ''}" onclick="ShuangSettings.toggle('gifFpsSyncGame')" style="min-width:160px">
                         ${L(`同步游戏帧率: ${s.gifFpsSyncGame ? "开" : "关"}`, `Sync FPS: ${s.gifFpsSyncGame ? "On" : "Off"}`)}
                     </button>
                 </div>
             </div>
 
-            <div style="margin-top:auto;padding-top:12px;border-top:1px solid #eee">
+            <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--sca-line)">
                 <div class="sca-card" onclick="ShuangSettings.nav('blocked')" style="cursor:pointer">
-                    <div class="sca-card-title">${L("屏蔽玩家管理", "Blocked Players")} <span style="font-size:13px;color:#999;font-weight:normal">${L(`${(s.blockedPlayers || []).length} 人`, `${(s.blockedPlayers || []).length} players`)}</span></div>
+                    <div class="sca-card-title">${L("屏蔽玩家管理", "Blocked Players")} <span style="font-size:13px;color:var(--sca-muted);font-weight:normal">${L(`${(s.blockedPlayers || []).length} 人`, `${(s.blockedPlayers || []).length} players`)}</span></div>
                     <div class="sca-card-desc">${L("屏蔽某玩家的贴图来源或配置，其贴图将不显示", "Block textures from or configured by specific players")}</div>
                 </div>
             </div>
@@ -291,10 +333,10 @@ function _renderWhitelistPage() {
                     <thead><tr><th style="width:40px">#</th><th>${L("域名", "Domain")}</th><th style="width:100px">${L("操作", "Action")}</th></tr></thead>
                     <tbody>
                         ${domains.length === 0 ? `
-                            <tr><td colspan="3" style="text-align:center;color:#999;padding:30px">${L("（暂无域名，请添加）", "(No domains, add one)")}</td></tr>
+                            <tr><td colspan="3" style="text-align:center;color:var(--sca-muted);padding:30px">${L("（暂无域名，请添加）", "(No domains, add one)")}</td></tr>
                         ` : domains.map((d, i) => `
                             <tr>
-                                <td style="color:#999">${i + 1}</td>
+                                <td style="color:var(--sca-muted)">${i + 1}</td>
                                 <td>${d}</td>
                                 <td><button class="sca-btn danger small" onclick="ShuangSettings.removeDomain(${i})">${L("删除", "Delete")}</button></td>
                             </tr>
@@ -333,7 +375,7 @@ function _renderBlockedPage() {
                     <thead><tr><th style="width:100px">${L("ID", "ID")}</th><th>${L("昵称", "Nickname")}</th><th style="width:120px">${L("操作", "Action")}</th></tr></thead>
                     <tbody id="ShuangBlockedTableBody">
                         ${blocked.length === 0 ? `
-                            <tr><td colspan="3" style="text-align:center;color:#999;padding:30px">${L("（暂无屏蔽的玩家）", "(No blocked players)")}</td></tr>
+                            <tr><td colspan="3" style="text-align:center;color:var(--sca-muted);padding:30px">${L("（暂无屏蔽的玩家）", "(No blocked players)")}</td></tr>
                         ` : blocked.map((mn, i) => {
                             const name = _getPlayerName(mn);
                             return `<tr>
@@ -388,7 +430,7 @@ function _renderRoomPickPage() {
                                 <td>#${mn}</td>
                                 <td>${name || "-"}</td>
                                 <td>${isBlocked
-                                    ? `<span style="color:#999;font-size:14px">${L("已屏蔽", "Blocked")}</span>`
+                                    ? `<span style="color:var(--sca-muted);font-size:14px">${L("已屏蔽", "Blocked")}</span>`
                                     : `<button class="sca-btn danger small" onclick="ShuangSettings.blockFromRoom(${mn})">${L("屏蔽", "Block")}</button>`
                                 }</td>
                             </tr>`;
@@ -433,7 +475,7 @@ function _renderUnrestrictedConfirmPage() {
             <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;margin:8px 0">
                 ${lines.map(line => line ? `<div style="font-size:15px;color:#333;padding:3px 0">${line}</div>` : `<div style="height:8px"></div>`).join("")}
             </div>
-            <div class="sca-row" style="justify-content:center;gap:16px;padding-top:12px;border-top:1px solid #eee">
+            <div class="sca-row" style="justify-content:center;gap:16px;padding-top:12px;border-top:1px solid var(--sca-line)">
                 <button class="sca-btn danger" onclick="ShuangSettings.confirmUnrestricted()" style="min-width:160px;font-size:17px;padding:12px 30px">
                     ${L("确定开启", "Enable")}
                 </button>
@@ -629,6 +671,7 @@ export function initSettings() {
                     L("退出", "Exit"));
             }
             _posContainer();
+            _applyTheme();
             MainCanvas.textAlign = "center";
         },
         click: () => {

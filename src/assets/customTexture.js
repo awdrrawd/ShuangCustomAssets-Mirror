@@ -174,6 +174,12 @@ const extended = {
             if (isItemLockedForPlayer(item)) {
                 DrawText(L("已上锁", "Locked"), 1500, 95, "#FF4444", "Black");
             }
+
+            // 前往设置按钮（1775,25）：基础 Draw 会在此画权限模式图标（且带反灰效果），
+            // 本插件把它重定向为「前往插件偏好设置」，所以在其上重绘一个正常白底、不反灰的按钮，
+            // 并把悬停提示改为「前往设置」（点击逻辑见 Click 钩子顶部对该坐标的拦截）
+            DrawButton(1775, 25, 90, 90, "", "White", "Icons/DialogPermissionMode.png",
+                L("前往设置", "Go to settings"));
         },
 
         Click: (data, originalFunction) => {

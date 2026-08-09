@@ -159,15 +159,18 @@ export function drawTutorial() {
     DrawButton(CLOSE_BTN.x, CLOSE_BTN.y, CLOSE_BTN.w, CLOSE_BTN.h, "", "White", "Icons/Exit.png",
         L("关闭教程", "Close tutorial"));
 
-    // 底部翻页
+    // 底部翻页：第一页隐藏「上一页」；最后一页「下一页」变为「理解了」（点击退出教程）
     const hasPrev = state.tutorialPage > 0;
-    const hasNext = state.tutorialPage < totalPages - 1;
-    DrawButton(PREV_BTN.x, PREV_BTN.y, PREV_BTN.w, PREV_BTN.h,
-        L("上一页", "Prev"), "#555555", "#777777", !hasPrev,
-        L("上一页", "Previous page"));
+    const isLastPage = state.tutorialPage >= totalPages - 1;
+    if (hasPrev) {
+        DrawButton(PREV_BTN.x, PREV_BTN.y, PREV_BTN.w, PREV_BTN.h,
+            L("上一页", "Prev"), "#555555", "#777777", false,
+            L("上一页", "Previous page"));
+    }
     DrawButton(NEXT_BTN.x, NEXT_BTN.y, NEXT_BTN.w, NEXT_BTN.h,
-        L("下一页", "Next"), "#555555", "#777777", !hasNext,
-        L("下一页", "Next page"));
+        isLastPage ? L("理解了", "Got it") : L("下一页", "Next"),
+        "#555555", "#777777", false,
+        isLastPage ? L("退出教程", "Exit tutorial") : L("下一页", "Next page"));
 }
 
 /**
@@ -182,14 +185,19 @@ export function handleTutorialClick() {
     }
 
     const totalPages = TUTORIAL_PAGES.length;
-    // 上一页
+    // 上一页（第一页无此按钮）
     if (state.tutorialPage > 0 && MouseIn(PREV_BTN.x, PREV_BTN.y, PREV_BTN.w, PREV_BTN.h)) {
         state.tutorialPage--;
         return;
     }
-    // 下一页
-    if (state.tutorialPage < totalPages - 1 && MouseIn(NEXT_BTN.x, NEXT_BTN.y, NEXT_BTN.w, NEXT_BTN.h)) {
-        state.tutorialPage++;
+    // 下一页 / 最后一页「理解了」退出教程
+    if (MouseIn(NEXT_BTN.x, NEXT_BTN.y, NEXT_BTN.w, NEXT_BTN.h)) {
+        if (state.tutorialPage < totalPages - 1) {
+            state.tutorialPage++;
+        } else {
+            state.currentView = "list";
+            state.tutorialPage = 0;
+        }
         return;
     }
 }
