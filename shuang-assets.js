@@ -2033,22 +2033,6 @@
 	    return needsRefresh;
 	}
 
-	function syncItemToServer(item) {
-	    if (CurrentScreen === "Crafting") return;
-	    const C = CharacterGetCurrent();
-	    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
-	    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
-	    if (C.IsPlayer()) {
-	        if (typeof ChatRoomCharacterUpdate === "function") {
-	            ChatRoomCharacterUpdate(C);
-	        }
-	        if (typeof ServerPlayerAppearanceSync === "function") {
-	            ServerPlayerAppearanceSync();
-	        }
-	    }
-	    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
-	}
-
 	const BEACON_CONTENT = "SCA-itemedit";
 	const MISSING_TAG = `MISSING TEXT IN "Interface.csv": ${BEACON_CONTENT}`;
 	function nameOf(mn, carried) {
@@ -2110,6 +2094,46 @@
 	        } catch (e) { Logger.error("[ShuangAssets] 本地化编辑动作信标失败", e); }
 	        return next(args);
 	    });
+	}
+
+	const snapshotStore = new Map();
+	const lastBroadcast = new Map();
+	const BEACON_DEBOUNCE_MS = 3000;
+	function itemKeyOf(item) {
+	    const g = item?.Asset?.Group?.Name || "";
+	    const n = item?.Asset?.Name || "";
+	    return `${g}:${n}`;
+	}
+	function recordItemBaseline(item) {
+	    if (!item) return;
+	    snapshotStore.set(itemKeyOf(item), JSON.stringify(item.Property ?? {}));
+	}
+	function syncItemToServer(item) {
+	    if (CurrentScreen === "Crafting") return;
+	    const C = CharacterGetCurrent();
+	    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
+	    const key = itemKeyOf(item);
+	    const snap = JSON.stringify(item.Property ?? {});
+	    const prev = snapshotStore.get(key);
+	    if (prev !== undefined && prev !== snap) {
+	        const now = Date.now();
+	        const last = lastBroadcast.get(key) || 0;
+	        if (now - last >= BEACON_DEBOUNCE_MS) {
+	            sendItemEditBeacon(C);
+	            lastBroadcast.set(key, now);
+	        }
+	    }
+	    snapshotStore.set(key, snap);
+	    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+	    if (C.IsPlayer()) {
+	        if (typeof ChatRoomCharacterUpdate === "function") {
+	            ChatRoomCharacterUpdate(C);
+	        }
+	        if (typeof ServerPlayerAppearanceSync === "function") {
+	            ServerPlayerAppearanceSync();
+	        }
+	    }
+	    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
 	}
 
 	function getEditTarget() {
@@ -3118,7 +3142,6 @@
 	        syncItemToServer(item);
 	        const C = CharacterGetCurrent();
 	        if (C) CharacterRefresh(C, false, false);
-	        sendItemEditBeacon(C);
 	        return;
 	    }
 	    if (!state.poseSwitchMode && MouseIn(1885, 135, 90, 90)) {
@@ -3169,7 +3192,6 @@
 	        resetDragState();
 	        const C = CharacterGetCurrent();
 	        if (C) CharacterRefresh(C, false, false);
-	        sendItemEditBeacon(C);
 	        return;
 	    }
 	}
@@ -9577,6 +9599,7 @@
 	            state.currentView = "list";
 	            state._pendingTextureRefresh = false;
 	            resetDragState();
+	            recordItemBaseline(item);
 	        },
 	        Draw: (data, originalFunction) => {
 	            originalFunction();
