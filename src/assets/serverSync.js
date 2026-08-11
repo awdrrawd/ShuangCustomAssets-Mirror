@@ -1,8 +1,36 @@
 /**
  * 自定义贴图道具 - 服务器同步
+ *
+ * 除同步外，这里还是所有配置修改提交的汇聚点（listView/editPanel/importExport 等
+ * 凡是改动配置都会调用 syncItemToServer）。因此在这里做「前后配置快照对比」，
+ * 配置有实质变化才广播编辑动作信标 —— 一劳永逸覆盖所有修改操作，且天然过滤
+ * 取消/还原（还原后配置回到原样，对比无差异，不广播）。
  */
 
 import { Logger } from "@lib/utils.js";
+import { sendItemEditBeacon } from "./itemEditBeacon.js";
+
+// 配置快照：itemKey -> JSON 字符串（记录上次同步时的配置基线）
+const snapshotStore = new Map();
+// 广播防抖：itemKey -> 上次广播时间戳
+const lastBroadcast = new Map();
+const BEACON_DEBOUNCE_MS = 3000;
+
+/** 生成道具唯一标识（不同部位的贴图道具独立快照） */
+function itemKeyOf(item) {
+    const g = item?.Asset?.Group?.Name || "";
+    const n = item?.Asset?.Name || "";
+    return `${g}:${n}`;
+}
+
+/**
+ * 记录道具配置基线。每次打开道具编辑（Load hook）时调用，
+ * 让后续配置变化有对比基线，避免"打开后第一次修改"被当成基线不广播。
+ */
+export function recordItemBaseline(item) {
+    if (!item) return;
+    snapshotStore.set(itemKeyOf(item), JSON.stringify(item.Property ?? {}));
+}
 
 /**
  * 同步道具属性到服务器
@@ -16,6 +44,20 @@ export function syncItemToServer(item) {
 
     const C = CharacterGetCurrent();
     if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
+
+    // ===== 配置变化检测 + 编辑动作广播 =====
+    const key = itemKeyOf(item);
+    const snap = JSON.stringify(item.Property ?? {});
+    const prev = snapshotStore.get(key);
+    if (prev !== undefined && prev !== snap) {
+        const now = Date.now();
+        const last = lastBroadcast.get(key) || 0;
+        if (now - last >= BEACON_DEBOUNCE_MS) {
+            sendItemEditBeacon(C);
+            lastBroadcast.set(key, now);
+        }
+    }
+    snapshotStore.set(key, snap);
 
     // 实时同步给房间内在线玩家
     ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);

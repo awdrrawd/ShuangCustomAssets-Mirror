@@ -33,7 +33,6 @@ import {
 } from "./constants.js";
 import { state, resetDragState, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
-import { sendItemEditBeacon } from "./itemEditBeacon.js";
 import { L, isChineseLang, getCorsImage, Logger, hideNumberInputSpinner } from "@lib/utils.js";
 import { isUrlAllowed, isDomainInWhitelist, extractDomain } from "./settings.js";
 
@@ -1539,7 +1538,6 @@ export function handleTextureEditClick(item, textureIndex, data) {
         syncItemToServer(item);
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false, false);
-        sendItemEditBeacon(C);   // 删除图层 -> 房间广播编辑动作信标
         return;
     }
 
@@ -1609,7 +1607,6 @@ export function handleTextureEditClick(item, textureIndex, data) {
         resetDragState();
         const C = CharacterGetCurrent();
         if (C) CharacterRefresh(C, false, false);
-        sendItemEditBeacon(C);   // 保存/新增图层 -> 房间广播编辑动作信标
         return;
     }
 }

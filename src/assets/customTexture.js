@@ -14,7 +14,7 @@ import {
 } from "./constants.js";
 import { state, resetDragState } from "./state.js";
 import { updateHideArray } from "./hideArray.js";
-import { syncItemToServer } from "./serverSync.js";
+import { syncItemToServer, recordItemBaseline } from "./serverSync.js";
 import {
     drawTextureEditPanel, handleTextureEditClick,
     unregisterPoseHook, createEditPanelDomInputs, positionEditPanelInputs, removeEditPanelInputs
@@ -146,6 +146,8 @@ const extended = {
             state.currentView = "list";
             state._pendingTextureRefresh = false;
             resetDragState();
+            // 记录配置基线：让后续配置变化有对比依据（供 syncItemToServer 检测并广播编辑动作）
+            recordItemBaseline(item);
         },
 
         Draw: (data, originalFunction) => {
