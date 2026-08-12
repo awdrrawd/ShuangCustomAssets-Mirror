@@ -704,8 +704,9 @@
 	}
 	const Logger = {
 	    prefix: "[ShuangAssets]",
+	    debugEnabled: false,
 	    info(...args) {
-	        console.log(this.prefix, ...args);
+	        if (this.debugEnabled) console.log(this.prefix, ...args);
 	    },
 	    warn(...args) {
 	        console.warn(this.prefix, ...args);
@@ -913,7 +914,7 @@
 	const POSE_COMBO_SAVE_X = 1700;
 	const POSE_COMBO_SAVE_Y = 900;
 	const TEXTURES_PER_PAGE = 6;
-	const MAX_TEXTURE_COUNT = 16;
+	const MAX_TEXTURE_COUNT = 18;
 	const LAYER_NAMES = Array.from({ length: MAX_TEXTURE_COUNT }, (_, i) => `Layer${i + 1}`);
 	const ALL_ITEM_GROUPS = [
 	    "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
@@ -3217,7 +3218,7 @@
 	        showStatus(L(`✔ 已复制到剪贴板，共 ${usedCount} 个图层`,
 	            `✔ Copied to clipboard, ${usedCount} layers`), "#4CAF50");
 	    }).catch(err => {
-	        Logger.error("复制失败:", err);
+	        Logger.warn(L(`复制到剪贴板失败，改为下载: ${err?.message ?? err}`, `Clipboard copy failed, downloading instead: ${err?.message ?? err}`));
 	        const blob = new Blob([json], { type: "application/json" });
 	        const url = URL.createObjectURL(blob);
 	        const a = document.createElement("a");
@@ -3351,11 +3352,11 @@
 	            const C = CharacterGetCurrent();
 	            if (C) CharacterRefresh(C, false, false);
 	        } catch (err) {
-	            Logger.error("导入失败:", err.message);
+	            Logger.warn(L(`导入失败: ${err.message}`, `Import failed: ${err.message}`));
 	            showStatus(L(`✘ 导入失败: ${err.message}`, `✘ Import failed: ${err.message}`), "#E53935");
 	        }
 	    }).catch(err => {
-	        Logger.error("读取剪贴板失败:", err);
+	        Logger.warn(L(`读取剪贴板失败: ${err?.message ?? err}`, `Cannot read clipboard: ${err?.message ?? err}`));
 	        showStatus(L("✘ 读取剪贴板失败，请确保已复制配置 JSON", "✘ Cannot read clipboard, make sure the config JSON is copied"), "#E53935");
 	    });
 	}
@@ -3677,7 +3678,7 @@
 	            { cn: "自定义贴图可以在角色身上叠加自定义图片。", en: "Overlay custom images on your character." },
 	            {},
 	            { cn: "核心功能：", en: "Core features:" },
-	            { cn: "• 最多 16 个图层，可独立设置图片和参数", en: "• Up to 16 layers with independent settings" },
+	            { cn: "• 最多 18 个图层，可独立设置图片和参数", en: "• Up to 18 layers with independent settings" },
 	            { cn: "• 支持 GIF 动图播放", en: "• Animated GIF playback" },
 	            { cn: "• 支持按姿势切换不同贴图效果", en: "• Per-pose texture switching" },
 	            { cn: "• 可隐藏身体部位/服饰，避免遮挡贴图", en: "• Hide body parts / clothing" },
@@ -3772,7 +3773,7 @@
 	            { cn: "缩放、旋转、透明度、镜射、姿势设置等）。", en: "scale, rotation, opacity, mirror, etc.)" },
 	            { cn: "不包含隐藏设置。", en: "Excludes hide settings." },
 	            {},
-	            { cn: "追加导入超过 16 层上限会提示。", en: "Append checks the 16-layer limit.", color: "Gray" },
+	            { cn: "追加导入超过 18 层上限会提示。", en: "Append checks the 18-layer limit.", color: "Gray" },
 	        ]
 	    },
 	];
@@ -9719,6 +9720,9 @@
 	            const assetObj = AssetGet("Female3DCG", group, asset.Name);
 	            if (assetObj) {
 	                assetObj.AllowHide = allAllowHide;
+	                if (Array.isArray(assetObj.Layer)) {
+	                    for (const layer of assetObj.Layer) layer.HasImage = false;
+	                }
 	                assetObj.Block = [];
 	                assetObj.AllowLock = true;
 	                assetObj.AllowTighten = true;
@@ -9736,7 +9740,7 @@
 	    ["自定义贴图", register],
 	];
 
-	console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
+	(globalThis).ShuangAssets = { Logger };
 	function init() {
 	    registerAssets(assets);
 	    mt.afterLoad(() => {
@@ -9749,7 +9753,7 @@
 	        u$1.afterPlayerLogin(() => {
 	            initSettings();
 	        });
-	        Logger.info(`${ModInfo.fullName} v${ModInfo.version} 初始化完成`);
+	        console.log(`[ShuangAssets] ${ModInfo.fullName} v${ModInfo.version} ✅ loaded`);
 	    });
 	}
 	function setup() {
