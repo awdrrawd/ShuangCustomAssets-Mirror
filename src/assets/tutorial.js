@@ -18,7 +18,7 @@ const TUTORIAL_PAGES = [
             { cn: "自定义贴图可以在角色身上叠加自定义图片。", en: "Overlay custom images on your character." },
             {},
             { cn: "核心功能：", en: "Core features:" },
-            { cn: "• 最多 16 个图层，可独立设置图片和参数", en: "• Up to 16 layers with independent settings" },
+            { cn: "• 最多 18 个图层，可独立设置图片和参数", en: "• Up to 18 layers with independent settings" },
             { cn: "• 支持 GIF 动图播放", en: "• Animated GIF playback" },
             { cn: "• 支持按姿势切换不同贴图效果", en: "• Per-pose texture switching" },
             { cn: "• 可隐藏身体部位/服饰，避免遮挡贴图", en: "• Hide body parts / clothing" },
@@ -113,7 +113,7 @@ const TUTORIAL_PAGES = [
             { cn: "缩放、旋转、透明度、镜射、姿势设置等）。", en: "scale, rotation, opacity, mirror, etc.)" },
             { cn: "不包含隐藏设置。", en: "Excludes hide settings." },
             {},
-            { cn: "追加导入超过 16 层上限会提示。", en: "Append checks the 16-layer limit.", color: "Gray" },
+            { cn: "追加导入超过 18 层上限会提示。", en: "Append checks the 18-layer limit.", color: "Gray" },
         ]
     },
 ];

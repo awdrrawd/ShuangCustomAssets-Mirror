@@ -46,6 +46,9 @@ export function syncItemToServer(item) {
     if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
 
     // ===== 配置变化检测 + 编辑动作广播 =====
+    // 所有修改操作都汇聚到这里；靠「前后快照对比」自动判断配置是否变化，
+    // 有实质变化才广播（并受 3s 防抖限制）。取消/还原/无变化的确认退出因
+    // 对比无差异而天然不广播。
     const key = itemKeyOf(item);
     const snap = JSON.stringify(item.Property ?? {});
     const prev = snapshotStore.get(key);

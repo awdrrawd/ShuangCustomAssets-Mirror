@@ -36,7 +36,7 @@ export function exportConfig(item) {
         showStatus(L(`✔ 已复制到剪贴板，共 ${usedCount} 个图层`,
             `✔ Copied to clipboard, ${usedCount} layers`), "#4CAF50");
     }).catch(err => {
-        Logger.error("复制失败:", err);
+        Logger.warn(L(`复制到剪贴板失败，改为下载: ${err?.message ?? err}`, `Clipboard copy failed, downloading instead: ${err?.message ?? err}`));
         // 降级方案：创建下载
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -209,11 +209,13 @@ export function importConfig(item, mode) {
             const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false, false);
         } catch (err) {
-            Logger.error("导入失败:", err.message);
+            // 导入失败多半是剪贴板里不是本插件的配置 JSON（用户操作问题），不是程序错误，
+            // 用 warn 而非 error，避免控制台弹红色报错吓到玩家；真正的提示走下方 showStatus
+            Logger.warn(L(`导入失败: ${err.message}`, `Import failed: ${err.message}`));
             showStatus(L(`✘ 导入失败: ${err.message}`, `✘ Import failed: ${err.message}`), "#E53935");
         }
     }).catch(err => {
-        Logger.error("读取剪贴板失败:", err);
+        Logger.warn(L(`读取剪贴板失败: ${err?.message ?? err}`, `Cannot read clipboard: ${err?.message ?? err}`));
         showStatus(L("✘ 读取剪贴板失败，请确保已复制配置 JSON", "✘ Cannot read clipboard, make sure the config JSON is copied"), "#E53935");
     });
 }

@@ -217,7 +217,7 @@ export const POSE_COMBO_SAVE_Y = 900;        // "保存并返回"按钮 Y
 export const TEXTURES_PER_PAGE = 6;
 
 // 最大贴图数量
-export const MAX_TEXTURE_COUNT = 16;
+export const MAX_TEXTURE_COUNT = 18;
 
 // 可见开关按钮 ID 前缀
 export const VISIBLE_BTN_PREFIX = "CustomTextureVisibleBtn_";

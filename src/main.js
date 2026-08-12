@@ -16,8 +16,8 @@ import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
 import { initSettings } from "./assets/settings.js";
 import { setupItemEditBeacon } from "./assets/itemEditBeacon.js";
 
-// 立即输出日志，确认脚本已被 Toolbox / 加载器成功执行到（不代表初始化已完成）
-console.log(`[ShuangAssets] 脚本已加载，准备初始化...`);
+// 暴露给控制台，方便排查时打开过程日志：ShuangAssets.Logger.debugEnabled = true
+/** @type {any} */ (globalThis).ShuangAssets = { Logger };
 
 /**
  * 初始化插件
@@ -43,7 +43,8 @@ function init() {
         HookManager.afterPlayerLogin(() => {
             initSettings();
         });
-        Logger.info(`${ModInfo.fullName} v${ModInfo.version} 初始化完成`);
+        // 唯一的常驻加载确认行（其余过程日志走被 gate 的 Logger.info）
+        console.log(`[ShuangAssets] ${ModInfo.fullName} v${ModInfo.version} ✅ loaded`);
     });
 }
 

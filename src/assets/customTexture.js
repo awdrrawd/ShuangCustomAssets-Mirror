@@ -61,7 +61,7 @@ const asset = {
     Extended: true,
     AllowLock: true,       // 允许上锁
     AllowTighten: true,    // 允许调节松紧度
-    DrawLocks: false,      // 不自动添加 Lock 图层（避免干扰 16 层贴图结构）
+    DrawLocks: false,      // 不自动添加 Lock 图层（避免干扰多层贴图结构）
     Difficulty: 2,         // 基础松紧度
     Layer: LAYER_NAMES.map(name => ({ Name: name, AllowColorize: false }))
 };
@@ -314,6 +314,14 @@ export default function register(AssetManager) {
             const assetObj = AssetGet("Female3DCG", group, asset.Name);
             if (assetObj) {
                 assetObj.AllowHide = allAllowHide;
+                // 每层贴图都是靠 AfterDraw(renderTexture) 手动画上去的，图层本身没有对应的
+                // 服务器 PNG（Assets/Female3DCG/<Group>/自定义贴图_LayerN.png）。BC 绘制角色时
+                // 会为每个 HasImage 的图层请求该 PNG -> 全部 404（控制台刷屏）。把每层的 HasImage
+                // 关掉，BC 就不再请求底图，但 AfterDraw 钩子仍照常逐层触发（两者独立），贴图正常渲染。
+                // 这比映射一张 1x1 透明 PNG 更干净：直接消灭请求，而不是让请求成功返回空图。
+                if (Array.isArray(assetObj.Layer)) {
+                    for (const layer of assetObj.Layer) layer.HasImage = false;
+                }
                 // 自定义贴图不应 block 任何其他部位（不阻止其他道具装备/使用）
                 assetObj.Block = [];
                 // 允许上锁和松紧度（SDK 可能不透传，在此确保）

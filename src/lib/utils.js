@@ -74,8 +74,12 @@ export function debounce(fn, delay = 300) {
  */
 export const Logger = {
     prefix: "[ShuangAssets]",
+    // info 是给开发者看的过程性日志（同步成功、导入成功、状态切换……），默认不输出，
+    // 避免刷屏吓到玩家。需要排查时在控制台执行 `ShuangAssets.Logger.debugEnabled = true` 打开。
+    // warn / error 属于「必要信息」，始终输出。
+    debugEnabled: false,
     info(...args) {
-        console.log(this.prefix, ...args);
+        if (this.debugEnabled) console.log(this.prefix, ...args);
     },
     warn(...args) {
         console.warn(this.prefix, ...args);
