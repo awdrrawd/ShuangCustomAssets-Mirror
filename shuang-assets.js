@@ -1121,6 +1121,8 @@
 	];
 	let settingsPage = "main";
 	let _pageHistory = [];
+	let _scanResults = null;
+	let _scanPendingDomain = null;
 	function getSettings() {
 	    if (!Player.ExtensionSettings) Player.ExtensionSettings = {};
 	    if (!Player.ExtensionSettings[EXTENSION_ID]) {
@@ -1417,6 +1419,7 @@
                     <input class="sca-input" id="ShuangDomainInput" type="text" placeholder="${L("example.com", "example.com")}" style="width:250px" onkeydown="if(event.key==='Enter')ShuangSettings.addDomain()">
                     <button class="sca-btn primary" onclick="ShuangSettings.addDomain()">${L("添加", "Add")}</button>
                     <button class="sca-btn" onclick="ShuangSettings.addDefaultDomains()" style="background:#e3f2fd;border-color:#90caf9">${L("添加推荐域名", "Add Defaults")}</button>
+                    <button class="sca-btn" onclick="ShuangSettings.scanRoom()" style="background:#fff3e0;border-color:#ffb74d">${L("扫描房间", "Scan Room")}</button>
                     <button class="sca-btn danger" onclick="ShuangSettings.clearDomains()">${L("清空全部", "Clear All")}</button>
                 </div>
             </div>
@@ -1470,6 +1473,162 @@
 	        };
 	        setTimeout(() => inp.focus(), 50);
 	    }
+	}
+	function collectUntrustedUrls() {
+	    const results = [];
+	    const chars = [];
+	    if (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)) {
+	        chars.push(...ChatRoomCharacter);
+	    }
+	    if (typeof Player !== "undefined" && Player && chars.indexOf(Player) === -1) {
+	        chars.push(Player);
+	    }
+	    for (const C of chars) {
+	        if (!C || !C.Appearance) continue;
+	        const name = (typeof CharacterNickname === "function" ? CharacterNickname(C) : "")
+	            || C.Nickname || C.Name || "Unknown";
+	        for (const item of C.Appearance) {
+	            if (!item?.Asset || item.Asset.Name !== ASSET_NAME) continue;
+	            const textures = item?.Property?.Textures;
+	            if (!Array.isArray(textures)) continue;
+	            for (const texture of textures) {
+	                if (!texture) continue;
+	                _addIfUntrusted(results, name, texture.TextureURL);
+	                if (texture.PoseSettings && typeof texture.PoseSettings === "object") {
+	                    for (const ps of Object.values(texture.PoseSettings)) {
+	                        if (ps && typeof ps === "object") {
+	                            _addIfUntrusted(results, name, ps.TextureURL);
+	                        }
+	                    }
+	                }
+	            }
+	        }
+	    }
+	    const seen = new Set();
+	    return results.filter(r => {
+	        const key = r.name + "|" + r.url;
+	        if (seen.has(key)) return false;
+	        seen.add(key);
+	        return true;
+	    });
+	}
+	function _addIfUntrusted(results, name, url) {
+	    if (!url || typeof url !== "string") return;
+	    if (isDomainInWhitelist(url)) return;
+	    const domain = extractDomain(url);
+	    if (!domain) return;
+	    results.push({ name, url, domain });
+	}
+	function _getScanResults() {
+	    if (_scanResults === null) {
+	        _scanResults = collectUntrustedUrls();
+	    }
+	    return _scanResults;
+	}
+	function _refreshScanResults() {
+	    _scanResults = collectUntrustedUrls();
+	}
+	function _renderScanPage() {
+	    const s = getSettings();
+	    const inRoom = typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter) && ChatRoomCharacter.length > 0;
+	    const results = _getScanResults();
+	    if (s.urlLoadMode !== "whitelist") {
+	        _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title">${L("房间不可信域名扫描", "Room Untrusted Domain Scan")}</div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--sca-muted)">
+                <div style="font-size:16px">${L("此功能仅在白名单模式下可用", "This feature is only available in Whitelist mode")}</div>
+                <div style="font-size:14px">${L("请先切换到白名单模式", "Please switch to Whitelist mode first")}</div>
+            </div>
+        </div>`;
+	        return;
+	    }
+	    if (_scanPendingDomain) {
+	        _renderScanConfirmPage();
+	        return;
+	    }
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title">${L("房间不可信域名扫描", "Room Untrusted Domain Scan")}</div>
+            <div class="sca-subtitle">${inRoom
+                ? L("当前房间内所有玩家身上的不可信贴图域名", "Untrusted texture domains from all players in the current room")
+                : L("当前不在房间中，仅扫描了自己的贴图", "Not in a room, only your own textures were scanned")}</div>
+
+            ${results.length === 0 ? `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
+                <div style="font-size:18px;color:#4caf50">${L("✔ 未发现不可信域名", "✔ No untrusted domains found")}</div>
+                <div style="font-size:14px;color:var(--sca-muted)">${L("当前房间内所有玩家的贴图域名均已在白名单中", "All texture domains in the current room are already whitelisted")}</div>
+            </div>
+            ` : `
+            <div style="font-size:14px;color:#e65100;margin-bottom:8px">${L(`发现 ${results.length} 个不可信域名`, `${results.length} untrusted domains found`)}</div>
+            <div class="sca-table-wrap" style="flex:1;min-height:200px">
+                <table class="sca-table">
+                    <thead><tr>
+                        <th style="width:36px">#</th>
+                        <th style="width:160px">${L("玩家", "Player")}</th>
+                        <th style="width:240px">${L("域名", "Domain")}</th>
+                        <th>${L("URL", "URL")}</th>
+                        <th style="width:90px">${L("操作", "Action")}</th>
+                    </tr></thead>
+                    <tbody>
+                        ${results.map((r, i) => `
+                        <tr>
+                            <td style="color:var(--sca-muted)">${i + 1}</td>
+                            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.name}">${r.name}</td>
+                            <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.domain}">${r.domain}</td>
+                            <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sca-muted);font-size:13px" title="${r.url}">${r.url}</td>
+                            <td><button class="sca-btn primary small" onclick="ShuangSettings.trustDomain(&quot;${r.domain.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}&quot;)">${L("信任", "Trust")}</button></td>
+                        </tr>`).join("")}
+                    </tbody>
+                </table>
+            </div>
+            `}
+        </div>
+    `;
+	}
+	function _renderScanConfirmPage() {
+	    const domain = _scanPendingDomain;
+	    const lines = isChineseLang() ? [
+	        `即将添加域名到白名单: ${domain}`,
+	        "",
+	        "添加后，来自该域名的贴图 URL 将被允许加载",
+	        "",
+	        "请注意以下风险：",
+	        "1. 请确认您信任该域名提供者",
+	        "2. 该域名的所有 URL 都将被加载",
+	        "3. 恶意域名可能用于追踪您的 IP 地址",
+	        "4. 恶意域名可能导致隐私信息泄露",
+	        "",
+	        "确定要添加此域名到可信列表吗？",
+	    ] : [
+	        `About to add domain to whitelist: ${domain}`,
+	        "",
+	        "Once added, texture URLs from this domain will be allowed",
+	        "",
+	        "Please note the following risks:",
+	        "1. Make sure you trust this domain's provider",
+	        "2. All URLs from this domain will be loaded",
+	        "3. A malicious domain may track your IP address",
+	        "4. A malicious domain may leak private info",
+	        "",
+	        "Add this domain to the trusted list?",
+	    ];
+	    _getContainer().innerHTML = `
+        <div class="sca-page active sca-flex" style="height:100%">
+            <div class="sca-title" style="color:#e53935">${L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠")}</div>
+            <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;margin:8px 0">
+                ${lines.map(line => line ? `<div style="font-size:15px;color:#333;padding:3px 0">${line}</div>` : `<div style="height:8px"></div>`).join("")}
+            </div>
+            <div class="sca-row" style="justify-content:center;gap:16px;padding-top:12px;border-top:1px solid var(--sca-line)">
+                <button class="sca-btn primary" onclick="ShuangSettings.confirmTrustDomain()" style="min-width:160px;font-size:17px;padding:12px 30px;background:#4caf50;border-color:#43a047">
+                    ${L("确认添加", "Add")}
+                </button>
+                <button class="sca-btn secondary" onclick="ShuangSettings.cancelTrustDomain()" style="min-width:160px;font-size:17px;padding:12px 30px">
+                    ${L("取消", "Cancel")}
+                </button>
+            </div>
+        </div>
+    `;
 	}
 	function _renderRoomPickPage() {
 	    const chars = (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter))
@@ -1633,6 +1792,28 @@
 	        saveSettings();
 	        _renderWhitelistPage();
 	    },
+	    scanRoom: () => {
+	        _scanResults = null;
+	        _scanPendingDomain = null;
+	        _navigateTo("scan");
+	    },
+	    trustDomain: (domain) => {
+	        _scanPendingDomain = domain;
+	        _renderScanPage();
+	    },
+	    confirmTrustDomain: () => {
+	        const domain = _scanPendingDomain;
+	        if (!domain) return;
+	        const success = addDomainToWhitelist(domain);
+	        if (success) Logger.info(`从房间扫描添加可信域名: ${domain}`);
+	        _scanPendingDomain = null;
+	        _refreshScanResults();
+	        _renderScanPage();
+	    },
+	    cancelTrustDomain: () => {
+	        _scanPendingDomain = null;
+	        _renderScanPage();
+	    },
 	    confirmUnrestricted: () => {
 	        const s = getSettings();
 	        s.urlLoadMode = "unrestricted";
@@ -1652,6 +1833,7 @@
 	        case "main": _renderMainPage(); break;
 	        case "modeSelect": _renderModeSelectPage(); break;
 	        case "whitelist": _renderWhitelistPage(); break;
+	        case "scan": _renderScanPage(); break;
 	        case "blocked": _renderBlockedPage(); break;
 	        case "roomPick": _renderRoomPickPage(); break;
 	        case "unrestrictedConfirm": _renderUnrestrictedConfirmPage(); break;
