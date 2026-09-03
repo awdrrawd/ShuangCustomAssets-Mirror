@@ -46,6 +46,15 @@ On the main settings page (in whitelist mode), click "Domain Whitelist >>>" to o
 2. Built-in recommended image-host domains (GitHub Pages, imgur, catbox, Discord CDN, etc.) are added automatically
 3. Domains already present are not duplicated
 
+**Option 4: Add from room scan**
+1. On the whitelist management page, click "Scan Room"
+2. The scan page lists all untrusted texture domains from players in the current room
+3. Each row shows: player name, domain button, full URL button, "Trust" button
+4. Click the domain or URL button to copy it to the clipboard (hover to see the full content)
+5. Click "Trust", review the risk warning on the confirmation page, then click "Add"
+
+> When not in a room, your own textures are still scanned. This feature is unavailable in unrestricted mode.
+
 ### Deleting a Domain
 
 1. Find the domain in the whitelist list
