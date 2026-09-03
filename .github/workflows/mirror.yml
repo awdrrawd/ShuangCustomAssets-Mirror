@@ -1,5 +1,5 @@
 # .github/workflows/mirror.yml
-# 每 3 小時：從 GitLab 同步 src/ → build → 部署到 GitHub Pages
+# 每 3 小時：從 GitLab 整包同步（除了 Mirror 專屬檔案）→ build → 部署到 GitHub Pages
 name: Mirror, Build & Deploy
 
 on:
@@ -7,7 +7,7 @@ on:
     - cron: '0 */3 * * *'   # 每 3 小時執行一次 (UTC)
   workflow_dispatch:         # 允許手動觸發
   push:
-    branches: [master]       # 手動修改 master (例如 build 設定) 時也重新部署
+    branches: [master]       # 手動修改 master (例如 .github/、vite.config.js) 時也重新部署
 
 permissions:
   contents: write
@@ -25,22 +25,33 @@ jobs:
           ref: master
           fetch-depth: 0
 
-      # 只把 GitLab 的 src/ 覆蓋過來，其他檔案 (package.json、rollup.config.js…) 不動
-      - name: Sync src/ from GitLab
+      # 整包同步 GitLab 的內容，取代先前逐一列舉 src/、package.json… 的白名單寫法。
+      # 白名單寫法每次上游新增檔案/資料夾（例如這次的 tests/）都要手動回來補一行，
+      # 容易漏；改用 rsync --delete 整包同步 + 黑名單排除「Mirror 專屬、GitLab 沒有」
+      # 的檔案，上游增減檔案都會自動反映，不用再維護清單。
+      - name: Sync full repo from GitLab (except mirror-only files)
         run: |
-          git remote add gitlab https://gitgud.io/yeshuang26/shuangcustomassets.git
-          git fetch gitlab master
-          git checkout gitlab/master -- src/ package.json package-lock.json || true
+          git clone --depth 1 https://gitgud.io/yeshuang26/shuangcustomassets.git /tmp/gitlab-src
 
-      - name: Commit synced src/ (if changed)
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='vite.config.js' \
+            --exclude='node_modules/' \
+            --exclude='dist/' \
+            /tmp/gitlab-src/ ./
+
+          rm -rf /tmp/gitlab-src
+
+      - name: Commit synced files (if changed)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/
+          git add -A -- ':!.github' ':!vite.config.js'
           if git diff --cached --quiet; then
-            echo "No source changes from GitLab."
+            echo "No changes from GitLab."
           else
-            git commit -m "Sync src/ and package.json from GitLab"
+            git commit -m "Sync from GitLab"
             git push origin master
           fi
 
