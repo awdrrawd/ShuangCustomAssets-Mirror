@@ -1,3 +1,5 @@
+import { t } from "../i18n/index.js";
+import { sanitizeTexture } from "./textureValidation.js";
 /**
  * 自定义贴图道具 - 配置导入/导出
  */
@@ -6,7 +8,7 @@ import { LAYER_NAMES, MAX_TEXTURE_COUNT, HIDE_CATEGORIES, DEFAULT_PROPS, migrate
 import { state, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
 import { updateHideArray } from "./hideArray.js";
-import { Logger, L } from "@lib/utils.js";
+import { Logger } from "@lib/utils.js";
 
 /**
  * 导出配置到剪贴板
@@ -31,12 +33,11 @@ export function exportConfig(item) {
     const json = JSON.stringify(config, null, 2);
 
     // 复制到剪贴板
-    navigator.clipboard.writeText(json).then(() => {
+    Promise.resolve().then(() => navigator.clipboard.writeText(json)).then(() => {
         Logger.info("配置已复制到剪贴板");
-        showStatus(L(`✔ 已复制到剪贴板，共 ${usedCount} 个图层`,
-            `✔ Copied to clipboard, ${usedCount} layers`), "#4CAF50");
+        showStatus(t("importExport.copied_to_clipboard_layers", [usedCount]), "#4CAF50");
     }).catch(err => {
-        Logger.warn(L(`复制到剪贴板失败，改为下载: ${err?.message ?? err}`, `Clipboard copy failed, downloading instead: ${err?.message ?? err}`));
+        Logger.warn(t("importExport.clipboard_copy_failed_downloading_instead", [err?.message ?? err]));
         // 降级方案：创建下载
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -45,7 +46,7 @@ export function exportConfig(item) {
         a.download = "shuang-custom-assets-config.json";
         a.click();
         URL.revokeObjectURL(url);
-        showStatus(L("✔ 剪贴板不可用，已改为下载配置文件", "✔ Clipboard unavailable, downloaded config file"), "#FF9800");
+        showStatus(t("importExport.clipboard_unavailable_downloaded_config_file"), "#FF9800");
     });
 }
 
@@ -75,51 +76,32 @@ export function sanitizePriorityMap(raw, layerCount) {
  * @param {"overwrite"|"append"} mode - 导入模式：overwrite=覆盖导入，append=追加导入
  */
 export function importConfig(item, mode) {
-    navigator.clipboard.readText().then(text => {
+    const targetCharacter = CharacterGetCurrent();
+    return Promise.resolve().then(() => navigator.clipboard.readText()).then(text => {
+        if (DialogFocusItem !== item || CharacterGetCurrent() !== targetCharacter) return;
         try {
             const config = JSON.parse(text);
             if (config.type !== "ShuangCustomAssets") {
-                throw new Error("无效的配置类型");
+                throw new Error(t("validation.invalid_type"));
             }
             if (!Array.isArray(config.textures)) {
-                throw new Error("配置格式错误");
+                throw new Error(t("validation.invalid_format"));
             }
 
-            // 验证并清理数据
-            // 用 Number.isFinite 判断而非 `|| 后备值`：Scale=0（完全缩小）、Opacity=0（全透明）
-            // 都是合法的有效值，用 `||` 会把它们误判成「没填」而强制拉回默认值（与 editPanel.js 一致）
-            const toIntOr = (val, fallback) => {
-                const n = parseInt(val, 10);
-                return Number.isFinite(n) ? n : fallback;
-            };
             const validTextures = config.textures.map(t => {
-                if (t == null) return null; // 保留空槽位
-                // 兼容旧版单一 Scale 字段导出的配置文件：没有 ScaleX/ScaleY 时用旧 Scale 值填充两者
-                const legacyScale = toIntOr(t.Scale, 100);
-                const cleaned = {
-                    Alias: String(t.Alias || ""),
-                    TextureURL: String(t.TextureURL || ""),
-                    OffsetX: toIntOr(t.OffsetX, 0),
-                    OffsetY: toIntOr(t.OffsetY, 0),
-                    ScaleX: toIntOr(t.ScaleX, legacyScale),
-                    ScaleY: toIntOr(t.ScaleY, legacyScale),
-                    ScaleLocked: t.ScaleLocked !== false,
-                    Rotation: toIntOr(t.Rotation, 0),
-                    Visible: t.Visible !== false,
-                    Opacity: Math.max(0, Math.min(100, toIntOr(t.Opacity, 100))),
-                    MirrorH: t.MirrorH === true,
-                    MirrorV: t.MirrorV === true,
-                    // 导入者成为 URL 来源和配置者
-                    TextureURLSource: typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0,
-                    CurrentConfigurator: typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0,
-                };
-                // 保留姿势设置（验证为纯对象），同样迁移其中可能存在的旧版 Scale 字段
-                if (t.PoseSettings && typeof t.PoseSettings === "object" && !Array.isArray(t.PoseSettings)) {
-                    cleaned.PoseSettings = t.PoseSettings;
-                    migrateScaleField(cleaned);
-                }
+                if (t == null) return null;
+                const cleaned = sanitizeTexture(t);
+                cleaned.TextureURLSource = typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0;
+                cleaned.CurrentConfigurator = cleaned.TextureURLSource;
                 return cleaned;
             });
+            // Validate capacity before touching the live item, including holes in the existing array.
+            const existingCount = (item.Property?.Textures || []).filter(Boolean).length;
+            const importCount = validTextures.filter(Boolean).length;
+            if ((mode === "append" && existingCount + importCount > MAX_TEXTURE_COUNT)
+                || (mode !== "append" && validTextures.length > MAX_TEXTURE_COUNT)) {
+                throw new Error(t("importExport.texture_limit_exceeded"));
+            }
 
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             if (!item.Property.Textures) item.Property.Textures = [];
@@ -147,7 +129,7 @@ export function importConfig(item, mode) {
                 // 剩余的追加到末尾
                 while (importIdx < nonNullImports.length) {
                     if (existing.length >= MAX_TEXTURE_COUNT) {
-                        throw new Error(`超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个）`);
+                        throw new Error(t("importExport.texture_limit_exceeded"));
                     }
                     existing.push(nonNullImports[importIdx].texture);
                     targetMappings.push({ source: nonNullImports[importIdx].sourceIdx, target: existing.length - 1 });
@@ -171,7 +153,7 @@ export function importConfig(item, mode) {
             } else {
                 // 覆盖导入：用剪贴板内容完全替换（保留 null 槽位位置）
                 if (validTextures.length > MAX_TEXTURE_COUNT) {
-                    throw new Error(`超过贴图数量上限（最多 ${MAX_TEXTURE_COUNT} 个，当前 ${validTextures.length} 个）`);
+                    throw new Error(t("importExport.texture_limit_exceeded"));
                 }
                 item.Property.Textures = validTextures;
                 trimTrailingNulls(item.Property.Textures);
@@ -201,8 +183,7 @@ export function importConfig(item, mode) {
             const modeText = mode === "append" ? "追加" : "覆盖";
             const modeTextEn = mode === "append" ? "Append" : "Replace";
             Logger.info(`${modeText}导入成功:`, count, "个图层");
-            showStatus(L(`✔ ${modeText}导入成功，共 ${count} 个图层`,
-                `✔ ${modeTextEn} import OK, ${count} layers`), "#4CAF50");
+            showStatus(t("importExport.import_ok_layers", [modeText, count, modeTextEn]), "#4CAF50");
 
             // 同步到服务器并刷新角色
             syncItemToServer(item);
@@ -211,11 +192,11 @@ export function importConfig(item, mode) {
         } catch (err) {
             // 导入失败多半是剪贴板里不是本插件的配置 JSON（用户操作问题），不是程序错误，
             // 用 warn 而非 error，避免控制台弹红色报错吓到玩家；真正的提示走下方 showStatus
-            Logger.warn(L(`导入失败: ${err.message}`, `Import failed: ${err.message}`));
-            showStatus(L(`✘ 导入失败: ${err.message}`, `✘ Import failed: ${err.message}`), "#E53935");
+            Logger.warn(t("importExport.import_failed", [err.message]));
+            showStatus(t("importExport.import_failed_2", [err.message]), "#E53935");
         }
     }).catch(err => {
-        Logger.warn(L(`读取剪贴板失败: ${err?.message ?? err}`, `Cannot read clipboard: ${err?.message ?? err}`));
-        showStatus(L("✘ 读取剪贴板失败，请确保已复制配置 JSON", "✘ Cannot read clipboard, make sure the config JSON is copied"), "#E53935");
+        Logger.warn(t("importExport.cannot_read_clipboard", [err?.message ?? err]));
+        showStatus(t("importExport.cannot_read_clipboard_make_sure_the_config_json_is_copied"), "#E53935");
     });
 }

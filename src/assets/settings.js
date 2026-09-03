@@ -1,23 +1,18 @@
+import { t } from "../i18n/index.js";
 /**
  * 自定义贴图 - 安全设置模块（DOM 版）
  * 使用 HTML/CSS 布局替代 canvas 绘制
  */
-import { Logger, L, isChineseLang } from "@lib/utils.js";
+import { Logger, cancelTextureImageLoads } from "@lib/utils.js";
+import { setTextureDownloadsEnabled } from "../lib/imageLimits.js";
 import { BADGE_IMAGE_URL, ASSET_NAME } from "./constants.js";
+import ModInfo from "../modInfo.js";
+import { exportPlayerBackup, importPlayerBackup, CRAFT_KEY } from "../lib/persistence.js";
+import { packetBytes, extensionPacket, ACCOUNT_UPDATE_LIMIT } from "../lib/accountCapacity.js";
 
-const EXTENSION_ID = "ShuangCustomAssets";
+import { SETTINGS_KEY, getSettings, ALWAYS_ALLOWED_DOMAINS, DEFAULT_ALLOWED_DOMAINS } from "../lib/settingsStorage.js";
+export { getSettings } from "../lib/settingsStorage.js";
 const CONTAINER_ID = "ShuangSettingsContainer";
-
-const ALWAYS_ALLOWED_DOMAINS = ["shuang-custom-assets.pages.dev"];
-
-const DEFAULT_ALLOWED_DOMAINS = [
-    "github.io", "gitlab.io", "ibb.co", "imgbb.com", "imgchest.com",
-    "imgur.com", "postimg.cc", "hd-r.icu",
-    "catbox.moe", "litter.catbox.moe",
-    "pub-*.r2.dev", "r2.cloudflarestorage.com",
-    "cdn.discordapp.com", "media.discordapp.net",
-    ...ALWAYS_ALLOWED_DOMAINS
-];
 
 let settingsPage = "main";
 let _pageHistory = []; // 页面导航栈
@@ -28,29 +23,37 @@ let _scanPendingDomain = null; // 待确认加入白名单的域名
 
 // === 设置存储 ===
 
-export function getSettings() {
-    if (!Player.ExtensionSettings) Player.ExtensionSettings = {};
-    if (!Player.ExtensionSettings[EXTENSION_ID]) {
-        Player.ExtensionSettings[EXTENSION_ID] = {
-            urlLoadMode: "whitelist",
-            allowedDomains: [...DEFAULT_ALLOWED_DOMAINS],
-            domainWarningEnabled: true,
-            animatedImageEnabled: true,
-            gifFrameRate: 100,
-            gifFpsSyncGame: false,
-            blockedPlayers: [],
-        };
-    }
-    return Player.ExtensionSettings[EXTENSION_ID];
-}
-
 export function saveSettings() {
     if (typeof ServerPlayerExtensionSettingsSync === "function")
-        ServerPlayerExtensionSettingsSync(EXTENSION_ID);
+        ServerPlayerExtensionSettingsSync(SETTINGS_KEY);
 }
 
 export function getDomainWarningEnabled() {
     return getSettings().domainWarningEnabled !== false;
+}
+
+export function getPluginEnabled() { return getSettings().pluginEnabled !== false; }
+export function getImageLoadingEnabled() { return getPluginEnabled() && getSettings().imagesEnabled !== false; }
+
+export function setupSettingsHooks(hooks) {
+    hooks.hookFunction("ValidationResolveAppearanceDiff", 10, (args, next) => {
+        const [, previous, incoming, params] = args;
+        // Reject remote additions/edits locally using BC's standard diff rejection path.
+        // Self edits and removal remain subject to the normal game permissions.
+        if (!getPluginEnabled() && params?.C?.MemberNumber === Player.MemberNumber &&
+            !params.fromSelf && incoming?.Asset?.Name === ASSET_NAME &&
+            (previous?.Asset !== incoming.Asset ||
+                ['Property', 'Craft', 'Color', 'Difficulty'].some(key => JSON.stringify(previous?.[key]) !== JSON.stringify(incoming[key])))) return { item: previous, valid: false };
+        return next(args);
+    });
+}
+export function isPlayerBlocked(member) { return (getSettings().blockedPlayers || []).includes(member); }
+export function togglePlayerBlocked(member) {
+    if (!Number.isSafeInteger(member) || member <= 0 || member === Player.MemberNumber) return;
+    const settings = getSettings();
+    settings.blockedPlayers = isPlayerBlocked(member) ? settings.blockedPlayers.filter(id => id !== member) : [...(settings.blockedPlayers || []), member];
+    saveSettings();
+    _refreshRoomCharacters();
 }
 
 export function getAnimatedImageEnabled() {
@@ -85,7 +88,8 @@ export function isDomainInWhitelist(url) {
 }
 
 export function isUrlAllowed(url) {
-    if (!url || !url.startsWith("https://")) return false;
+    if (!getImageLoadingEnabled()) return false;
+    if (typeof url !== "string" || !url.startsWith("https://")) return false;
     const s = getSettings();
     if (s.urlLoadMode === "unrestricted") return true;
     return isDomainInWhitelist(url);
@@ -121,7 +125,7 @@ function _injectStyle() {
     --sca-input-bg:#fff; --sca-input-fg:#333; --sca-input-border:#ccc;
     --sca-th-bg:#fafafa; --sca-th-fg:#666; --sca-th-line:#e0e0e0;
     --sca-td-even:#f8f8f8; --sca-td-odd:#fff; --sca-td-hover:#eef6ff;
-    background:var(--sca-bg); box-sizing:border-box;
+    background:var(--sca-bg); color:var(--sca-fg); box-sizing:border-box; user-select:none; -webkit-user-select:none; touch-action:pan-y;
 }
 #${CONTAINER_ID}.sca-dark {
     /* 暗色：检测到暗背景时切换（见 _applyTheme） */
@@ -133,6 +137,13 @@ function _injectStyle() {
     --sca-td-even:#282b31; --sca-td-odd:#23252b; --sca-td-hover:#31343c;
 }
 #${CONTAINER_ID} * { box-sizing:border-box; }
+#${CONTAINER_ID} input, #${CONTAINER_ID} textarea { user-select:text; -webkit-user-select:text; }
+#${CONTAINER_ID} img { -webkit-user-drag:none; }
+#${CONTAINER_ID} .sca-setting-row { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:12px 0; border-bottom:1px solid var(--sca-line); }
+#${CONTAINER_ID} .sca-setting-row > :last-child { flex-shrink:0; }
+#${CONTAINER_ID} .sca-setting-row p { margin:5px 0 0; }
+#${CONTAINER_ID} .sca-anchor { scroll-margin-top:12px; }
+#${CONTAINER_ID} .sca-tabs { display:flex; gap:10px; flex-wrap:wrap; padding:12px 0; border-bottom:1px solid var(--sca-line); }
 #${CONTAINER_ID} .sca-page { display:none; }
 #${CONTAINER_ID} .sca-page.active { display:block; }
 #${CONTAINER_ID} .sca-table-wrap { flex:1; min-height:200px; overflow-y:auto; }
@@ -171,6 +182,43 @@ function _injectStyle() {
     document.head.appendChild(s);
 }
 
+/** Mouse/pen drag scrolling; touch uses the browser's native pan-y behavior. */
+export function enableSettingsDragScroll(container) {
+    let drag = null, suppressClick = false;
+    container.addEventListener("pointerdown", event => {
+        suppressClick = false;
+        drag = null;
+        if (event.pointerType === "touch" || event.button !== 0 ||
+            event.target.closest('button,input,select,textarea,a,[contenteditable="true"],[onclick]')) return;
+        let scroller = event.target;
+        while (scroller && scroller !== container) {
+            if (scroller.scrollHeight > scroller.clientHeight && /auto|scroll/.test(getComputedStyle(scroller).overflowY)) break;
+            scroller = scroller.parentElement;
+        }
+        if (!scroller || scroller === container) return;
+        drag = { scroller, pointer: event.pointerId, y: event.clientY, top: scroller.scrollTop };
+    });
+    container.addEventListener("pointermove", event => {
+        if (!drag || drag.pointer !== event.pointerId) return;
+        if (!(event.buttons & 1)) { drag = null; return; }
+        const delta = event.clientY - drag.y;
+        if (!suppressClick && Math.abs(delta) < 4) return;
+        if (!suppressClick) container.setPointerCapture(event.pointerId);
+        suppressClick = true;
+        drag.scroller.scrollTop = drag.top - delta;
+        event.preventDefault();
+    });
+    const finish = event => {
+        if (drag?.pointer !== event.pointerId) return;
+        drag = null;
+        if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
+    };
+    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) container.addEventListener(name, finish);
+    container.addEventListener("click", event => {
+        if (suppressClick) { event.preventDefault(); event.stopPropagation(); suppressClick = false; }
+    }, true);
+}
+
 function _getContainer() {
     let el = document.getElementById(CONTAINER_ID);
     if (!el) {
@@ -179,6 +227,7 @@ function _getContainer() {
         el.id = CONTAINER_ID;
         // 背景交由样式表的 --sca-bg 控制（亮色透明 / 暗色纯色面板），此处不写死 background
         el.style.cssText = "position:fixed;overflow:hidden;z-index:1000;font-family:Arial,'Microsoft YaHei',sans-serif";
+        enableSettingsDragScroll(el);
         document.body.appendChild(el);
     }
     return el;
@@ -194,10 +243,10 @@ function _posContainer() {
     if (!el) return;
     const sx = MainCanvas.canvas.clientWidth / MainCanvasWidth;
     const sy = MainCanvas.canvas.clientHeight / MainCanvasHeight;
-    el.style.left = (MainCanvas.canvas.offsetLeft + 380 * sx) + "px";
-    el.style.top = (MainCanvas.canvas.offsetTop + 160 * sy) + "px";
-    el.style.width = ((MainCanvasWidth - 760) * sx) + "px";
-    el.style.height = ((MainCanvasHeight - 240) * sy) + "px";
+    el.style.left = (MainCanvas.canvas.offsetLeft + 180 * sx) + "px";
+    el.style.top = (MainCanvas.canvas.offsetTop + 75 * sy) + "px";
+    el.style.width = ((MainCanvasWidth - 420) * sx) + "px";
+    el.style.height = ((MainCanvasHeight - 115) * sy) + "px";
 }
 
 // 面板背景是游戏 canvas，无法用 CSS prefers-color-scheme 判断明暗；
@@ -239,61 +288,43 @@ function _goBack() {
 
 // === 页面渲染 ===
 
+function settingRow(label, control, help = "") {
+    return `<div class="sca-setting-row"><div><span>${t(label)}</span>${help ? `<p class="sca-card-desc">${t(help)}</p>` : ""}</div><div class="sca-row">${control}</div></div>`;
+}
+function settingsToggle(key, label, help = "") {
+    const enabled = key === "gifFpsSyncGame" ? !!getSettings()[key] : getSettings()[key] !== false;
+    return settingRow(label, `<button class="sca-btn ${enabled ? 'primary' : ''}" aria-pressed="${enabled}" onclick="ShuangSettings.toggle('${key}')">${t(enabled ? 'settings.on' : 'settings.off')}</button>`, help);
+}
+let capacityUpdated = 0;
+function updateCapacityDisplay() {
+    const el = document.querySelector('[data-sca-capacity]');
+    if (!el || Date.now() - capacityUpdated < 500) return;
+    capacityUpdated = Date.now();
+    el.innerHTML = capacityRow(CRAFT_KEY, 'settings.craft_capacity');
+}
+function capacityRow(key, label) {
+    const bytes = packetBytes(extensionPacket(key, Player.ExtensionSettings[key] || {}));
+    const color = bytes > ACCOUNT_UPDATE_LIMIT ? '#d84343' : bytes > ACCOUNT_UPDATE_LIMIT * .8 ? '#c57b12' : '#4caf50';
+    const percent = bytes / ACCOUNT_UPDATE_LIMIT * 100;
+    return `<div style="display:flex;justify-content:space-between;gap:6px;font-size:13px"><span>${t(label)}</span><span style="color:${color}">${(bytes / 1000).toFixed(1)} / 180 kB</span></div><div role="progressbar" aria-label="${t(label)}" aria-valuemin="0" aria-valuemax="180000" aria-valuenow="${Math.min(bytes, ACCOUNT_UPDATE_LIMIT)}" aria-valuetext="${percent.toFixed(1)}%" style="height:7px;margin-top:6px;background:var(--sca-line);border-radius:4px;overflow:hidden"><div style="width:${Math.min(100, percent)}%;height:100%;background:${color}"></div></div>`;
+}
+
 function _renderMainPage() {
     const s = getSettings();
-    const modeLabel = s.urlLoadMode === "whitelist"
-        ? L("白名单模式", "Whitelist")
-        : L("不限制模式", "Unrestricted");
-    _getContainer().innerHTML = `
-        <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title">${L("自定义贴图 - 安全设置", "Custom Texture - Security Settings")}</div>
-            <div class="sca-row" style="margin:6px 0 14px">
-                <span style="font-size:15px;color:var(--sca-muted)">${L("当前模式：", "Current mode: ")}<strong style="color:var(--sca-fg)">${modeLabel}</strong></span>
-            </div>
-
-            <div class="sca-card" onclick="ShuangSettings.nav('modeSelect')" style="cursor:pointer">
-                <div class="sca-card-title">${L("加载模式设置", "Load Mode Settings")} <span class="sca-tag ${s.urlLoadMode === 'whitelist' ? 'green' : 'orange'}">${modeLabel}</span></div>
-                <div class="sca-card-desc">${L("选择白名单模式或不限制模式", "Choose whitelist or unrestricted mode")}</div>
-            </div>
-
-            ${s.urlLoadMode === "whitelist" ? `
-            <div class="sca-card" onclick="ShuangSettings.nav('whitelist')" style="cursor:pointer">
-                <div class="sca-card-title">${L("域名白名单管理", "Domain Whitelist")} <span style="font-size:13px;color:var(--sca-muted);font-weight:normal">${L(`${s.allowedDomains?.length || 0} 个域名`, `${s.allowedDomains?.length || 0} domains`)}</span></div>
-                <div class="sca-card-desc">${L("添加或移除可信域名，仅这些域名下的贴图会加载", "Add or remove trusted domains")}</div>
-            </div>
-            ` : ""}
-
-            <div style="margin:12px 0;border-top:1px solid var(--sca-line);padding-top:12px">
-                <div class="sca-row" style="margin-bottom:8px">
-                    <span class="sca-label">${L("不可信域名提示", "Untrusted domain warning")}</span>
-                    <button class="sca-btn ${s.domainWarningEnabled !== false ? 'primary' : ''}" onclick="ShuangSettings.toggle('domainWarningEnabled')" style="width:70px">
-                        ${s.domainWarningEnabled !== false ? L("开", "On") : L("关", "Off")}
-                    </button>
-                </div>
-                <div class="sca-row" style="margin-bottom:8px">
-                    <span class="sca-label">${L("启用动态图片", "Enable animated images")}</span>
-                    <button class="sca-btn ${s.animatedImageEnabled !== false ? 'primary' : ''}" onclick="ShuangSettings.toggle('animatedImageEnabled')" style="width:70px">
-                        ${s.animatedImageEnabled !== false ? L("开", "On") : L("关", "Off")}
-                    </button>
-                </div>
-                <div class="sca-row">
-                    <span class="sca-label">${L("动图帧率", "GIF Frame Rate")}</span>
-                    <input class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:80px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? "disabled" : ""}>
-                    <span style="font-size:14px;color:var(--sca-muted)">fps</span>
-                    <button class="sca-btn ${s.gifFpsSyncGame ? 'primary' : ''}" onclick="ShuangSettings.toggle('gifFpsSyncGame')" style="min-width:160px">
-                        ${L(`同步游戏帧率: ${s.gifFpsSyncGame ? "开" : "关"}`, `Sync FPS: ${s.gifFpsSyncGame ? "On" : "Off"}`)}
-                    </button>
-                </div>
-            </div>
-
-            <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--sca-line)">
-                <div class="sca-card" onclick="ShuangSettings.nav('blocked')" style="cursor:pointer">
-                    <div class="sca-card-title">${L("屏蔽玩家管理", "Blocked Players")} <span style="font-size:13px;color:var(--sca-muted);font-weight:normal">${L(`${(s.blockedPlayers || []).length} 人`, `${(s.blockedPlayers || []).length} players`)}</span></div>
-                    <div class="sca-card-desc">${L("屏蔽某玩家的贴图来源或配置，其贴图将不显示", "Block textures from or configured by specific players")}</div>
-                </div>
-            </div>
-        </div>
-    `;
+    const section = (id, label, content) => `<section id="sca-section-${id}" class="sca-anchor"><h2 class="sca-section-title">${t(label)}</h2><div class="sca-card">${content}</div></section>`;
+    const nav = (page, label, detail) => settingRow(label, `<button class="sca-btn" onclick="ShuangSettings.nav('${page}')">${detail}</button>`);
+    const sections = [['main', 'settings.main_controls'], ['display', 'settings.display_management'], ['images', 'settings.image_options'], ['cache', 'settings.cache_management']];
+    _getContainer().innerHTML = `<div class="sca-page active sca-flex" style="padding:4px 16px 12px">
+        <div class="sca-title">${t('settings.custom_texture_settings')} - v${ModInfo.version}</div>
+        <nav class="sca-tabs">${sections.map(([id, label]) => `<button class="sca-btn" onclick="ShuangSettings.jump('${id}')">${t(label)}</button>`).join('')}<span data-sca-capacity title="${t('settings.backup_capacity_help')}" style="display:block;align-self:center;width:200px;flex:0 0 200px;padding:8px 10px;border:1px solid var(--sca-btn-border);border-radius:6px;background:var(--sca-card-bg);white-space:nowrap"></span></nav>
+        <div data-sca-scroll style="overflow-y:auto;min-height:0;flex:1;padding-right:12px">
+        ${section('main', 'settings.main_controls', settingsToggle('pluginEnabled', 'settings.plugin_enabled', 'settings.plugin_help'))}
+        ${section('display', 'settings.display_management', settingsToggle('imagesEnabled', 'settings.images_enabled', 'settings.images_help') + nav('modeSelect', 'settings.load_mode_settings', t(s.urlLoadMode === 'whitelist' ? 'settings.whitelist' : 'settings.unrestricted')) + nav('whitelist', 'settings.domain_whitelist', t('settings.domains', [s.allowedDomains?.length || 0])) + nav('blocked', 'settings.blocked_players', t('settings.players', [s.blockedPlayers?.length || 0])))}
+        ${section('images', 'settings.image_options', settingsToggle('domainWarningEnabled', 'settings.untrusted_domain_warning') + settingsToggle('animatedImageEnabled', 'settings.enable_animated_images') + settingRow('settings.gif_frame_rate', `<input aria-label="fps" class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:85px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? 'disabled' : ''}> fps`) + settingsToggle('gifFpsSyncGame', 'settings.sync_game_fps'))}
+        ${section('cache', 'settings.cache_management', settingRow('settings.backup_export', `<button class="sca-btn" onclick="ShuangSettings.exportBackup()">${t('settings.backup_export')}</button>`, 'settings.backup_help') + settingRow('settings.backup_import', `<button class="sca-btn" onclick="document.getElementById('ShuangBackupFile').click()">${t('settings.backup_import')}</button><input id="ShuangBackupFile" type="file" accept=".json,application/json" hidden onchange="ShuangSettings.importBackup(this)">`) + '<p data-sca-backup-status role="status" class="sca-card-desc"></p>')}
+        </div></div>`;
+    capacityUpdated = 0;
+    updateCapacityDisplay();
 }
 
 function _renderModeSelectPage() {
@@ -301,22 +332,22 @@ function _renderModeSelectPage() {
     const isWhitelist = s.urlLoadMode === "whitelist";
     _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title">${L("选择贴图加载模式", "Select Load Mode")}</div>
-            <div class="sca-subtitle">${L("选择白名单模式或不限制模式", "Choose whitelist or unrestricted mode")}</div>
+            <div class="sca-title">${t("settings.select_load_mode")}</div>
+            <div class="sca-subtitle">${t("settings.choose_whitelist_or_unrestricted_mode")}</div>
 
             <div class="sca-card ${isWhitelist ? 'active' : ''}" onclick="ShuangSettings.setMode('whitelist')" style="cursor:pointer">
-                <div class="sca-card-title">${L("白名单模式", "Whitelist Mode")} ${isWhitelist ? `<span class="sca-tag green">${L("当前", "Current")}</span>` : ""}</div>
-                <div class="sca-card-desc">${L("仅加载来自可信域名的贴图 URL（推荐）", "Only load textures from trusted domains (recommended)")}</div>
+                <div class="sca-card-title">${t("settings.whitelist_mode")} ${isWhitelist ? `<span class="sca-tag green">${t("settings.current")}</span>` : ""}</div>
+                <div class="sca-card-desc">${t("settings.only_load_textures_from_trusted_domains_recommended")}</div>
             </div>
 
             <div class="sca-card ${!isWhitelist ? 'active' : ''}" onclick="ShuangSettings.nav('unrestrictedConfirm')" style="cursor:pointer">
-                <div class="sca-card-title">${L("不限制模式", "Unrestricted Mode")} ${!isWhitelist ? `<span class="sca-tag orange">${L("当前", "Current")}</span>` : ""}</div>
-                <div class="sca-card-desc">${L("加载所有 HTTPS 贴图 URL（存在隐私风险）", "Load any HTTPS texture URL (privacy risk)")}</div>
+                <div class="sca-card-title">${t("settings.unrestricted_mode")} ${!isWhitelist ? `<span class="sca-tag orange">${t("settings.current")}</span>` : ""}</div>
+                <div class="sca-card-desc">${t("settings.load_any_https_texture_url_privacy_risk")}</div>
             </div>
 
             ${isWhitelist ? "" : `
             <div style="margin-top:16px;padding:12px;background:#fff3e0;border-radius:8px;border:1px solid #ffcc02">
-                <span style="color:#e65100;font-size:14px">⚠️ ${L("不限制模式下，所有 HTTPS 贴图都会加载，可能包含不适宜内容。", "In unrestricted mode, all HTTPS textures will load. This may include inappropriate content.")}</span>
+                <span style="color:#e65100;font-size:14px">⚠️ ${t("settings.in_unrestricted_mode_all_https_textures_will_load_this_may_includ")}</span>
             </div>
             `}
         </div>
@@ -329,20 +360,20 @@ function _renderWhitelistPage() {
 
     _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title">${L("域名白名单管理", "Domain Whitelist")}</div>
-            <div class="sca-subtitle">${L("仅来自这些域名的贴图 URL 会被加载", "Only texture URLs from these domains will load")}</div>
+            <div class="sca-title">${t("settings.domain_whitelist")}</div>
+            <div class="sca-subtitle">${t("settings.only_texture_urls_from_these_domains_will_load")}</div>
 
             <div class="sca-table-wrap" style="flex:1;min-height:200px">
                 <table class="sca-table">
-                    <thead><tr><th style="width:40px">#</th><th>${L("域名", "Domain")}</th><th style="width:100px">${L("操作", "Action")}</th></tr></thead>
+                    <thead><tr><th style="width:40px">#</th><th>${t("settings.domain")}</th><th style="width:100px">${t("settings.action")}</th></tr></thead>
                     <tbody>
                         ${domains.length === 0 ? `
-                            <tr><td colspan="3" style="text-align:center;color:var(--sca-muted);padding:30px">${L("（暂无域名，请添加）", "(No domains, add one)")}</td></tr>
+                            <tr><td colspan="3" style="text-align:center;color:var(--sca-muted);padding:30px">${t("settings.no_domains_add_one")}</td></tr>
                         ` : domains.map((d, i) => `
                             <tr>
                                 <td style="color:var(--sca-muted)">${i + 1}</td>
                                 <td>${d}</td>
-                                <td><button class="sca-btn danger small" onclick="ShuangSettings.removeDomain(${i})">${L("删除", "Delete")}</button></td>
+                                <td><button class="sca-btn danger small" onclick="ShuangSettings.removeDomain(${i})">${t("settings.delete")}</button></td>
                             </tr>
                         `).join("")}
                     </tbody>
@@ -351,12 +382,12 @@ function _renderWhitelistPage() {
 
             <div class="sca-bottom">
                 <div class="sca-row">
-                    <span class="sca-label">${L("添加域名:", "Add domain:")}</span>
-                    <input class="sca-input" id="ShuangDomainInput" type="text" placeholder="${L("example.com", "example.com")}" style="width:250px" onkeydown="if(event.key==='Enter')ShuangSettings.addDomain()">
-                    <button class="sca-btn primary" onclick="ShuangSettings.addDomain()">${L("添加", "Add")}</button>
-                    <button class="sca-btn" onclick="ShuangSettings.addDefaultDomains()" style="background:#e3f2fd;border-color:#90caf9">${L("添加推荐域名", "Add Defaults")}</button>
-                    <button class="sca-btn" onclick="ShuangSettings.scanRoom()" style="background:#fff3e0;border-color:#ffb74d">${L("扫描房间", "Scan Room")}</button>
-                    <button class="sca-btn danger" onclick="ShuangSettings.clearDomains()">${L("清空全部", "Clear All")}</button>
+                    <span class="sca-label">${t("settings.add_domain")}</span>
+                    <input class="sca-input" id="ShuangDomainInput" type="text" placeholder="${t("settings.example_com")}" style="width:250px" onkeydown="if(event.key==='Enter')ShuangSettings.addDomain()">
+                    <button class="sca-btn primary" onclick="ShuangSettings.addDomain()">${t("settings.add")}</button>
+                    <button class="sca-btn" onclick="ShuangSettings.addDefaultDomains()" style="background:#e3f2fd;border-color:#90caf9">${t("settings.add_defaults")}</button>
+                    <button class="sca-btn" onclick="ShuangSettings.scanRoom()" style="background:#fff3e0;border-color:#ffb74d">${t("settings.scan_room")}</button>
+                    <button class="sca-btn danger" onclick="ShuangSettings.clearDomains()">${t("settings.clear_all")}</button>
                 </div>
             </div>
         </div>
@@ -371,22 +402,21 @@ function _renderBlockedPage() {
 
     _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title">${L("屏蔽玩家管理", "Blocked Players")}</div>
-            <div class="sca-subtitle">${L("被屏蔽的玩家，其贴图来源或配置的贴图将不会显示",
-                "Textures from or configured by blocked players will be hidden")}</div>
+            <div class="sca-title">${t("settings.blocked_players")}</div>
+            <div class="sca-subtitle">${t("settings.textures_from_or_configured_by_blocked_players_will_be_hidden")}</div>
 
             <div class="sca-table-wrap" style="flex:1;min-height:200px">
                 <table class="sca-table">
-                    <thead><tr><th style="width:100px">${L("ID", "ID")}</th><th>${L("昵称", "Nickname")}</th><th style="width:120px">${L("操作", "Action")}</th></tr></thead>
+                    <thead><tr><th style="width:100px">${t("settings.id")}</th><th>${t("settings.nickname")}</th><th style="width:120px">${t("settings.action")}</th></tr></thead>
                     <tbody id="ShuangBlockedTableBody">
                         ${blocked.length === 0 ? `
-                            <tr><td colspan="3" style="text-align:center;color:var(--sca-muted);padding:30px">${L("（暂无屏蔽的玩家）", "(No blocked players)")}</td></tr>
+                            <tr><td colspan="3" style="text-align:center;color:var(--sca-muted);padding:30px">${t("settings.no_blocked_players")}</td></tr>
                         ` : blocked.map((mn, i) => {
                             const name = _getPlayerName(mn);
                             return `<tr>
                                 <td>#${mn}</td>
                                 <td>${name || "-"}</td>
-                                <td><button class="sca-btn danger small" onclick="ShuangSettings.unblock(${i})">${L("取消屏蔽", "Unblock")}</button></td>
+                                <td><button class="sca-btn danger small" onclick="ShuangSettings.unblock(${i})">${t("settings.unblock")}</button></td>
                             </tr>`;
                         }).join("")}
                     </tbody>
@@ -394,12 +424,12 @@ function _renderBlockedPage() {
             </div>
 
             <div class="sca-bottom">
-                <div class="sca-section-title" style="margin-top:0">${L("添加屏蔽", "Add Block")}</div>
+                <div class="sca-section-title" style="margin-top:0">${t("settings.add_block")}</div>
                 <div class="sca-row">
                     <span class="sca-label">MemberNumber:</span>
-                    <input class="sca-input" id="ShuangBlockedNewInput" type="text" placeholder="${L("输入 MemberNumber", "Enter MemberNumber")}" style="width:200px">
-                    <button class="sca-btn primary" onclick="ShuangSettings.addBlocked()">${L("添加", "Add")}</button>
-                    <button class="sca-btn" onclick="ShuangSettings.nav('roomPick')">${L("从房间中选择 >>>", "From Room >>>")}</button>
+                    <input class="sca-input" id="ShuangBlockedNewInput" type="text" placeholder="${t("settings.enter_membernumber")}" style="width:200px">
+                    <button class="sca-btn primary" onclick="ShuangSettings.addBlocked()">${t("settings.add")}</button>
+                    <button class="sca-btn" onclick="ShuangSettings.nav('roomPick')">${t("settings.from_room")}</button>
                 </div>
             </div>
         </div>
@@ -496,10 +526,10 @@ function _renderScanPage() {
     if (s.urlLoadMode !== "whitelist") {
         _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title">${L("房间不可信域名扫描", "Room Untrusted Domain Scan")}</div>
+            <div class="sca-title">${t("settings.room_untrusted_domain_scan")}</div>
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--sca-muted)">
-                <div style="font-size:16px">${L("此功能仅在白名单模式下可用", "This feature is only available in Whitelist mode")}</div>
-                <div style="font-size:14px">${L("请先切换到白名单模式", "Please switch to Whitelist mode first")}</div>
+                <div style="font-size:16px">${t("settings.this_feature_is_only_available_in_whitelist_mode")}</div>
+                <div style="font-size:14px">${t("settings.please_switch_to_whitelist_mode_first")}</div>
             </div>
         </div>`;
         return;
@@ -513,26 +543,26 @@ function _renderScanPage() {
 
     _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title">${L("房间不可信域名扫描", "Room Untrusted Domain Scan")}</div>
+            <div class="sca-title">${t("settings.room_untrusted_domain_scan")}</div>
             <div class="sca-subtitle">${inRoom
-                ? L("当前房间内所有玩家身上的不可信贴图域名", "Untrusted texture domains from all players in the current room")
-                : L("当前不在房间中，仅扫描了自己的贴图", "Not in a room, only your own textures were scanned")}</div>
+                ? t("settings.untrusted_texture_domains_from_all_players_in_the_current_room")
+                : t("settings.not_in_a_room_only_your_own_textures_were_scanned")}</div>
 
             ${results.length === 0 ? `
             <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
-                <div style="font-size:18px;color:#4caf50">${L("✔ 未发现不可信域名", "✔ No untrusted domains found")}</div>
-                <div style="font-size:14px;color:var(--sca-muted)">${L("当前房间内所有玩家的贴图域名均已在白名单中", "All texture domains in the current room are already whitelisted")}</div>
+                <div style="font-size:18px;color:#4caf50">${t("settings.no_untrusted_domains_found")}</div>
+                <div style="font-size:14px;color:var(--sca-muted)">${t("settings.all_texture_domains_in_the_current_room_are_already_whitelisted")}</div>
             </div>
             ` : `
-            <div style="font-size:14px;color:#e65100;margin-bottom:8px">${L(`发现 ${results.length} 个不可信域名`, `${results.length} untrusted domains found`)}</div>
+            <div style="font-size:14px;color:#e65100;margin-bottom:8px">${t("settings.untrusted_domains_found", [results.length])}</div>
             <div class="sca-table-wrap" style="flex:1;min-height:200px">
                 <table class="sca-table">
                     <thead><tr>
                         <th style="width:36px">#</th>
-                        <th style="width:160px">${L("玩家", "Player")}</th>
-                        <th style="width:240px">${L("域名", "Domain")}</th>
-                        <th>${L("URL", "URL")}</th>
-                        <th style="width:90px">${L("操作", "Action")}</th>
+                        <th style="width:160px">${t("settings.player")}</th>
+                        <th style="width:240px">${t("settings.domain")}</th>
+                        <th>${t("settings.url")}</th>
+                        <th style="width:90px">${t("settings.action")}</th>
                     </tr></thead>
                     <tbody>
                         ${results.map((r, i) => `
@@ -541,7 +571,7 @@ function _renderScanPage() {
                             <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.name}">${r.name}</td>
                             <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.domain}">${r.domain}</td>
                             <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--sca-muted);font-size:13px" title="${r.url}">${r.url}</td>
-                            <td><button class="sca-btn primary small" onclick="ShuangSettings.trustDomain(&quot;${r.domain.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}&quot;)">${L("信任", "Trust")}</button></td>
+                            <td><button class="sca-btn primary small" onclick="ShuangSettings.trustDomain(&quot;${r.domain.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}&quot;)">${t("editPanel.trust")}</button></td>
                         </tr>`).join("")}
                     </tbody>
                 </table>
@@ -553,44 +583,20 @@ function _renderScanPage() {
 
 function _renderScanConfirmPage() {
     const domain = _scanPendingDomain;
-    const lines = isChineseLang() ? [
-        `即将添加域名到白名单: ${domain}`,
-        "",
-        "添加后，来自该域名的贴图 URL 将被允许加载",
-        "",
-        "请注意以下风险：",
-        "1. 请确认您信任该域名提供者",
-        "2. 该域名的所有 URL 都将被加载",
-        "3. 恶意域名可能用于追踪您的 IP 地址",
-        "4. 恶意域名可能导致隐私信息泄露",
-        "",
-        "确定要添加此域名到可信列表吗？",
-    ] : [
-        `About to add domain to whitelist: ${domain}`,
-        "",
-        "Once added, texture URLs from this domain will be allowed",
-        "",
-        "Please note the following risks:",
-        "1. Make sure you trust this domain's provider",
-        "2. All URLs from this domain will be loaded",
-        "3. A malicious domain may track your IP address",
-        "4. A malicious domain may leak private info",
-        "",
-        "Add this domain to the trusted list?",
-    ];
+    const lines = [t("settings.help_line_1", [domain]), "", t("settings.help_line_2"), "", t("settings.help_line_3"), t("settings.help_line_4"), t("settings.help_line_5"), t("settings.help_line_6"), t("settings.help_line_7"), "", t("settings.help_line_8")];
 
     _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title" style="color:#e53935">${L("⚠ 添加可信域名确认 ⚠", "⚠ Confirm Trusted Domain ⚠")}</div>
+            <div class="sca-title" style="color:#e53935">${t("listView.confirm_trusted_domain")}</div>
             <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;margin:8px 0">
                 ${lines.map(line => line ? `<div style="font-size:15px;color:#333;padding:3px 0">${line}</div>` : `<div style="height:8px"></div>`).join("")}
             </div>
             <div class="sca-row" style="justify-content:center;gap:16px;padding-top:12px;border-top:1px solid var(--sca-line)">
                 <button class="sca-btn primary" onclick="ShuangSettings.confirmTrustDomain()" style="min-width:160px;font-size:17px;padding:12px 30px;background:#4caf50;border-color:#43a047">
-                    ${L("确认添加", "Add")}
+                    ${t("listView.add")}
                 </button>
                 <button class="sca-btn secondary" onclick="ShuangSettings.cancelTrustDomain()" style="min-width:160px;font-size:17px;padding:12px 30px">
-                    ${L("取消", "Cancel")}
+                    ${t("listView.cancel")}
                 </button>
             </div>
         </div>
@@ -605,11 +611,11 @@ function _renderRoomPickPage() {
 
     _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title">${L("从房间选择要屏蔽的玩家", "Select from Room")}</div>
+            <div class="sca-title">${t("settings.select_from_room")}</div>
 
             <div class="sca-table-wrap" style="flex:1;min-height:200px">
                 <table class="sca-table">
-                    <thead><tr><th style="width:100px">${L("ID", "ID")}</th><th>${L("昵称", "Nickname")}</th><th style="width:120px">${L("操作", "Action")}</th></tr></thead>
+                    <thead><tr><th style="width:100px">${t("settings.id")}</th><th>${t("settings.nickname")}</th><th style="width:120px">${t("settings.action")}</th></tr></thead>
                     <tbody>
                         ${chars.filter(c => c.MemberNumber).map(c => {
                             const mn = c.MemberNumber;
@@ -619,8 +625,8 @@ function _renderRoomPickPage() {
                                 <td>#${mn}</td>
                                 <td>${name || "-"}</td>
                                 <td>${isBlocked
-                                    ? `<span style="color:var(--sca-muted);font-size:14px">${L("已屏蔽", "Blocked")}</span>`
-                                    : `<button class="sca-btn danger small" onclick="ShuangSettings.blockFromRoom(${mn})">${L("屏蔽", "Block")}</button>`
+                                    ? `<span style="color:var(--sca-muted);font-size:14px">${t("settings.blocked")}</span>`
+                                    : `<button class="sca-btn danger small" onclick="ShuangSettings.blockFromRoom(${mn})">${t("settings.block")}</button>`
                                 }</td>
                             </tr>`;
                         }).join("")}
@@ -632,61 +638,72 @@ function _renderRoomPickPage() {
 }
 
 function _renderUnrestrictedConfirmPage() {
-    const lines = isChineseLang() ? [
-        "不限制模式将加载来自任意 HTTPS 地址的贴图 URL",
-        "",
-        "请注意以下风险：",
-        "1. 其他玩家可能提供恶意的贴图 URL",
-        "2. 这些 URL 可能被用于追踪您的 IP 地址",
-        "3. 恶意 URL 可能导致隐私信息泄露",
-        "4. 您的真实 IP 可能被第三方记录",
-        "",
-        "我们强烈建议您保持白名单模式",
-        "",
-        "确定要开启不限制模式吗？",
-    ] : [
-        "Unrestricted mode loads texture URLs from any HTTPS address",
-        "",
-        "Please note the following risks:",
-        "1. Other players may provide malicious texture URLs",
-        "2. These URLs may be used to track your IP address",
-        "3. Malicious URLs may leak private information",
-        "4. Your real IP may be recorded by third parties",
-        "",
-        "We strongly recommend keeping Whitelist mode",
-        "",
-        "Are you sure you want to enable Unrestricted mode?",
-    ];
+    const lines = [t("settings.help_line_9"), "", t("settings.help_line_10"), t("settings.help_line_11"), t("settings.help_line_12"), t("settings.help_line_13"), t("settings.help_line_14"), "", t("settings.help_line_15"), "", t("settings.help_line_16")];
 
     _getContainer().innerHTML = `
         <div class="sca-page active sca-flex" style="height:100%">
-            <div class="sca-title" style="color:#e53935">${L("⚠ 隐私安全警告 ⚠", "⚠ Privacy & Security Warning ⚠")}</div>
+            <div class="sca-title" style="color:#e53935">${t("settings.privacy_security_warning")}</div>
             <div style="flex:1;min-height:0;overflow-y:auto;padding:12px;background:#fff8f8;border:1px solid #ffcdd2;border-radius:8px;margin:8px 0">
                 ${lines.map(line => line ? `<div style="font-size:15px;color:#333;padding:3px 0">${line}</div>` : `<div style="height:8px"></div>`).join("")}
             </div>
             <div class="sca-row" style="justify-content:center;gap:16px;padding-top:12px;border-top:1px solid var(--sca-line)">
                 <button class="sca-btn danger" onclick="ShuangSettings.confirmUnrestricted()" style="min-width:160px;font-size:17px;padding:12px 30px">
-                    ${L("确定开启", "Enable")}
+                    ${t("settings.enable")}
                 </button>
                 <button class="sca-btn secondary" onclick="ShuangSettings.cancelUnrestricted()" style="min-width:160px;font-size:17px;padding:12px 30px">
-                    ${L("取消", "Cancel")}
+                    ${t("listView.cancel")}
                 </button>
             </div>
         </div>
     `;
 }
 
+function backupStatus(success) {
+    const el = document.querySelector('[data-sca-backup-status]');
+    if (el) el.textContent = t(success ? 'settings.backup_imported' : 'settings.backup_failed');
+}
+
 // === 全局事件处理 ===
 
 window.ShuangSettings = {
+    jump: id => document.getElementById('sca-section-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    exportBackup: () => {
+        try {
+            const url = URL.createObjectURL(new Blob([JSON.stringify(exportPlayerBackup(), null, 2)], { type: 'application/json' }));
+            const link = document.createElement('a');
+            link.href = url; link.download = 'shuang-texture-backup.json'; link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) { Logger.warn('Cannot export backup', error); backupStatus(false); }
+    },
+    importBackup: async input => {
+        const file = input.files?.[0], member = Player.MemberNumber;
+        if (!file) return;
+        try {
+            if (file.size > ACCOUNT_UPDATE_LIMIT * 4) throw new Error('Backup file too large');
+            const data = JSON.parse(await file.text());
+            if (Player.MemberNumber !== member) return;
+            importPlayerBackup(data);
+            backupStatus(true);
+            capacityUpdated = 0; updateCapacityDisplay();
+        } catch (error) { Logger.warn('Cannot import backup', error); backupStatus(false); }
+        finally { input.value = ''; }
+    },
     nav: (page) => _navigateTo(page),
     back: () => _goBack(),
 
     toggle: (key) => {
         const s = getSettings();
-        s[key] = !s[key];
+        s[key] = key === "gifFpsSyncGame" ? !s[key] : s[key] === false;
+        if (key === "imagesEnabled" || key === "pluginEnabled") {
+            setTextureDownloadsEnabled(getImageLoadingEnabled());
+            if (!getImageLoadingEnabled()) cancelTextureImageLoads();
+        }
         saveSettings();
+        _refreshRoomCharacters();
+        const scroll = document.querySelector('[data-sca-scroll]')?.scrollTop || 0;
         _renderCurrentPage();
+        const body = document.querySelector('[data-sca-scroll]');
+        if (body) body.scrollTop = scroll;
     },
 
     setFps: (val) => {
@@ -835,8 +852,10 @@ function _renderCurrentPage() {
 function _refreshRoomCharacters() {
     try {
         const chars = (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter))
-            ? ChatRoomCharacter : [];
+            ? [...ChatRoomCharacter] : [];
         if (Player && chars.indexOf(Player) === -1) chars.push(Player);
+        const current = typeof CharacterGetCurrent === "function" ? CharacterGetCurrent() : null;
+        if (current && !chars.includes(current)) chars.push(current);
         for (const C of chars) {
             if (typeof CharacterRefresh === "function") CharacterRefresh(C, false, false);
         }
@@ -868,7 +887,7 @@ export function initSettings() {
 
     PreferenceRegisterExtensionSetting({
         Identifier: EXTENSION_ID,
-        ButtonText: L("自定义贴图设置", "Custom Texture Settings"),
+        ButtonText: t("settings.custom_texture_settings"),
         Image: BADGE_IMAGE_URL,
         load: () => {
             settingsPage = "main";
@@ -881,13 +900,14 @@ export function initSettings() {
             // 返回按钮（子页面时显示）
             if (settingsPage !== "main") {
                 DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png",
-                    L("返回", "Back"));
+                    t("settings.back"));
             } else {
                 DrawButton(1815, 75, 90, 90, "", "White", "Icons/Exit.png",
-                    L("退出", "Exit"));
+                    t("settings.exit"));
             }
             _posContainer();
             _applyTheme();
+            if (settingsPage === "main") updateCapacityDisplay();
             MainCanvas.textAlign = "center";
         },
         click: () => {

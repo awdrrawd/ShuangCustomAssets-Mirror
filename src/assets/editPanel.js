@@ -1,3 +1,5 @@
+import { updateTransformOverlay, hideTransformOverlay } from "./freeTransform.js";
+import { t, L } from "../i18n/index.js";
 /**
  * 自定义贴图道具 - 编辑面板逻辑
  * 包含步进按钮、数值输入框（真实 DOM <input>，可直接输入，item1）、BAR 滑桿（可拖动，item2/3）、
@@ -12,13 +14,12 @@ import {
     barDrag,
     MIRROR_ROW_Y, MIRROR_ROW_LABEL_Y, MIRROR_H_BTN_X, MIRROR_V_BTN_X, MIRROR_BTN_W, MIRROR_BTN_H,
     MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H,
-    SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
+    SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H, SCALE_DRAG_SENSITIVITY,
     ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H,
-    SCALE_DRAG_SENSITIVITY, scaleDrag,
     URL_BOX_X, URL_BOX_Y, URL_BOX_W, URL_BOX_H, FIELD_URL,
     TEXTURE_REFRESH_INTERVAL, TEXTURE_DRAG_REFRESH_INTERVAL,
     stepperPress,
-    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_TOGGLE_H,
+    POSE_LABELS, getPoseKey, POSE_BAR_Y, POSE_TOGGLE_H, POSE_BUTTON_Y,
     POSE_EDIT_TOGGLE_X, POSE_EDIT_TOGGLE_W, POSE_ACTIVE_TOGGLE_X, POSE_ACTIVE_TOGGLE_W,
     POSE_SWITCH_X, POSE_SWITCH_W,
     POSE_PAGE_BTN_W, POSE_PAGE_BTN_H, POSE_PAGE_BTN_GAP, POSE_PAGE_START_X,
@@ -33,7 +34,7 @@ import {
 } from "./constants.js";
 import { state, resetDragState, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
-import { L, isChineseLang, getCorsImage, Logger, hideNumberInputSpinner } from "@lib/utils.js";
+import { getCorsImage, Logger, hideNumberInputSpinner } from "@lib/utils.js";
 import { isUrlAllowed, isDomainInWhitelist, extractDomain } from "./settings.js";
 
 /**
@@ -143,32 +144,32 @@ export function drawPoseBar() {
     const poseKey = getPoseKey(C?.DrawPose);
     if (poseKey) {
         // 小字标签"视角"（开关1上方）
-        DrawText(L("视角", "View"), POSE_EDIT_TOGGLE_X + POSE_EDIT_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
+        DrawText(t("editPanel.view"), POSE_EDIT_TOGGLE_X + POSE_EDIT_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
 
         // 开关1：全局视角 / 当前视角
-        DrawButton(POSE_EDIT_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+        DrawButton(POSE_EDIT_TOGGLE_X, POSE_BUTTON_Y,
             POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H,
-            state.poseViewMode ? L("当前视角", "Pose View") : L("全局视角", "Global View"),
+            state.poseViewMode ? t("editPanel.pose_view") : t("editPanel.global_view"),
             state.poseViewMode ? "#4CAF50" : "White", null,
-            L("切换视角：全局视角或当前姿势视角", "Switch view: global or current pose"), false);
+            t("editPanel.switch_view_global_or_current_pose"), false);
 
         // 小字标签"生效"（开关2上方）+ 开关2：始终显示
-        DrawText(L("生效", "Active"), POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
+        DrawText(t("editPanel.active"), POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
 
         const ps = state.tempTextureData?.PoseSettings?.[poseKey];
         const isActive = ps?.enabled === true;
-        DrawButton(POSE_ACTIVE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+        DrawButton(POSE_ACTIVE_TOGGLE_X, POSE_BUTTON_Y,
             POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H,
-            isActive ? L("独特", "Unique") : L("全局", "Global"),
+            isActive ? t("editPanel.unique") : t("editPanel.global"),
             isActive ? "#4CAF50" : "White", null,
-            L("切换当前姿势使用的配置来源", "Switch config source for current pose"), false);
+            t("editPanel.switch_config_source_for_current_pose"), false);
     }
 
     // "批量配置"按钮：打开姿势选择页面
-    DrawButton(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+    DrawButton(POSE_SWITCH_X, POSE_BUTTON_Y,
         POSE_SWITCH_W, POSE_TOGGLE_H,
-        L("批量配置", "Batch"), "White", null,
-        L("打开姿势选择页面，批量配置多个姿势", "Open pose selection page for batch configuration"), false);
+        t("editPanel.batch"), "White", null,
+        t("editPanel.open_pose_selection_page_for_batch_configuration"), false);
 }
 
 /**
@@ -180,7 +181,7 @@ export function handlePoseBarClick() {
     const poseKey = getPoseKey(C?.DrawPose);
 
     // "批量配置"按钮：进入姿势选择页面
-    if (MouseIn(POSE_SWITCH_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+    if (MouseIn(POSE_SWITCH_X, POSE_BUTTON_Y,
             POSE_SWITCH_W, POSE_TOGGLE_H)) {
         state.poseSwitchMode = "select";
         return true;
@@ -188,7 +189,7 @@ export function handlePoseBarClick() {
 
     if (poseKey) {
         // "视角"开关
-        if (MouseIn(POSE_EDIT_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+        if (MouseIn(POSE_EDIT_TOGGLE_X, POSE_BUTTON_Y,
                 POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H)) {
             state.poseViewMode = !state.poseViewMode;
             if (state.poseViewMode) {
@@ -206,7 +207,7 @@ export function handlePoseBarClick() {
         }
 
         // "生效"开关：始终可点击
-        if (MouseIn(POSE_ACTIVE_TOGGLE_X, POSE_BAR_Y - POSE_TOGGLE_H / 2,
+        if (MouseIn(POSE_ACTIVE_TOGGLE_X, POSE_BUTTON_Y,
                 POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H)) {
             if (!state.tempTextureData) return true;
             if (!state.tempTextureData.PoseSettings) {
@@ -241,9 +242,9 @@ export function drawPoseSwitchPage() {
     if (!C) return;
 
     // 标题（与 贴图管理/编辑图层/隐藏设置 三页统一坐标+颜色）
-    DrawText(L("切换姿势", "Switch Pose"), 1500, 360, "White", "Gray");
+    DrawText(t("editPanel.switch_pose"), 1500, 360, "White", "Gray");
     // 说明文字
-    DrawText(L("选择要批量配置的姿势", "Select poses for batch configuration"),
+    DrawText(t("editPanel.select_poses_for_batch_configuration"),
         1505, 405, "Yellow", "Black");
 
     let rowY = POSE_PAGE_START_Y;
@@ -284,11 +285,11 @@ export function drawPoseSwitchPage() {
     // 必须同时选了上身和下身姿势（或选了全身姿势）才能批量编辑
     const canEnter = (hasUpper && hasLower) || hasFull;
     DrawButton(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H,
-        L("编辑选中姿势", "Edit Selected"), canEnter ? "White" : "Gray", null,
-        L("为选中的姿势组合设置统一配置（需同时选上身和下身姿势）", "Set unified config for selected pose combinations (requires both upper and lower poses)"), false);
+        t("editPanel.edit_selected"), canEnter ? "White" : "Gray", null,
+        t("editPanel.set_unified_config_for_selected_pose_combinations_requires_both_u"), false);
     DrawButton(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H,
-        L("确认", "Confirm"), "White", null,
-        L("返回编辑面板", "Back to edit panel"), false);
+        t("editPanel.confirm"), "White", null,
+        t("editPanel.back_to_edit_panel"), false);
 }
 
 /**
@@ -310,7 +311,7 @@ export function handlePoseSwitchClick() {
             enterSpecialConfig();
         } else {
             showStatus(
-                L("需要同时选择上身和下身姿势", "Need to select both upper and lower poses"),
+                t("editPanel.need_to_select_both_upper_and_lower_poses"),
                 "#FF6B6B", 3000
             );
         }
@@ -492,12 +493,12 @@ function drawComboSelector() {
     // 左箭头按钮
     DrawButton(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
         POSE_COMBO_BTN_W, POSE_TOGGLE_H,
-        "\u25C0", "White", null, L("上一个组合", "Previous combo"), false);
+        "\u25C0", "White", null, t("editPanel.previous_combo"), false);
 
     // 右箭头按钮
     DrawButton(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
         POSE_COMBO_BTN_W, POSE_TOGGLE_H,
-        "\u25B6", "White", null, L("下一个组合", "Next combo"), false);
+        "\u25B6", "White", null, t("editPanel.next_combo"), false);
 
     // 下拉框定位（DOM 元素由 createComboDropdown 创建，这里每帧同步位置和选中项）
     positionComboDropdown();
@@ -505,8 +506,8 @@ function drawComboSelector() {
     // 底部：保存并返回按钮
     DrawButton(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
         POSE_CONFIRM_BTN_W, POSE_TOGGLE_H,
-        L("保存并返回", "Save & Back"), "White", null,
-        L("保存配置并返回姿势选择页面", "Save config and return to pose selection"), false);
+        t("editPanel.save_back"), "White", null,
+        t("editPanel.save_config_and_return_to_pose_selection"), false);
 }
 
 /**
@@ -560,32 +561,29 @@ function handlePoseSpecialConfigClick(item, textureIndex, data) {
 export function setupStepperListeners() {
     if (state._stepperListenerReady) return;
     state._stepperListenerReady = true;
-    // 鼠标
-    document.addEventListener("mousedown", () => {
+    const begin = () => {
         state._pointerDown = true;
+        updateDragMove();
+        updateScaleDrag();
         tryStartBarDrag();
-    });
-    document.addEventListener("mouseup", () => {
+    };
+    const finish = event => {
+        if (event.type !== "blur") {
+            updateDragMove();
+            updateScaleDrag();
+        }
         state._pointerDown = false;
-        stepperPress.fieldId = null;
-        // 释放后立即允许刷新（绕过节流，让预览马上更新）
-        state._lastTextureRefresh = 0;
-    });
-    // 触摸（移动端）
-    document.addEventListener("touchstart", () => {
-        state._pointerDown = true;
-        tryStartBarDrag();
-    }, { passive: true });
-    document.addEventListener("touchend", () => {
-        state._pointerDown = false;
+        state.dragMove = null;
+        state.scaleDrag = null;
+        state.dragActive = false;
         stepperPress.fieldId = null;
         state._lastTextureRefresh = 0;
-    });
-    document.addEventListener("touchcancel", () => {
-        state._pointerDown = false;
-        stepperPress.fieldId = null;
-        state._lastTextureRefresh = 0;
-    });
+        if (event.type === "blur") barDrag.fieldId = null;
+    };
+    document.addEventListener("mousedown", begin);
+    document.addEventListener("touchstart", begin, { passive: true });
+    for (const type of ["mouseup", "touchend", "touchcancel"]) document.addEventListener(type, finish);
+    window.addEventListener("blur", finish);
 }
 
 /**
@@ -787,14 +785,10 @@ export function drawBarField(field) {
         MainCanvas.fillRect(zeroX - 1, trackY - 4, 2, BAR_TRACK_H + 8);
     }
 
-    // 方形手柄
+    // 50px source icon rendered at the 35px handle size.
     const handleX = BAR_TRACK_X + ratio * BAR_TRACK_W - BAR_HANDLE_SIZE / 2;
     const handleY = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
-    MainCanvas.fillStyle = barDrag.fieldId === field.id ? "#4CAF50" : "#FFFFFF";
-    MainCanvas.fillRect(handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
-    MainCanvas.strokeStyle = "#000000";
-    MainCanvas.lineWidth = 2;
-    MainCanvas.strokeRect(handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
+    DrawImageResize(new URL("../SCA_slider.png", import.meta.url).href, handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
 }
 
 /**
@@ -828,7 +822,7 @@ export function handleBarFieldClick(field) {
 
 /**
  * 每帧检测 BAR 滑桿的拖动状态：指针松开时清除拖动标记，拖动中则持续跟随鼠标 X 坐标更新数值
- * 在 drawTextureEditPanel 中调用（每帧执行），与 updateSteppers()/updateDragMove() 同一模式
+ * 在 drawTextureEditPanel 中调用（每帧执行），与 updateSteppers()/updateTransform() 同一模式
  */
 export function updateBarDrag() {
     if (!barDrag.fieldId) return;
@@ -845,106 +839,17 @@ export function updateBarDrag() {
 }
 
 /**
- * 绘制"拖移"按钮（缩放X/Y 行右侧）：点击后切换缩放拖拽模式，
- * 开启后可在左侧角色预览区域按住鼠标/触摸拖动来缩放图片（等比锁定时 X/Y 同步变化）
- *
- * 悬停说明文字不使用 DrawButton 内置 tooltip（会被 DOM 输入框遮挡），
- * 改为在按钮右侧固定位置手动绘制，与"移动"按钮共用同一片提示区域。
- */
-export function drawScaleDragButton() {
-    DrawButton(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
-        L("拖移", "Drag"), state.isScaleDragMode ? "#4CAF50" : "White", null, null, false);
-    if (MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) {
-        const hintX = 1820;
-        const hintY = SCALE_DRAG_BTN_Y + SCALE_DRAG_BTN_H / 2;
-        const lines = isChineseLang()
-            ? ["开启后可在左侧", "预览区域拖动", "缩放图片"]
-            : ["When enabled,", "drag on the preview", "to resize the image"];
-        for (let i = 0; i < lines.length; i++) {
-            DrawText(lines[i], hintX, hintY - 22 + i * 30, "Yellow", "Black");
-        }
-    }
-}
-
-/**
- * 处理"拖移"按钮点击：切换缩放拖拽模式开关
- * @returns {boolean} 是否命中并处理了该按钮
- */
-export function handleScaleDragButtonClick() {
-    if (!MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) return false;
-    state.isScaleDragMode = !state.isScaleDragMode;
-    scaleDrag.active = false;
-    if (state.isScaleDragMode) {
-        // 移动与拖移缩放共用同一块预览区域的指针拖拽手势，两者不能同时生效
-        state.isDragMode = false;
-        state.dragActive = false;
-    }
-    return true;
-}
-
-/**
- * 每帧检测缩放拖拽模式下的鼠标/触摸状态，实时更新 ScaleX/ScaleY
- * 拖动范围限制在角色预览区域，逻辑与 updateDragMove()（位置拖拽）一致，仅把偏移量换成缩放量
- */
-export function updateScaleDrag() {
-    if (!state.isScaleDragMode) {
-        scaleDrag.active = false;
-        return;
-    }
-    const target = getEditTarget();
-    if (!target) {
-        scaleDrag.active = false;
-        return;
-    }
-
-    const inPreviewArea = MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000;
-    if (!state._pointerDown || !inPreviewArea) {
-        scaleDrag.active = false;
-        return;
-    }
-
-    if (!scaleDrag.active) {
-        scaleDrag.active = true;
-        scaleDrag.startMouseX = MouseX;
-        scaleDrag.startMouseY = MouseY;
-        const sx = Number(target.ScaleX);
-        const sy = Number(target.ScaleY);
-        scaleDrag.startScaleX = Number.isFinite(sx) ? sx : 100;
-        scaleDrag.startScaleY = Number.isFinite(sy) ? sy : 100;
-        return;
-    }
-
-    const deltaX = (MouseX - scaleDrag.startMouseX) * SCALE_DRAG_SENSITIVITY;
-    const deltaY = (MouseY - scaleDrag.startMouseY) * SCALE_DRAG_SENSITIVITY;
-    let newScaleX, newScaleY;
-    if (target.ScaleLocked !== false) {
-        // 等比锁定：只用水平位移驱动，X/Y 同步变化
-        newScaleX = newScaleY = Math.round(scaleDrag.startScaleX + deltaX);
-    } else {
-        newScaleX = Math.round(scaleDrag.startScaleX + deltaX);
-        newScaleY = Math.round(scaleDrag.startScaleY + deltaY);
-    }
-    if (target.ScaleX !== newScaleX || target.ScaleY !== newScaleY) {
-        target.ScaleX = newScaleX;
-        target.ScaleY = newScaleY;
-        state._fieldsDirty = true;
-    }
-}
-
-/**
  * 绘制"等比"按钮（缩放X/Y 行右侧，坐标固定 1680,680）：锁定/解锁 XY 缩放比例始终一致
  */
 export function drawAspectLockButton() {
     const target = getEditTarget();
     const locked = target?.ScaleLocked !== false;
     DrawButton(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H,
-        L("等比", "Lock"), locked ? "#4CAF50" : "White", null, null, false);
+        t("editPanel.lock"), locked ? "#4CAF50" : "White", null, null, false);
     if (MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) {
         const hintX = 1820;
         const hintY = ASPECT_LOCK_BTN_Y + ASPECT_LOCK_BTN_H / 2;
-        const lines = isChineseLang()
-            ? ["锁定缩放X/Y", "比例始终一致"]
-            : ["Lock the X/Y", "scale ratio together"];
+        const lines = [t("editPanel.help_line_4"), t("editPanel.help_line_5")];
         for (let i = 0; i < lines.length; i++) {
             DrawText(lines[i], hintX, hintY - 15 + i * 30, "Yellow", "Black");
         }
@@ -974,19 +879,19 @@ export function handleAspectLockButtonClick() {
  * 与其余数值字段不同，镜射为布尔开关，不使用 prompt 输入，点击即切换
  */
 export function drawMirrorRow() {
-    DrawText(L("镜像", "Mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
+    DrawText(t("editPanel.mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
 
     const target = getEditTarget();
     const mirrorH = target?.MirrorH === true;
     const mirrorV = target?.MirrorV === true;
 
     DrawButton(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
-        L("水平", "H-Flip"), mirrorH ? "#4CAF50" : "White", null,
-        L("水平镜像翻转图片", "Flip the image horizontally"), false);
+        t("editPanel.h_flip"), mirrorH ? "#4CAF50" : "White", null,
+        t("editPanel.flip_the_image_horizontally"), false);
 
     DrawButton(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
-        L("垂直", "V-Flip"), mirrorV ? "#4CAF50" : "White", null,
-        L("垂直镜像翻转图片", "Flip the image vertically"), false);
+        t("editPanel.v_flip"), mirrorV ? "#4CAF50" : "White", null,
+        t("editPanel.flip_the_image_vertically"), false);
 }
 
 /**
@@ -1014,21 +919,19 @@ export function handleMirrorRowClick() {
 
 /**
  * 绘制"移动"按钮：点击后切换拖拽模式（开启后可在角色预览区域用鼠标/触摸自由拖动图片）
- * 坐标固定为 (1435, 510, 150, 40)，与所有其他控件一致为手动写死坐标
+ * 使用 BC 的 MouseX/MouseY 位移，不依赖图片外框或角色渲染矩阵。
  *
  * 悬停说明文字不使用 DrawButton 内置 tooltip（在鼠标位置绘制，长文字会被 X偏移/Y偏移 DOM 输入框遮挡），
  * 改为在按钮右侧固定位置手动绘制，确保始终可见。
  */
 export function drawMoveButton() {
     DrawButton(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H,
-        L("移动", "Move"), state.isDragMode ? "#4CAF50" : "White", null, null, false);
+        t("editPanel.move"), state.isDragMode ? "#4CAF50" : "White", null, null, false);
     // 鼠标悬停时在按钮右侧绘制说明文字（分四行，避免过长遮挡按钮）
     if (MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) {
         const hintX = 1770;
         const hintY = MOVE_BTN_Y + MOVE_BTN_H / 2;
-        const lines = isChineseLang()
-            ? ["开启后可在左侧", "角色预览区域", "按住鼠标", "拖动图片"]
-            : ["When enabled,", "drag on the", "character preview", "to move the image"];
+        const lines = [t("editPanel.help_line_6"), t("editPanel.help_line_7"), t("editPanel.help_line_8"), t("editPanel.help_line_9")];
         for (let i = 0; i < lines.length; i++) {
             DrawText(lines[i], hintX, hintY - 22 + i * 30, "Yellow", "Black");
         }
@@ -1041,55 +944,95 @@ export function drawMoveButton() {
  */
 export function handleMoveButtonClick() {
     if (!MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) return false;
+    state.freeTransform = false;
+    hideTransformOverlay();
     state.isDragMode = !state.isDragMode;
+    if (state.isDragMode) state.isScaleDragMode = false;
+    state.scaleDrag = null;
     state.dragActive = false;
-    if (state.isDragMode) {
-        // 移动与拖移缩放共用同一块预览区域的指针拖拽手势，两者不能同时生效
-        state.isScaleDragMode = false;
-        scaleDrag.active = false;
+    state.dragMove = null;
+    return true;
+}
+
+export function drawScaleDragButton() {
+    DrawButton(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
+        t("editPanel.drag"), state.isScaleDragMode ? "#4CAF50" : "White", null, null, false);
+    if (MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) {
+        const lines = [t("editPanel.help_line_1"), t("editPanel.help_line_2"), t("editPanel.help_line_3")];
+        lines.forEach((line, i) => DrawText(line, 1820, SCALE_DRAG_BTN_Y - 2 + i * 30, "Yellow", "Black"));
+    }
+}
+
+export function handleScaleDragButtonClick() {
+    if (!MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) return false;
+    state.freeTransform = false;
+    hideTransformOverlay();
+    state.isScaleDragMode = !state.isScaleDragMode;
+    state.scaleDrag = null;
+    if (state.isScaleDragMode) {
+        state.isDragMode = false;
+        state.dragActive = false;
+        state.dragMove = null;
     }
     return true;
 }
 
-/**
- * 每帧检测拖拽模式下的鼠标/触摸状态，实时更新 OffsetX/OffsetY
- * 复用 setupStepperListeners() 中已有的全局 _pointerDown 指针状态，无需额外注册事件监听器
- * 拖动范围限制在角色预览区域（虚拟画布坐标 0~1000, 0~1000），避免与右侧功能面板冲突
- */
+function canDragPreview(target, item) {
+    return state._pointerDown && target && item && state.poseSwitchMode !== "select" &&
+        MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000 &&
+        (!item.Property?.LockedBy || DialogCanUnlock(CharacterGetCurrent(), item));
+}
+
+/** Original 0.5 percent per pixel gesture; lock drives both axes from horizontal movement. */
+export function updateScaleDrag() {
+    const target = getEditTarget(), item = DialogFocusItem;
+    if (!state.isScaleDragMode || !canDragPreview(target, item)) {
+        state.scaleDrag = null;
+        return;
+    }
+    const drag = state.scaleDrag;
+    if (!drag) {
+        state.scaleDrag = { target, item, x: MouseX, y: MouseY,
+            sx: Number.isFinite(Number(target.ScaleX)) ? Number(target.ScaleX) : 100,
+            sy: Number.isFinite(Number(target.ScaleY)) ? Number(target.ScaleY) : 100 };
+        return;
+    }
+    if (drag.target !== target || drag.item !== item) { state.scaleDrag = null; return; }
+    const dx = (MouseX - drag.x) * SCALE_DRAG_SENSITIVITY;
+    const dy = (MouseY - drag.y) * SCALE_DRAG_SENSITIVITY;
+    const x = Math.max(0, Math.min(2000, Math.round(drag.sx + dx)));
+    const y = target.ScaleLocked !== false ? x : Math.max(0, Math.min(2000, Math.round(drag.sy + dy)));
+    if (target.ScaleX !== x || target.ScaleY !== y) {
+        target.ScaleX = x; target.ScaleY = y;
+        state._fieldsDirty = true;
+    }
+}
+
+/** Original delta-based movement: dragging anywhere in the preview moves the selected layer. */
 export function updateDragMove() {
-    if (!state.isDragMode) {
+    const target = getEditTarget(), item = DialogFocusItem;
+    if (!state.isDragMode || !canDragPreview(target, item)) {
         state.dragActive = false;
+        state.dragMove = null;
         return;
     }
-    const target = getEditTarget();
-    if (!target) {
-        state.dragActive = false;
-        return;
-    }
-
-    const inPreviewArea = MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000;
-
-    if (!state._pointerDown || !inPreviewArea) {
-        state.dragActive = false;
-        return;
-    }
-
-    if (!state.dragActive) {
-        // 开始新的一次拖拽：记录起始鼠标位置与起始偏移量
+    const drag = state.dragMove;
+    if (!drag) {
+        state.dragMove = { target, item, x: MouseX, y: MouseY, offsetX: Number(target.OffsetX) || 0, offsetY: Number(target.OffsetY) || 0 };
         state.dragActive = true;
-        state.dragStartMouseX = MouseX;
-        state.dragStartMouseY = MouseY;
-        state.dragStartOffsetX = parseInt(target.OffsetX) || 0;
-        state.dragStartOffsetY = parseInt(target.OffsetY) || 0;
         return;
     }
-
-    // 持续拖拽中：按鼠标位移量实时更新偏移
-    const newOffsetX = Math.round(state.dragStartOffsetX + (MouseX - state.dragStartMouseX));
-    const newOffsetY = Math.round(state.dragStartOffsetY + (MouseY - state.dragStartMouseY));
-    if (target.OffsetX !== newOffsetX || target.OffsetY !== newOffsetY) {
-        target.OffsetX = newOffsetX;
-        target.OffsetY = newOffsetY;
+    if (drag.target !== target || drag.item !== item) {
+        state.dragMove = null;
+        state.scaleDrag = null;
+        state.dragActive = false;
+        return;
+    }
+    const x = Math.max(-10000, Math.min(10000, Math.round(drag.offsetX + MouseX - drag.x)));
+    const y = Math.max(-10000, Math.min(10000, Math.round(drag.offsetY + MouseY - drag.y)));
+    if (target.OffsetX !== x || target.OffsetY !== y) {
+        target.OffsetX = x;
+        target.OffsetY = y;
         state._fieldsDirty = true;
     }
 }
@@ -1267,7 +1210,7 @@ export function createEditInputs(texture) {
         priorityValue = op[layerName];
     }
     state.tempPriority = priorityValue;
-    state.originalOverridePriority = op ? JSON.parse(JSON.stringify(op)) : undefined;
+    state.originalOverridePriority = op !== undefined ? JSON.parse(JSON.stringify(op)) : undefined;
 }
 
 /**
@@ -1286,10 +1229,10 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     updateSteppers();
     // "移动"拖拽模式：每帧检测鼠标/触摸拖拽状态，实时更新 OffsetX/OffsetY
     updateDragMove();
+    updateScaleDrag();
     // BAR 滑桿（旋转/图层优先级）拖动状态
     updateBarDrag();
-    // "拖移"缩放拖拽模式：每帧检测鼠标/触摸拖拽状态，实时更新 ScaleX/ScaleY
-    updateScaleDrag();
+
 
     // 检测姿势变化：角色姿势改变时自动切换编辑目标（仅正常编辑模式）
     // 用 lastPoseKey 追踪实际姿势变化，而非 poseEditing（poseEditing 为 null 时也需要检测）
@@ -1339,7 +1282,7 @@ export function drawTextureEditPanel(item, textureIndex, data) {
 
             // URL 变化时预加载图片（CORS 安全），加载完成后触发一次刷新
             if (urlChanged && isUrlAllowed(newUrl)) {
-                const entry = getCorsImage(newUrl);
+                const entry = getCorsImage(newUrl, undefined, true);
                 if (!entry.img.complete) {
                     const C = CharacterGetCurrent();
                     entry.img.addEventListener("load", () => {
@@ -1371,7 +1314,7 @@ export function drawTextureEditPanel(item, textureIndex, data) {
         // 其余情况（如 stepper 长按）维持原本较保守的间隔，避免长按加速时刷新过于频繁
         if (state._pendingTextureRefresh) {
             const now = Date.now();
-            const isDragging = state.dragActive || scaleDrag.active || !!barDrag.fieldId;
+            const isDragging = state.transformDragging || state.dragActive || !!state.scaleDrag || !!barDrag.fieldId;
             const interval = isDragging ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
             if (now - state._lastTextureRefresh >= interval) {
                 const C = CharacterGetCurrent();
@@ -1391,28 +1334,31 @@ export function drawTextureEditPanel(item, textureIndex, data) {
 
     // 标题
     if (state.poseSwitchMode === "special") {
-        DrawText(L("批量编辑", "Batch Edit"), 1500, 360, "White", "Gray");
+        DrawText(t("editPanel.batch_edit"), 1500, 360, "White", "Gray");
     } else {
-        DrawText(L(`编辑图层${textureIndex + 1}`, `Edit Layer ${textureIndex + 1}`), 1500, 360, "White", "Gray");
+        DrawText(t("editPanel.edit_layer", [textureIndex + 1]), 1500, 360, "White", "Gray");
         // 说明文字：id2 (1270.42,385,470,40) -> 中心点 (1505,405)
-        DrawText(L("修改后自动预览，点击「确认」返回列表", "Auto-previews on change; press \u2713 to return"), 1505, 405, "Yellow", "Black");
+        DrawText(t("editPanel.auto_previews_on_change_press_to_return"), 1505, 405, "Yellow", "Black");
     }
 
     // 贴图：id9 标签 (1000,435,200,40) -> 中心 (1100,455)；网址框现为真实 DOM <input type="text">
     // （createEditPanelDomInputs/positionEditPanelInputs），可直接输入网址，不再需要弹窗（item1）
-    DrawText(L("贴图", "Image"), 1100, 455, "White", "Gray");
+    DrawText(t("editPanel.image"), 1100, 455, "White", "Gray");
     // 信任按钮：id15 (1730,435,100,40)，与贴图 URL 同一行，固定位置显示，不随其他字段变化
     const currentUrl = getEditTarget()?.TextureURL || "";
     if (currentUrl && !isDomainInWhitelist(currentUrl)) {
         const domain = extractDomain(currentUrl);
         if (domain) {
-            DrawButton(1730, 435, 100, 40, L("信任", "Trust"), "#6F1F1F", null,
-                L("将该图片的域名加入可信白名单", "Add this image's domain to the trusted whitelist"), false);
+            DrawButton(1730, 435, 100, 40, t("editPanel.trust"), "#6F1F1F", null,
+                t("editPanel.add_this_image_s_domain_to_the_trusted_whitelist"), false);
         }
     }
 
     // "移动"按钮：坐标固定 (1435,510,150,40)。开启拖拽模式后，可在左侧角色预览区域按住鼠标/触摸自由拖动图片
     drawMoveButton();
+    drawScaleDragButton();
+    DrawButton(1555, 510, 150, 40, t("editPanel.free_transform"), state.freeTransform ? "#4CAF50" : "White", null, null, false);
+    updateTransformOverlay(getEditTarget());
 
     // X偏移/Y偏移/缩放X/缩放Y/透明度：绘制文字标签 + 左右步进按钮 + canvas 数值框（点击 prompt 输入，item1）
     for (const field of STEPPER_FIELDS) {
@@ -1421,8 +1367,8 @@ export function drawTextureEditPanel(item, textureIndex, data) {
         drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
     }
 
-    // 缩放X/Y 行右侧：拖动缩放按钮 + 等比锁定按钮（item2）
-    drawScaleDragButton();
+    // 等比按钮与缩放拖移按钮并排。
+
     drawAspectLockButton();
 
     // 旋转 / 图层优先级：BAR 滑桿（方形手柄，item3+item4）
@@ -1440,10 +1386,10 @@ export function drawTextureEditPanel(item, textureIndex, data) {
     if (!state.poseSwitchMode) {
         // 确认保存：id13 (1885,135,90,90)
         DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
-            L("保存该图层并返回列表", "Save this layer & back to list"));
+            t("editPanel.save_this_layer_back_to_list"));
         // 删除此贴图：id14 (1885,245,90,90)，不染色，与其他图标按钮一致使用白底
         DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
-            L("删除此图层", "Delete this layer"), false);
+            t("editPanel.delete_this_layer"), false);
     }
 }
 
@@ -1495,14 +1441,21 @@ export function handleTextureEditClick(item, textureIndex, data) {
     }
 
     // "移动"按钮：点击切换拖拽模式
+    if (MouseIn(1555, 510, 150, 40)) {
+        if (item.Property?.LockedBy && !DialogCanUnlock(CharacterGetCurrent(), item)) return;
+        const enable = !state.freeTransform;
+        resetDragState();
+        state.freeTransform = enable;
+        state._pendingTextureRefresh = true;
+        if (!enable) hideTransformOverlay();
+        return;
+    }
+    if (handleScaleDragButtonClick()) return;
     if (handleMoveButtonClick()) {
         return;
     }
 
     // 缩放X/Y 行右侧："拖移"缩放拖拽按钮 / "等比"锁定按钮（item2）
-    if (handleScaleDragButtonClick()) {
-        return;
-    }
     if (handleAspectLockButtonClick()) {
         return;
     }
@@ -1570,7 +1523,7 @@ export function handleTextureEditClick(item, textureIndex, data) {
         // 追踪字段
         const mn = typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0;
         // TextureURLSource: 仅当 URL 变更时才更新（来源方变了）
-        if (finalTexture.TextureURL !== (existing?.TextureURL || "")) {
+        if (finalTexture.TextureURL !== (state.originalEditTexture?.TextureURL || "")) {
             finalTexture.TextureURLSource = mn;
         } else if (existing) {
             // URL 未变，保留原来的来源方

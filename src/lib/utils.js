@@ -1,3 +1,7 @@
+import { L, isChineseLang } from "../i18n/index.js";
+export { L, isChineseLang } from "../i18n/index.js";
+import { t } from "../i18n/index.js";
+import { IMAGE_TIMEOUT_MS } from "./imageLimits.js";
 /**
  * 工具函数集合
  */
@@ -89,28 +93,6 @@ export const Logger = {
     }
 };
 
-// === 双语 i18n ===
-
-/**
- * 判断当前游戏语言是否为中文（简体 CN / 繁体 TW）
- * @returns {boolean}
- */
-export function isChineseLang() {
-    const lang = (typeof TranslationLanguage !== "undefined") ? TranslationLanguage : "EN";
-    return lang === "CN" || lang === "TW";
-}
-
-/**
- * 根据当前语言返回中文或英文文本
- * 中文（CN/TW）时返回 cn，其余语言返回 en
- * @param {string} cn - 中文文本
- * @param {string} en - 英文文本
- * @returns {string}
- */
-export function L(cn, en) {
-    return isChineseLang() ? cn : en;
-}
-
 // === 跨域安全图片加载 ===
 
 /**
@@ -125,7 +107,7 @@ export function L(cn, en) {
  * @type {Map<string, {img: HTMLImageElement, loaded: boolean, failed: boolean, lastUsed: number, _waiters: Set<Function>}>}
  */
 const _corsImageCache = new Map();
-registerPrunableCache(_corsImageCache, L("静态图片", "static image"));
+registerPrunableCache(_corsImageCache, t("utils.static_image"));
 
 /**
  * 获取一张 CORS 安全的图片
@@ -141,36 +123,51 @@ registerPrunableCache(_corsImageCache, L("静态图片", "static image"));
  *   加载已完成（或失败）时不会注册，因为已经没有「等待」的必要
  * @returns {{img: HTMLImageElement, loaded: boolean, failed: boolean}}
  */
-export function getCorsImage(url, onReady) {
+export function getCorsImage(url, onReady, playerTexture = false) {
     let entry = _corsImageCache.get(url);
     if (!entry) {
         const img = new Image();
-        entry = { img, loaded: false, failed: false, lastUsed: Date.now(), _waiters: new Set() };
+        entry = { img, loaded: false, failed: false, lastUsed: Date.now(), _waiters: new Set(), playerTexture };
+        const timeout = setTimeout(() => { img.src = ""; fail(); }, IMAGE_TIMEOUT_MS);
         img.addEventListener("load", () => {
+            clearTimeout(timeout);
             entry.loaded = true;
             entry._waiters.forEach((fn) => { try { fn(); } catch (err) { Logger.error("[ShuangAssets] 图片就绪回调执行失败", err); } });
             entry._waiters.clear();
         });
-        img.addEventListener("error", () => {
+        const fail = () => {
+            if (entry.loaded) return;
+            clearTimeout(timeout);
+            entry.loaded = true;
             entry.failed = true;
             entry._waiters.forEach((fn) => { try { fn(); } catch (err) { Logger.error("[ShuangAssets] 图片就绪回调执行失败", err); } });
             entry._waiters.clear();
-            Logger.warn(L(
-                `图片加载失败（很可能是图床未开启跨域 CORS，无 Access-Control-Allow-Origin 响应头）: ${url}`,
-                `Failed to load image (the host likely has no CORS / Access-Control-Allow-Origin header): ${url}`
-            ));
-        });
+            Logger.warn(t("utils.failed_to_load_image_the_host_likely_has_no_cors_access_control_a", [url]));
+        };
+        img.addEventListener("error", fail);
         // 必须在设置 src 之前设置 crossOrigin
         img.crossOrigin = "anonymous";
         img.src = url;
         _corsImageCache.set(url, entry);
     } else {
+        entry.playerTexture ||= playerTexture;
         entry.lastUsed = Date.now();
     }
     if (onReady && !entry.loaded && !entry.failed) {
         entry._waiters.add(onReady);
     }
     return entry;
+}
+
+export function peekCorsImage(url) { return _corsImageCache.get(url); }
+
+export function cancelTextureImageLoads() {
+    for (const [url, entry] of _corsImageCache) {
+        if (!entry.playerTexture || entry.loaded) continue;
+        entry._waiters.clear();
+        entry.img.src = "";
+        _corsImageCache.delete(url);
+    }
 }
 
 export default {

@@ -1,3 +1,4 @@
+import { messages } from "../i18n/messages.js";
 /**
  * 自定义贴图道具 - 常量定义
  * 所有常量集中管理，避免分散在各模块中
@@ -62,18 +63,18 @@ export const DEFAULT_PROPS = {
 // 手臂和腿部姿势可两两组合；全身姿势覆盖手臂和腿部姿势
 export const POSE_CATEGORIES = {
     BodyUpper: {
-        label: "手部姿势",
-        labelEn: "Arm Pose",
+        label: messages.CN["constants.arm_pose"],
+        labelEn: messages.EN["constants.arm_pose"],
         poses: ["BaseUpper", "Yoked", "OverTheHead", "BackBoxTie", "BackElbowTouch", "BackCuffs"]
     },
     BodyLower: {
-        label: "腿部姿势",
-        labelEn: "Leg Pose",
+        label: messages.CN["constants.leg_pose"],
+        labelEn: messages.EN["constants.leg_pose"],
         poses: ["BaseLower", "LegsClosed", "Kneel", "KneelingSpread", "Spread"]
     },
     BodyFull: {
-        label: "全身姿势",
-        labelEn: "Full Body Pose",
+        label: messages.CN["constants.full_body_pose"],
+        labelEn: messages.EN["constants.full_body_pose"],
         poses: ["Hogtied", "AllFours"]
     }
 };
@@ -83,19 +84,19 @@ export const ALL_POSE_NAMES = Object.values(POSE_CATEGORIES).flatMap(c => c.pose
 
 // 姿势中文/英文标签（用于 UI 显示）
 export const POSE_LABELS = {
-    BaseUpper:      { cn: "基础手势",   en: "Arms Down" },
-    Yoked:          { cn: "举手",       en: "Yoked" },
-    OverTheHead:    { cn: "高举双手",   en: "Over The Head" },
-    BackBoxTie:     { cn: "轻松背手",   en: "Box Tie" },
-    BackElbowTouch: { cn: "紧绷背手",   en: "Elbow Touch" },
-    BackCuffs:      { cn: "背后手铐",   en: "Back Cuffs" },
-    BaseLower:      { cn: "站立",       en: "Standing" },
-    LegsClosed:     { cn: "站立闭合",   en: "Legs Closed" },
-    Kneel:          { cn: "跪姿",       en: "Kneel" },
-    KneelingSpread: { cn: "跪地张腿",   en: "Kneeling Spread" },
-    Spread:         { cn: "站立张腿",       en: "Spread" },
-    Hogtied:        { cn: "仰卧",       en: "Hogtied" },
-    AllFours:       { cn: "四肢着地",   en: "All Fours" }
+    BaseUpper:      { cn: messages.CN["constants.arms_down"],   en: messages.EN["constants.arms_down"] },
+    Yoked:          { cn: messages.CN["constants.yoked"],       en: messages.EN["constants.yoked"] },
+    OverTheHead:    { cn: messages.CN["constants.over_the_head"],   en: messages.EN["constants.over_the_head"] },
+    BackBoxTie:     { cn: messages.CN["constants.box_tie"],   en: messages.EN["constants.box_tie"] },
+    BackElbowTouch: { cn: messages.CN["constants.elbow_touch"],   en: messages.EN["constants.elbow_touch"] },
+    BackCuffs:      { cn: messages.CN["constants.back_cuffs"],   en: messages.EN["constants.back_cuffs"] },
+    BaseLower:      { cn: messages.CN["constants.standing"],       en: messages.EN["constants.standing"] },
+    LegsClosed:     { cn: messages.CN["constants.legs_closed"],   en: messages.EN["constants.legs_closed"] },
+    Kneel:          { cn: messages.CN["constants.kneel"],       en: messages.EN["constants.kneel"] },
+    KneelingSpread: { cn: messages.CN["constants.kneeling_spread"],   en: messages.EN["constants.kneeling_spread"] },
+    Spread:         { cn: messages.CN["constants.spread"],       en: messages.EN["constants.spread"] },
+    Hogtied:        { cn: messages.CN["constants.hogtied"],       en: messages.EN["constants.hogtied"] },
+    AllFours:       { cn: messages.CN["constants.all_fours"],   en: messages.EN["constants.all_fours"] }
 };
 
 /**
@@ -169,6 +170,7 @@ export function getPoseKey(drawPose) {
 // 改为紧接在姿势名称值框之后、同一行（POSE_BAR_Y）
 export const POSE_BAR_Y = 930;           // 姿势信息行 Y 坐标（下移避开图层优先级BAR滑桿）
 export const POSE_TOGGLE_H = 40;         // 开关按钮高度
+export const POSE_BUTTON_Y = POSE_BAR_Y - POSE_TOGGLE_H / 2 + 10; // Keep the labels fixed and lower all three controls.
 
 // 双开关系统："单独设置"(编辑目标) + "生效设置"(是否使用独立配置)
 // 布局：标签 | 姿势名 | 单独设置 | 生效设置 | 设定
@@ -256,16 +258,16 @@ export const ASSETS_CDN_FALLBACK = "https://shuang-custom-assets.netlify.app";
 export const HIDE_CATEGORIES = [
     {
         key: "HideEmoticon",
-        label: "表情图标",
-        labelEn: "Emoticon",
+        label: messages.CN["constants.emoticon"],
+        labelEn: messages.EN["constants.emoticon"],
         groups: [
             "Emoticon"
         ]
     },
     {
         key: "HideCosplay",
-        label: "cosplay",
-        labelEn: "Cosplay",
+        label: messages.CN["constants.cosplay"],
+        labelEn: messages.EN["constants.cosplay"],
         groups: [
             "HairFront", "HairBack", "新前发_Luzi", "新后发_Luzi", "额外头发_Luzi",
             "新前发_Luzi_stack", "新后发_Luzi_stack",
@@ -276,8 +278,8 @@ export const HIDE_CATEGORIES = [
     },
     {
         key: "HideFacial",
-        label: "五官",
-        labelEn: "Face",
+        label: messages.CN["constants.face"],
+        labelEn: messages.EN["constants.face"],
         groups: [
             "Eyes", "Eyes2", "Eyebrows", "Blush", "EyeShadow",
             "FacialHair", "Mouth", "左眼_Luzi", "右眼_Luzi"
@@ -285,16 +287,16 @@ export const HIDE_CATEGORIES = [
     },
     {
         key: "HideHead",
-        label: "头部",
-        labelEn: "Head",
+        label: messages.CN["constants.head"],
+        labelEn: messages.EN["constants.head"],
         groups: [
             "Head"
         ]
     },
     {
         key: "HideBodyUpper",
-        label: "上半身",
-        labelEn: "Body Upper",
+        label: messages.CN["constants.body_upper"],
+        labelEn: messages.EN["constants.body_upper"],
         groups: [
             "BodyUpper", "Nipples",
             "ArmsLeft", "ArmsRight", "HandsLeft", "HandsRight"
@@ -302,8 +304,8 @@ export const HIDE_CATEGORIES = [
     },
     {
         key: "HideBodyLower",
-        label: "下半身",
-        labelEn: "Body Lower",
+        label: messages.CN["constants.body_lower"],
+        labelEn: messages.EN["constants.body_lower"],
         groups: [
             "BodyLower", "Pussy",
             "Height", "BodyStyle", "Pronouns",
@@ -312,8 +314,8 @@ export const HIDE_CATEGORIES = [
     },
     {
         key: "HideClothing",
-        label: "服饰",
-        labelEn: "Clothing",
+        label: messages.CN["constants.clothing"],
+        labelEn: messages.EN["constants.clothing"],
         groups: [
             "Fluids", "BodyMarkings", "Decals", "Liquid2_Luzi", "身体痕迹_Luzi", "BodyMarkings2_Luzi",
             "Glasses", "Mask", "Hat", "FaceMarkings", "Mask_笨笨蛋Luzi", "Hat_笨笨蛋Luzi",
@@ -332,8 +334,8 @@ export const HIDE_CATEGORIES = [
     },
     {
         key: "HideItems",
-        label: "拘束道具",
-        labelEn: "Restraints",
+        label: messages.CN["constants.restraints"],
+        labelEn: messages.EN["constants.restraints"],
         groups: [
             "ItemAddon", "ItemArms", "ItemBoots", "ItemBreast", "ItemButt",
             "ItemDevices", "ItemEars", "ItemFeet", "ItemHands", "ItemHead",
@@ -377,10 +379,10 @@ export const STEPPER_INPUT_H = 40;     // 数值框高度
 // 注意：以下坐标均为手动写死（非动态排列）。"镜射"整行位于 Y偏移与缩放X之间；
 // 缩放X/缩放Y 两行之后依次是 旋转(BAR)/透明度/图层优先级(BAR)
 export const STEPPER_FIELDS = [
-    { id: FIELD_OFFSET_X, y: 485, labelCn: "X偏移",   labelEn: "X Offset",   labelY: 505, prop: "OffsetX", def: 1,   min: null, max: null },
-    { id: FIELD_OFFSET_Y, y: 535, labelCn: "Y偏移",   labelEn: "Y Offset",   labelY: 555, prop: "OffsetY", def: 1,   min: null, max: null },
-    { id: FIELD_SCALE_X,  y: 635, labelCn: "缩放X%",  labelEn: "Scale X %",  labelY: 655, prop: "ScaleX",  def: 100, min: null, max: null },
-    { id: FIELD_SCALE_Y,  y: 680, labelCn: "缩放Y%",  labelEn: "Scale Y %",  labelY: 700, prop: "ScaleY",  def: 100, min: null, max: null }
+    { id: FIELD_OFFSET_X, y: 485, labelCn: messages.CN["constants.x_offset"],   labelEn: messages.EN["constants.x_offset"],   labelY: 505, prop: "OffsetX", def: 1,   min: null, max: null },
+    { id: FIELD_OFFSET_Y, y: 535, labelCn: messages.CN["constants.y_offset"],   labelEn: messages.EN["constants.y_offset"],   labelY: 555, prop: "OffsetY", def: 1,   min: null, max: null },
+    { id: FIELD_SCALE_X,  y: 635, labelCn: messages.CN["constants.scale_x"],  labelEn: messages.EN["constants.scale_x"],  labelY: 655, prop: "ScaleX",  def: 100, min: null, max: null },
+    { id: FIELD_SCALE_Y,  y: 680, labelCn: messages.CN["constants.scale_y"],  labelEn: messages.EN["constants.scale_y"],  labelY: 700, prop: "ScaleY",  def: 100, min: null, max: null }
 ];
 
 // BAR 滑桿字段配置（旋转 / 图层优先级 / 透明度，item2）：与 STEPPER_FIELDS 共用同一套
@@ -388,9 +390,9 @@ export const STEPPER_FIELDS = [
 // 保持与 X偏移/Y偏移/缩放 等字段完全一致的外观；数值框右侧额外追加一条可拖动的 BAR 滑桿
 // （方形手柄，轨道可点击跳转/拖动手柄两种方式调值，与旁边的数值框相互同步）
 export const BAR_FIELDS = [
-    { id: FIELD_ROTATION, y: 730, labelCn: "旋转",     labelEn: "Rotation",      labelY: 750, prop: "Rotation", def: 0,   min: -360, max: 360, bar: true },
-    { id: FIELD_OPACITY,  y: 780, labelCn: "透明度%", labelEn: "Opacity %",     labelY: 800, prop: "Opacity",   def: 100, min: 0,   max: 100, bar: true },
-    { id: FIELD_PRIORITY, y: 830, labelCn: "图层优先级", labelEn: "Layer Priority", labelY: 850, prop: null,       def: 50,  min: -99, max: 99,  bar: true }
+    { id: FIELD_ROTATION, y: 730, labelCn: messages.CN["constants.rotation"],     labelEn: messages.EN["constants.rotation"],      labelY: 750, prop: "Rotation", def: 0,   min: -360, max: 360, bar: true },
+    { id: FIELD_OPACITY,  y: 780, labelCn: messages.CN["constants.opacity"], labelEn: messages.EN["constants.opacity"],     labelY: 800, prop: "Opacity",   def: 100, min: 0,   max: 100, bar: true },
+    { id: FIELD_PRIORITY, y: 830, labelCn: messages.CN["constants.layer_priority"], labelEn: messages.EN["constants.layer_priority"], labelY: 850, prop: null,       def: 50,  min: -99, max: 99,  bar: true }
 ];
 
 // BAR 轨道 + 方形手柄的绘制参数：紧跟在 [+] 步进按钮（STEPPER_PLUS_X 结束于 1420）之后，
@@ -398,29 +400,24 @@ export const BAR_FIELDS = [
 export const BAR_TRACK_X = 1445;      // 轨道起始 X 坐标（STEPPER_PLUS_X(1380) + STEPPER_BTN_W(40) + 25 间距）
 export const BAR_TRACK_W = 220;       // 轨道宽度（1445~1665，未超出面板可用宽度）
 export const BAR_TRACK_H = 8;         // 轨道厚度
-export const BAR_HANDLE_SIZE = 24;    // 方形手柄边长
+export const BAR_HANDLE_SIZE = 35;    // 方形手柄边长
 
 // === "移动"拖拽模式按钮：点击后可在角色预览区域用鼠标/触摸自由拖动图片位置 ===
-// （提前到此处声明，供下方"拖移"按钮 item4 对齐 X 坐标引用）
 export const MOVE_BTN_X = 1435;
 export const MOVE_BTN_Y = 510;
-export const MOVE_BTN_W = 100;           // 与"信任"按钮同尺寸（100x40），保持按钮框大小统一
+export const MOVE_BTN_W = 100;
 export const MOVE_BTN_H = 40;
 
-// === 缩放X/Y："拖移"拖动缩放按钮 + "等比"锁定按钮 ===
-// item4：「拖移」按钮的 X 对齐「移动」按钮的 X（MOVE_BTN_X），Y 在原基础上 -20，
-// 与「移动」按钮的定位方式保持一致（UI 一致性）；「等比」按钮的 X 按同样的位移量一并补正，
-// 以维持与「拖移」按钮原本的相对间距，Y 同步对齐
-export const SCALE_DRAG_BTN_X = MOVE_BTN_X;      // 1435（原 1510，对齐「移动」按钮 X）
-export const SCALE_DRAG_BTN_Y = 660;             // 原 680 - 20
-export const SCALE_DRAG_BTN_W = 100;             // 与"信任"按钮同尺寸
+// Original scale-drag control, followed by the aspect lock with a 20px gap.
+export const SCALE_DRAG_BTN_X = MOVE_BTN_X;
+export const SCALE_DRAG_BTN_Y = 660;
+export const SCALE_DRAG_BTN_W = 100;
 export const SCALE_DRAG_BTN_H = 40;
-export const ASPECT_LOCK_BTN_X = SCALE_DRAG_BTN_X + SCALE_DRAG_BTN_W + 20; // 紧跟「拖移」按钮，间距 20
-export const ASPECT_LOCK_BTN_Y = SCALE_DRAG_BTN_Y;       // 与「拖移」按钮同一行
-export const ASPECT_LOCK_BTN_W = 100;            // 与"信任"按钮同尺寸
-export const ASPECT_LOCK_BTN_H = 40;
-// 拖动缩放的灵敏度：每 1px 鼠标位移对应的缩放 % 变化量
 export const SCALE_DRAG_SENSITIVITY = 0.5;
+export const ASPECT_LOCK_BTN_X = SCALE_DRAG_BTN_X + SCALE_DRAG_BTN_W + 20;
+export const ASPECT_LOCK_BTN_Y = SCALE_DRAG_BTN_Y;
+export const ASPECT_LOCK_BTN_W = 100;
+export const ASPECT_LOCK_BTN_H = 40;
 
 // === 镜射（水平/垂直）：现移至"Y偏移"与"缩放%"两行之间 ===
 export const MIRROR_ROW_Y = 585;          // 镜射行 Y 坐标（Y偏移 535 与 缩放% 635 的正中间）
@@ -449,15 +446,6 @@ export const barDrag = {
     fieldId: null   // 当前正在拖动的 BAR 字段 id，未拖动时为 null
 };
 
-// 缩放拖动模式的状态跟踪（可变对象，在各模块间共享同一引用）
-export const scaleDrag = {
-    active: false,
-    startMouseX: 0,
-    startMouseY: 0,
-    startScaleX: 100,
-    startScaleY: 100
-};
-
 // === 登录页面加载标识贴图配置 ===
 export const BADGE_IMAGE_URL = "https://shuang-custom-assets.pages.dev/SCA_logo.png";
 
@@ -477,6 +465,6 @@ export const LOGIN_BADGE_GROUP = "ItemTorso";
 
 // 道具字符串资源
 export const assetStrings = {
-    CN: { SelectBase: "贴图管理" },
-    EN: { SelectBase: "Texture Manager" }
+    CN: { SelectBase: messages.CN["listView.texture_manager"] },
+    EN: { SelectBase: messages.EN["listView.texture_manager"] }
 };

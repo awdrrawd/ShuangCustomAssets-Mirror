@@ -1,0 +1,152 @@
+import "bondage-club-mod-sdk";
+import { setupPersistence, persistenceAssetsReady } from "./lib/persistence.js";
+/**
+ * ShuangCustomAssets 主入口
+ */
+
+import { AssetManager } from "@sugarch/bc-asset-manager";
+import { HookManager } from "@sugarch/bc-mod-hook-manager";
+
+
+import ModInfo from "./modInfo.js";
+import { registerAssets, initAssets } from "./lib/assetManager.js";
+import { Logger } from "./lib/utils.js";
+import { setupGifAnimationHooks } from "./lib/gifAnimationLoop.js";
+import { setupModTagHooks } from "./lib/modTag.js";
+import assets from "./assets/index.js";
+import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
+import { initSettings, setupSettingsHooks } from "./assets/settings.js";
+import { setupItemEditBeacon } from "./assets/itemEditBeacon.js";
+
+// 暴露给控制台，方便排查时打开过程日志：ShuangAssets.Logger.debugEnabled = true
+/** @type {any} */ (globalThis).ShuangAssets = { Logger };
+
+/**
+ * 初始化插件
+ */
+let resolveAssets, rejectAssets;
+const assetsLoaded = new Promise((resolve, reject) => { resolveAssets = resolve; rejectAssets = reject; });
+
+function init() {
+    // 注册所有道具
+    registerAssets(assets);
+
+    // 初始化道具（在 AssetManager.afterLoad 中执行）
+    AssetManager.afterLoad(() => {
+        try {
+            initAssets();
+            persistenceAssetsReady();
+            // 设置登录页面加载标识
+            setupLoginBadge(HookManager);
+            // 注册对话框交互 hook（编辑退出返回列表、隐藏互动格线）
+            setupDialogHooks(HookManager);
+            // 注册画面切换 / 登入时的动图续播钩子
+            setupGifAnimationHooks(HookManager);
+            // 注册 mod 安装状态广播与状态图标（Hidden 消息收发 + 角色第二行图标）
+            setupModTagHooks(HookManager);
+            // 注册编辑动作信标接收钩子（把 SCA-itemedit Action 本地化为接收方语言）
+            setupItemEditBeacon(HookManager);
+            // 注册扩展设置页面（玩家登录后可用）
+            HookManager.afterPlayerLogin(() => {
+                initSettings();
+            });
+            // 唯一的常驻加载确认行（其余过程日志走被 gate 的 Logger.info）
+            console.log(`[ShuangAssets] ${ModInfo.fullName} v${ModInfo.version} ✅ loaded`);
+            resolveAssets();
+        } catch (error) { rejectAssets(error); }
+    });
+}
+
+/**
+ * setup 函数 - 传给 AssetManager.init
+ */
+function setup() {
+    init();
+}
+
+// main.js owns the shared startup promise, including concurrent mirror loads.
+export async function start() {
+    if (globalThis.bcModSdk.getModsInfo().some(mod => mod.name === ModInfo.name)) return;
+    try {
+        // 加载 SDK
+        // SDK is bundled so startup does not depend on a separate CDN request.
+
+        // 注册模组
+        const mod = /** @type {any} */ (globalThis).bcModSdk.registerMod({
+            name: ModInfo.name,
+            fullName: ModInfo.fullName,
+            version: ModInfo.version,
+            repository: ModInfo.repository
+        });
+
+        // 初始化 HookManager
+        HookManager.initWithMod(mod);
+        setupPersistence(HookManager);
+        setupSettingsHooks(HookManager);
+
+        // Hook CraftingDeserialize：修复空名称的自制道具被丢弃的问题
+        // BC 的 CraftingDeserialize 在 Name 为空时返回 null，导致无名称的自制道具在重新登录后丢失
+        // 这里在反序列化前将空名称替换为默认值
+        // 注意：必须使用 CraftingSerializeFieldSep ("¶") 作为分隔符，
+        // CraftingDeserialize 内部用 "¶" 分隔各个字段，Item/Property/Lock/Name/.../Description/.../Effects
+        // 如果错误使用 CraftingSerializeItemSep ("§")，单个道具字符串中不含 "§"，
+        // split 会返回整个字符串作为单个元素，再 join 会追加 "§§§Crafted Item" 到末尾破坏数据
+        HookManager.hookFunction("CraftingDeserialize", 0, (args, next) => {
+            const craftString = args[0];
+            if (typeof craftString === "string" && craftString.length > 0) {
+                const sep = typeof CraftingSerializeFieldSep !== "undefined" ? CraftingSerializeFieldSep : ",";
+                const parts = craftString.split(sep);
+                // parts[0] = Item(道具名), parts[3] = Name(自制名称)
+                if (parts[0] && (!parts[3] || parts[3] === "")) {
+                    parts[3] = "Crafted Item";
+                    args[0] = parts.join(sep);
+                }
+            }
+            const craft = next(args);
+            // 兼容 v5 及以前自制道具：v6 把单一 HideBody 拆为 头部/上半身/下半身 三个开关，
+            // 老自制道具反序列化出的 ItemProperty 里仍带 HideBody。这里在反序列化后立即把
+            // HideBody=true 迁移到三个新字段，让老道具的「隐藏身体」设置在新版本自动生效
+            // （否则 updateHideArray 不再读取 HideBody，隐藏会失效）。
+            // 注意：不删除 HideBody 字段本身——保留它让 BC 的 CraftingValidate (typeof 校验) 通过，
+            // 避免整个 ItemProperty 被判废导致 Textures 连带丢失。
+            if (craft && craft.ItemProperty && typeof craft.ItemProperty === "object" && craft.ItemProperty.HideBody === true) {
+                craft.ItemProperty.HideHead = true;
+                craft.ItemProperty.HideBodyUpper = true;
+                craft.ItemProperty.HideBodyLower = true;
+            }
+            return craft;
+        });
+
+        // Hook GLDraw2DCanvas：修复 BC WebGL 纹理泄漏
+        // BC 的 GLDraw2DCanvas 在替换纹理时仅调用 gl.textureCache.delete(name) 删除缓存条目，
+        // 但不调用 gl.deleteTexture() 释放 GPU 资源。每次 CharacterRefresh 都会泄露一个 WebGL 纹理，
+        // 累积到一定程度触发 WebGL Context Lost，导致所有贴图（包括游戏自带的）全部崩溃。
+        // 此 hook 在缓存条目被删除前先释放对应的 GPU 纹理，从源头修复泄漏。
+        HookManager.hookFunction("GLDraw2DCanvas", 0, (args, next) => {
+            const gl = args[0];
+            const Img = args[1];
+            if (gl?.textureCache) {
+                const name = Img?.getAttribute?.("name");
+                if (name) {
+                    const old = gl.textureCache.get(name);
+                    if (old?.texture) {
+                        gl.deleteTexture(old.texture);
+                    }
+                }
+            }
+            return next(args);
+        });
+
+        // 设置 AssetManager 日志
+        AssetManager.setLogger(Logger);
+
+        // ⚠️ 关键：调用 AssetManager.init 并传入 setup 函数
+        AssetManager.init(setup);
+        await assetsLoaded;
+    } catch (error) {
+        // 保留错误抛出：初始化过程中任何一步失败都会在这里被捕获并打印完整堆栈，
+        // 方便排查问题；正常流程不会打印额外的过程日志
+        console.error(`[ShuangAssets] 初始化失败:`, error);
+        throw error;
+    }
+}

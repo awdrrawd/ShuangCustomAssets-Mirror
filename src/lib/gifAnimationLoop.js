@@ -198,7 +198,6 @@ export function setupGifAnimationHooks(HookManager) {
     // 刷新，render.js 马上就会替还在播的图层重新登记，不会造成真正的停播。
     try {
         HookManager.hookFunction("ChatRoomSyncItem", 0, (args, next) => {
-            const ret = next(args);
             try {
                 const data = args[0];
                 const target = data?.Item?.Target;
@@ -213,7 +212,7 @@ export function setupGifAnimationHooks(HookManager) {
             } catch (err) {
                 Logger.error("[ShuangAssets] 处理道具同步事件失败", err);
             }
-            return ret;
+            return next(args);
         });
     } catch (err) {
         Logger.error("[ShuangAssets] 注册道具同步动图钩子失败", err);

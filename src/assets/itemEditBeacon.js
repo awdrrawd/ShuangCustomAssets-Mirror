@@ -1,3 +1,4 @@
+import { t } from "../i18n/index.js";
 /**
  * 自定义贴图道具 - 编辑动作播报（Action 信标）
  *
@@ -13,7 +14,7 @@
  *   从而每个人都看到自己语言 + 自己看到的昵称。
  */
 
-import { L, Logger } from "@lib/utils.js";
+import { Logger } from "@lib/utils.js";
 
 const BEACON_CONTENT = "SCA-itemedit";
 // BC 对缺失 Content 生成的兜底提示 Tag（格式固定，勿改）
@@ -37,9 +38,9 @@ function nameOf(mn, carried) {
 /** 组装展示文本（cn=isChineseLang 决定），source===target 时用「自己」措辞 */
 function buildText(srcName, tgtName, isSelf) {
     if (isSelf) {
-        return L(`${srcName} 编辑了自己的自定义贴图`, `${srcName} edited their own custom texture`);
+        return t("itemEditBeacon.edited_their_own_custom_texture", [srcName]);
     }
-    return L(`${srcName} 编辑了 ${tgtName} 的自定义贴图`, `${srcName} edited ${tgtName}'s custom texture`);
+    return t("itemEditBeacon.edited_s_custom_texture", [srcName, tgtName]);
 }
 
 /**

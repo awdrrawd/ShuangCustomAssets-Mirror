@@ -3,9 +3,10 @@
  * 所有模块通过 state.xxx 访问和修改共享状态，确保同一引用
  */
 
-import { scaleDrag, barDrag } from "./constants.js";
+import { barDrag } from "./constants.js";
 
 export const state = {
+    deleteMode: false,
     currentEditTexture: -1,
     tempTextureData: null,
     currentListPage: 0,
@@ -20,15 +21,15 @@ export const state = {
     originalOverridePriority: undefined,
 
     // === 编辑图层 - "移动"拖拽模式 ===
+    freeTransform: false,
+    transformGeometry: null,
+    transformView: null,
+    transformDragging: false,
     isDragMode: false,     // 是否已开启拖拽模式（点击「移动」按钮切换）
     dragActive: false,     // 当前是否正在进行一次拖拽（鼠标/触摸按住且位于角色预览区域内）
-    dragStartMouseX: 0,    // 本次拖拽开始时的鼠标 X（虚拟画布坐标）
-    dragStartMouseY: 0,    // 本次拖拽开始时的鼠标 Y
-    dragStartOffsetX: 0,   // 本次拖拽开始时的 OffsetX
-    dragStartOffsetY: 0,   // 本次拖拽开始时的 OffsetY
-
-    // === 编辑图层 - 缩放X/Y "拖移"拖拽模式 ===
-    isScaleDragMode: false, // 是否已开启缩放拖拽模式（点击「拖移」按钮切换）
+    dragMove: null,
+    isScaleDragMode: false,
+    scaleDrag: null,
 
     // === CharacterRefresh 节流 ===
     _lastTextureRefresh: 0,       // 上次刷新时间戳
@@ -70,10 +71,15 @@ export const state = {
  * 重置"移动"拖拽模式状态（进入/退出编辑图层时调用，避免状态残留到下一次编辑）
  */
 export function resetDragState() {
+    state.freeTransform = false;
+    state.transformGeometry = null;
+    state.transformView = null;
+    state.transformDragging = false;
     state.isDragMode = false;
     state.dragActive = false;
+    state.dragMove = null;
     state.isScaleDragMode = false;
-    scaleDrag.active = false;
+    state.scaleDrag = null;
     barDrag.fieldId = null;
 }
 

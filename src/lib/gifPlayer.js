@@ -1,3 +1,5 @@
+import { t } from "../i18n/index.js";
+import { fetchImageBuffer, checkImageBudget, inspectPng } from "./imageLimits.js";
 /**
  * 内容导向的 GIF / APNG / Animated WebP 解析与播放器。
  *
@@ -24,12 +26,23 @@
  */
 import { parseGIF, decompressFrames } from "gifuct-js";
 import UPNG from "upng-js";
-import { Logger, L } from "./utils.js";
+import { Logger } from "./utils.js";
 import { registerPrunableCache } from "./cacheGC.js";
 
 /** @type {Map<string, GifEntry>} */
 const _gifCache = new Map();
-registerPrunableCache(_gifCache, L("动图", "animated image"));
+registerPrunableCache(_gifCache, t("gifPlayer.animated_image"));
+
+// Bound the total decoded animation cache as well as individual files.
+const MAX_CACHE_PIXELS = 64 * 1024 * 1024;
+function reserveFrames(entry, width, height, count) {
+    checkImageBudget(width, height, count);
+    const pixels = width * height * count;
+    let reserved = 0;
+    for (const value of _gifCache.values()) if (value !== entry) reserved += value.pixelBudget || 0;
+    if (reserved + pixels > MAX_CACHE_PIXELS) throw new Error("Animation cache limit exceeded");
+    entry.pixelBudget = pixels;
+}
 
 /**
  * @typedef {object} GifFrame
@@ -127,6 +140,9 @@ function _yieldToMainThread() {
  * @param {GifEntry} entry
  */
 async function decodeApng(buffer, entry) {
+    const info = inspectPng(buffer);
+    if (info.frames <= 1) { entry.failed = true; return; }
+    reserveFrames(entry, info.width, info.height, info.frames);
     const png = UPNG.decode(buffer);
     entry.width = png.width;
     entry.height = png.height;
@@ -188,47 +204,49 @@ async function decodeAnimatedWebp(buffer, entry) {
     }
 
     const decoder = new ImageDecoder({ data: buffer, type: "image/webp" });
-    await decoder.tracks.ready;
-    const track = decoder.tracks.selectedTrack;
+    try {
+        await decoder.tracks.ready;
+        const track = decoder.tracks.selectedTrack;
 
-    // 没有 animated 标记，或只解出 1 帧：视为普通静态 WebP，交还静态图片管线
-    if (!track || !track.animated || track.frameCount <= 1) {
-        entry.failed = true;
-        decoder.close();
-        return;
-    }
-
-    const frameCount = track.frameCount;
-
-    for (let i = 0; i < frameCount; i++) {
-        const { image } = await decoder.decode({ frameIndex: i });
-
-        if (i === 0) {
-            entry.width = image.displayWidth;
-            entry.height = image.displayHeight;
+        // 没有 animated 标记，或只解出 1 帧：视为普通静态 WebP，交还静态图片管线
+        if (!track || !track.animated || track.frameCount <= 1) {
+            entry.failed = true;
+            return;
         }
 
-        const frameCanvas = document.createElement("canvas");
-        frameCanvas.width = entry.width || 1;
-        frameCanvas.height = entry.height || 1;
-        frameCanvas.getContext("2d").drawImage(image, 0, 0);
+        const frameCount = track.frameCount;
+        checkImageBudget(1, 1, frameCount);
 
-        // VideoFrame.duration 单位是微秒；0 或极短延迟比照 GIF/APNG 分支的惯例视为 100ms
-        const rawDelayMs = image.duration ? image.duration / 1000 : 0;
-        const delay = rawDelayMs > 10 ? rawDelayMs : 100;
+        for (let i = 0; i < frameCount; i++) {
+            const { image } = await decoder.decode({ frameIndex: i });
 
-        image.close();
+            if (i === 0) {
+                entry.width = image.displayWidth;
+                entry.height = image.displayHeight;
+                try { reserveFrames(entry, entry.width, entry.height, frameCount); } catch (error) { image.close(); throw error; }
+            }
 
-        entry.frames.push({ canvas: frameCanvas, delay });
-        entry.totalDuration += delay;
+            const frameCanvas = document.createElement("canvas");
+            frameCanvas.width = entry.width || 1;
+            frameCanvas.height = entry.height || 1;
+            frameCanvas.getContext("2d").drawImage(image, 0, 0);
 
-        if ((i + 1) % COMPOSE_CHUNK_SIZE === 0 && i + 1 < frameCount) {
-            await _yieldToMainThread();
+            // VideoFrame.duration 单位是微秒；0 或极短延迟比照 GIF/APNG 分支的惯例视为 100ms
+            const rawDelayMs = image.duration ? image.duration / 1000 : 0;
+            const delay = rawDelayMs > 10 ? rawDelayMs : 100;
+
+            image.close();
+
+            entry.frames.push({ canvas: frameCanvas, delay });
+            entry.totalDuration += delay;
+
+            if ((i + 1) % COMPOSE_CHUNK_SIZE === 0 && i + 1 < frameCount) {
+                await _yieldToMainThread();
+            }
         }
-    }
 
-    entry.isAnimated = true;
-    decoder.close();
+        entry.isAnimated = true;
+    } finally { decoder.close(); }
 }
 
 /**
@@ -243,7 +261,8 @@ async function decodeAnimatedWebp(buffer, entry) {
  *   已经完成的情况下不会注册，因为已经没有「等待」的必要
  * @returns {GifEntry} 若尚未解析完成，回传的物件 loaded 为 false，之后同一个 entry 物件的欄位会被就地更新
  */
-export function getAnimatedImage(url, onReady) {
+export function getAnimatedImage(url, onReady, animated = true) {
+    if (!animated) return { loaded: true, failed: true, isAnimated: false, frames: [] };
     let entry = _gifCache.get(url);
     if (entry) {
         entry.lastUsed = Date.now();
@@ -269,11 +288,7 @@ export function getAnimatedImage(url, onReady) {
     // 同时间只会有最多 MAX_CONCURRENT_DECODES 个在实际做事，其余在队列里等，
     // 避免所有人的 GIF 同一瞬间一起挤爆主执行绪
     scheduleDecodeTask(() =>
-        fetch(url, { mode: "cors", credentials: "omit" })
-            .then((res) => {
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return res.arrayBuffer();
-            })
+        fetchImageBuffer(url)
             .then(async (buffer) => {
                 const header = new Uint8Array(buffer, 0, Math.min(12, buffer.byteLength));
                 const isGifHeader = header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46; // "GIF"
@@ -309,6 +324,13 @@ export function getAnimatedImage(url, onReady) {
                 }
 
                 const gif = parseGIF(buffer);
+                for (const frame of gif.frames) {
+                    if (!frame.image) continue;
+                    const { width, height, left, top } = frame.image.descriptor;
+                    checkImageBudget(width, height);
+                    if (left + width > gif.lsd.width || top + height > gif.lsd.height) throw new Error("Invalid GIF frame bounds");
+                }
+                reserveFrames(entry, gif.lsd.width, gif.lsd.height, gif.frames.filter(frame => frame.image).length);
                 const rawFrames = decompressFrames(gif, true);
 
                 entry.width = gif.lsd.width;
@@ -398,18 +420,27 @@ export function getAnimatedImage(url, onReady) {
                 notifyReady(entry);
             })
             .catch((err) => {
+                if (err?.name === "AbortError") {
+                    if (_gifCache.get(url) === entry) _gifCache.delete(url);
+                    entry.loaded = true;
+                    entry.failed = true;
+                    notifyReady(entry);
+                    return;
+                }
                 entry.failed = true;
+                entry.error = true;
+                entry.frames = [];
+                entry.pixelBudget = 0;
                 entry.loaded = true;
                 notifyReady(entry);
-                Logger.warn(L(
-                    `GIF/APNG/WebP 解析失败（可能该图床未开启跨域 CORS，或档案已损毁）: ${url}`,
-                    `Failed to parse GIF/APNG/WebP (the host may not support CORS, or the file is corrupted): ${url}`
-                ), err);
+                Logger.warn(t("gifPlayer.failed_to_parse_gif_apng_webp_the_host_may_not_support_cors_or_th", [url]), err);
             })
     );
 
     return entry;
 }
+
+export function peekAnimatedImage(url) { return _gifCache.get(url); }
 
 /**
  * 依经过的时间，从已解码的帧数组中选出目前应显示的帧「索引」，并顺便算出

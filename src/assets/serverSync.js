@@ -1,3 +1,4 @@
+import { backupAppearance } from "../lib/persistence.js";
 /**
  * 自定义贴图道具 - 服务器同步
  *
@@ -68,6 +69,7 @@ export function syncItemToServer(item) {
     // 如果是玩家自己的道具，更新服务器端 ChatRoomData 和账号数据
     // 确保离线玩家上线后进入房间时能从 ChatRoomData 获取最新配置
     if (C.IsPlayer()) {
+        backupAppearance(true);
         if (typeof ChatRoomCharacterUpdate === "function") {
             ChatRoomCharacterUpdate(C);
         }

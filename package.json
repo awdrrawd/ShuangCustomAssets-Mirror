@@ -6,9 +6,10 @@
     "author": "Shuang",
     "description": "Shuang的自定义道具扩展 - 支持动态贴图等功能",
     "scripts": {
-        "build": "rollup -c",
+        "build": "rollup -c --environment NODE_ENV:production",
         "dev": "rollup -c -w",
-        "serve": "http-server dist -p 8080 --cors -c31536000"
+        "serve": "http-server dist -p 8080 --cors -c-1",
+        "test": "node --test tests/*.test.cjs"
     },
     "repository": {
         "type": "git",
@@ -29,7 +30,7 @@
         "rollup-plugin-cleanup": "^3.2.1"
     },
     "modConfig": {
-        "output": "shuang-assets.js",
+        "output": "assets/main.js",
         "loaderName": "shuang-assets.user.js",
         "entry": "src/main.js"
     },

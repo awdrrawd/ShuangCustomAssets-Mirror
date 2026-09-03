@@ -1,3 +1,4 @@
+import { setupTransformCapture } from "./freeTransform.js";
 /**
  * 自定义贴图道具 - 对话框交互 hook
  * 任务5：编辑图层（及其它子页面）时点击退出，应返回贴图管理列表而非整个跳出
@@ -19,6 +20,7 @@ const TEXTURE_GROUPS = new Set(ALL_ITEM_GROUPS);
  * @param {HookManager} HookManager - SDK 的 HookManager
  */
 export function setupDialogHooks(HookManager) {
+    setupTransformCapture(HookManager);
     // 任务6：DialogFocusItem 为「自定义贴图」时，跳过角色身上的互动区域格线绘制
     // DrawAssetGroupZone 由 DrawCharacter 在 C.FocusGroup 存在时调用，用于画各部位可点击格子
     if (typeof DrawAssetGroupZone === "function") {

@@ -1,3 +1,6 @@
+import { messages } from "../i18n/messages.js";
+import { t } from "../i18n/index.js";
+import { sanitizeTexture } from "./textureValidation.js";
 /**
  * 自定义贴图道具 - 游戏多图层版本
  * 每个贴图对应一个游戏图层
@@ -22,11 +25,11 @@ import {
 import {
     drawAddDomainConfirm, handleAddDomainConfirmClick,
     drawHideSettings, handleHideSettingsClick,
-    drawTextureListMain, handleTextureListClick
+    drawTextureListMain, handleTextureListClick, returnToListFromSubview, handlePlayerBlockClick
 } from "./listView.js";
 import { drawTutorial, handleTutorialClick } from "./tutorial.js";
 import { renderTexture } from "./render.js";
-import { L } from "@lib/utils.js";
+
 
 // 为 main.js 向后兼容重新导出
 export { setupLoginBadge } from "./loginBadge.js";
@@ -67,8 +70,8 @@ const asset = {
 };
 
 const translation = {
-    CN: "自定义贴图",
-    EN: "Custom Texture"
+    CN: messages.CN["asset.custom_texture"],
+    EN: messages.EN["asset.custom_texture"]
 };
 
 const layerNames = {
@@ -124,7 +127,7 @@ const extended = {
                 item.Property.HideHead = true;
                 item.Property.HideBodyUpper = true;
                 item.Property.HideBodyLower = true;
-                delete item.Property.HideBody;
+                item.Property.HideBody = false;
             }
             // 兼容旧数据：补齐分类开关字段
             for (const cat of HIDE_CATEGORIES) {
@@ -134,10 +137,11 @@ const extended = {
             updateHideArray(item);
 
             // 兼容旧数据：v6 及以前贴图用单一 Scale 字段，v7 拆分为 ScaleX/ScaleY（默认等比锁定，行为不变）
-            for (const texture of item.Property.Textures) {
-                migrateScaleField(texture);
-            }
+            item.Property.Textures = item.Property.Textures.map(texture => {
+                try { return texture == null ? null : sanitizeTexture(texture); } catch { return null; }
+            });
 
+            state.deleteMode = false;
             state.currentEditTexture = -1;
             state.tempTextureData = null;
             state.originalEditTexture = null;
@@ -169,23 +173,24 @@ const extended = {
             } else if (state.currentView === "hide") {
                 drawHideSettings(item);
             } else {
-                drawTextureListMain(item);
+                drawTextureListMain(item, data, isItemLockedForPlayer(item));
             }
 
             // 锁状态指示器：道具被锁且当前玩家无权解锁时，在顶部显示红色提示
             if (isItemLockedForPlayer(item)) {
-                DrawText(L("已上锁", "Locked"), 1500, 95, "#FF4444", "Black");
+                DrawText(t("customTexture.locked"), 1500, 95, "#FF4444", "Black");
             }
 
             // 前往设置按钮（1775,25）：基础 Draw 会在此画权限模式图标（且带反灰效果），
             // 本插件把它重定向为「前往插件偏好设置」，所以在其上重绘一个正常白底、不反灰的按钮，
             // 并把悬停提示改为「前往设置」（点击逻辑见 Click 钩子顶部对该坐标的拦截）
             DrawButton(1775, 25, 90, 90, "", "White", "Icons/DialogPermissionMode.png",
-                L("前往设置", "Go to settings"));
+                t("customTexture.go_to_settings"));
         },
 
         Click: (data, originalFunction) => {
             const item = DialogFocusItem;
+            if (item?.Asset?.Name === ASSET_NAME && handlePlayerBlockClick()) return;
 
             // 权限模式图标（Icons/DialogPermissionMode.png，坐标 1775,25,90,90，
             // 由扩展道具基础 Draw 统一绘制，见 TypedItem.js 的 TypedItemDraw/TypedItemClick）：
@@ -194,9 +199,7 @@ const extended = {
             if (item?.Asset?.Name === ASSET_NAME && MouseIn(1775, 25, 90, 90)) {
                 // 先完整退出本道具的编辑状态和整个物品对话框，避免残留贴图网址/数值输入框等 DOM 元素
                 // 以及仍处于 focus 状态的道具，导致跳转后的偏好设置界面显示错乱。
-                if (DialogFocusItem !== null) {
-                    DialogFocusItem = null;
-                }
+                returnToListFromSubview();
                 if (typeof DialogLeave === "function") {
                     DialogLeave();
                 }
@@ -215,10 +218,7 @@ const extended = {
                 && state.currentEditTexture < 0
                 && MouseIn(1885, 810, 90, 90);
             if (isLocked && !isPaginationClick) {
-                DialogExtendedMessage = L(
-                    "此道具已上锁，无权限的玩家无法修改配置",
-                    "This item is locked. Players without permission cannot modify configuration."
-                );
+                DialogExtendedMessage = t("customTexture.this_item_is_locked_players_without_permission_cannot_modify_conf");
                 return;
             }
 
@@ -236,25 +236,8 @@ const extended = {
         },
 
         Exit: (data) => {
-            // 若正在编辑某个图层，退出前还原为编辑前的原始数据（相当于「取消」）
-            if (state.currentEditTexture >= 0) {
-                const item = DialogFocusItem;
-                const originalTexture = data.PersistentData?._originalTexture;
-                if (item && originalTexture) {
-                    if (!item.Property) item.Property = { Textures: [] };
-                    if (!item.Property.Textures) item.Property.Textures = [];
-                    item.Property.Textures[state.currentEditTexture] = { ...originalTexture };
-                    // 还原 OverridePriority（取消编辑时恢复原始图层优先级）
-                    if (state.originalOverridePriority !== undefined) {
-                        item.Property.OverridePriority = JSON.parse(JSON.stringify(state.originalOverridePriority));
-                    } else {
-                        delete item.Property.OverridePriority;
-                    }
-                    syncItemToServer(item);
-                    const C = CharacterGetCurrent();
-                    if (C) CharacterRefresh(C, false, false);
-                }
-            }
+            returnToListFromSubview();
+            state.deleteMode = false;
             state.currentEditTexture = -1;
             state.tempTextureData = null;
             state.originalEditTexture = null;

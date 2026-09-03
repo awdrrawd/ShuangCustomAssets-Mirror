@@ -1,3 +1,5 @@
+import { drawCapturedTexture, captureTextureGeometry, clearTextureGeometry } from "./freeTransform.js";
+import { sanitizeRenderParams } from "./textureValidation.js";
 /**
  * 自定义贴图道具 - AfterDraw 渲染逻辑
  * 提取自 extended.AfterDraw hook，每图层渲染自定义贴图
@@ -10,7 +12,7 @@ import { getCorsImage } from "@lib/utils.js";
 import { getAnimatedImage, getGifFrameState } from "@lib/gifPlayer.js";
 import { notifyGifFrame } from "@lib/gifAnimationLoop.js";
 import { queueOneShotRefresh } from "@lib/refreshScheduler.js";
-import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled, getAnimatedImageEnabled } from "./settings.js";
+import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled, getAnimatedImageEnabled, getImageLoadingEnabled } from "./settings.js";
 
 /**
  * 解析当前姿势下的有效渲染参数
@@ -21,21 +23,8 @@ import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled, getAnimated
  * @param {string[]} drawPose - C.DrawPose 数组
  * @returns {object} 合并后的渲染参数
  */
-function resolvePoseParams(texture, drawPose) {
-    const base = {
-        TextureURL: texture.TextureURL ?? "",
-        Visible: texture.Visible ?? true,
-        OffsetX: texture.OffsetX ?? 1,
-        OffsetY: texture.OffsetY ?? 1,
-        // 回退到旧版单一 Scale 字段：其他玩家的贴图数据来自服务器同步，
-        // 不经过 Load hook 迁移，可能仍使用旧 Scale 而非 ScaleX/ScaleY
-        ScaleX: texture.ScaleX ?? texture.Scale ?? 100,
-        ScaleY: texture.ScaleY ?? texture.Scale ?? 100,
-        Rotation: texture.Rotation ?? 0,
-        Opacity: texture.Opacity ?? 100,
-        MirrorH: texture.MirrorH ?? false,
-        MirrorV: texture.MirrorV ?? false
-    };
+export function resolvePoseParams(texture, drawPose) {
+    const base = sanitizeRenderParams(texture);
 
     const poseKey = getPoseKey(drawPose);
     if (!poseKey) return base;
@@ -43,14 +32,7 @@ function resolvePoseParams(texture, drawPose) {
     const ps = texture.PoseSettings?.[poseKey];
     if (!ps || ps.enabled !== true) return base;
 
-    // 合并：全局基底 + 姿势覆盖（排除 enabled 和旧版 Scale 字段）
-    const { enabled, Scale: legacyScale, ...overrides } = ps;
-    // 旧版 PoseSettings 用单一 Scale，迁移到 ScaleX/ScaleY（仅在没有 ScaleX/ScaleY 时回退）
-    if (legacyScale !== undefined && overrides.ScaleX === undefined) {
-        overrides.ScaleX = legacyScale;
-        overrides.ScaleY = legacyScale;
-    }
-    return { ...base, ...overrides };
+    return { ...base, ...sanitizeRenderParams(ps, true) };
 }
 
 /**
@@ -64,6 +46,7 @@ export function renderTexture(data, originalFunction, drawData) {
 
     const item = CA;
     const layerIndex = LAYER_NAMES.indexOf(L);
+    clearTextureGeometry(C, item, layerIndex);
 
     // 在第一层渲染时检查并更新 Hide 数组（确保其他玩家也能正确应用隐藏效果）
     // 注意：不在此处调用 CharacterRefresh，避免 AfterDraw -> CharacterRefresh -> AfterDraw 无限循环
@@ -83,6 +66,7 @@ export function renderTexture(data, originalFunction, drawData) {
     }
 
     if (layerIndex === -1) return;
+    if (!getImageLoadingEnabled()) return;
 
     const textures = item?.Property?.Textures;
     if (!textures || layerIndex >= textures.length) return;
@@ -105,7 +89,7 @@ export function renderTexture(data, originalFunction, drawData) {
     if (blockedPlayers.length > 0) {
         const texSource = texture.TextureURLSource || 0;
         const texConfig = texture.CurrentConfigurator || 0;
-        if ((texSource > 0 && blockedPlayers.indexOf(texSource) !== -1) ||
+        if (blockedPlayers.includes(C.MemberNumber) || (texSource > 0 && blockedPlayers.indexOf(texSource) !== -1) ||
             (texConfig > 0 && blockedPlayers.indexOf(texConfig) !== -1)) {
             return;
         }
@@ -150,7 +134,9 @@ export function renderTexture(data, originalFunction, drawData) {
 
     // 内容导向的 GIF 检测：不管网址后缀写什么，一律先看档案实际内容是不是 GIF、
     // 解压后实际帧数是否 > 1，而不是用 .gif 副檔名去猜
-    const gifEntry = getAnimatedImage(imageUrl);
+    const gifEntry = getAnimatedImage(imageUrl, undefined, getAnimatedImageEnabled());
+
+    if (gifEntry.error) return;
 
     let img, sourceWidth, sourceHeight, gifFrameIndex = -1;
 
@@ -159,7 +145,7 @@ export function renderTexture(data, originalFunction, drawData) {
         // 时才会重新执行到这里，光是「解析完成」本身不会自动补一次重绘，所以顺便
         // 注册一个「解析完成后补画一次」的回调，避免这一层贴图从此卡在空白状态，
         // 直到凑巧有其他操作（换装、聊天讯息等）触发重绘才「意外」修好
-        getAnimatedImage(imageUrl, () => queueOneShotRefresh(C));
+        getAnimatedImage(imageUrl, () => queueOneShotRefresh(C), getAnimatedImageEnabled());
         return;
     } else if (!gifEntry.failed && gifEntry.isAnimated) {
         if (getAnimatedImageEnabled()) {
@@ -202,7 +188,7 @@ export function renderTexture(data, originalFunction, drawData) {
         // 内容不是 GIF（不论网址后缀），交还给原本的静态图片管线：
         // 仅渲染服务器正确返回 Access-Control-Allow-Origin 的图片，
         // 加载失败（如 r2.dev 未开启 CORS）直接跳过，避免污染 canvas 导致 WebGL 黑框
-        const imgEntry = getCorsImage(imageUrl);
+        const imgEntry = getCorsImage(imageUrl, undefined, true);
         if (imgEntry.failed) return;
         if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) {
             // 图片还没下载完成：这是「重新整理页面后，其他玩家身上的贴图效果
@@ -220,6 +206,16 @@ export function renderTexture(data, originalFunction, drawData) {
 
     const width = Math.round(sourceWidth * scaleX);
     const height = Math.round(sourceHeight * scaleY);
+    const geometry = isUrlAllowed(params.TextureURL) ? {
+        anchorX: X, anchorY: Y, sourceWidth, sourceHeight, width, height,
+        centerX: X + offsetX + width / 2, centerY: Y + offsetY + height / 2,
+        rotation, params
+    } : null;
+    if (width <= 0 || height <= 0) {
+        if (geometry) captureTextureGeometry(C, item, layerIndex, geometry);
+        return;
+    }
+    if (width > 8192 || height > 8192) return;
 
     // 计算旋转后的包围盒，避免旋转后图像被裁剪
     const rad = rotation * Math.PI / 180;
@@ -227,6 +223,7 @@ export function renderTexture(data, originalFunction, drawData) {
     const sin = Math.abs(Math.sin(rad));
     const bboxWidth = Math.round(width * cos + height * sin);
     const bboxHeight = Math.round(width * sin + height * cos);
+    if (bboxWidth * bboxHeight > 16777216) return;
 
     // 缓存策略：静态贴图每个图层只保留一个 canvas，参数变化时原地重绘（而非创建新 canvas）
     // 旧策略按 url_width_height_rotation_opacity 做 cacheKey，步进按钮每次调值都产生新 key，
@@ -285,6 +282,8 @@ export function renderTexture(data, originalFunction, drawData) {
     // 用包围盒尺寸偏移，保持图像中心对齐到 offsetX/offsetY
     const drawX = X + offsetX - (bboxWidth - width) / 2;
     const drawY = Y + offsetY - (bboxHeight - height) / 2;
-    drawCanvas(tempCanvas, drawX, drawY);
+    if (geometry) drawCapturedTexture(C, item, layerIndex, geometry,
+        tempCanvas, drawX, drawY, () => drawCanvas(tempCanvas, drawX, drawY));
+    else drawCanvas(tempCanvas, drawX, drawY);
     drawCanvasBlink(tempCanvas, drawX, drawY);
 }
