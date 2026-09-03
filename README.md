@@ -1,6 +1,17 @@
-# ShuangCustomAssets (霜自定义道具)
+<div align="center">
 
-霜系列插件 - 自定义道具与外观扩展，让玩家上传图床链接实现动态贴图效果
+# ShuangCustomAssets
+
+**霜系列插件 - 自定义道具与外观扩展**
+让玩家上传图床链接实现动态贴图效果
+
+[简体中文](./README.md) | [English](./README.en.md)
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Bondage%20Club-green.svg)](https://www.bondageprojects.com/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
+</div>
 
 ## 📦 安装教程
 
@@ -11,12 +22,33 @@
 2. Tampermonkey 会自动弹出安装界面
 3. 点击 **安装** 完成
 
+> 备用链接1 `https://shuang-custom-assets.pages.dev/loader.user.js`
+> 备用链接2 `https://shuang-custom-assets.netlify.app/loader.user.js`
+
+
+
 **方法二：手动安装**
 1. 点击这里下载脚本：[`loader.user.js`](loader.user.js)
 2. 打开 Tampermonkey 管理面板
 3. 点击 **添加新脚本**
 4. 将下载的脚本内容粘贴进去
 5. 保存并刷新游戏页面
+
+## 📚 使用教程
+
+详细的使用文档请参考以下链接：
+
+| 教程 | 说明 | English |
+|------|------|---------|
+| [使用教程总览](./docs/usage-overview.md) | 功能一览与快速上手 | [Overview](./docs/en/usage-overview.md) |
+| [贴图管理基础](./docs/usage-textures.md) | 添加、编辑、删除图层，显示/隐藏切换 | [Textures](./docs/en/usage-textures.md) |
+| [编辑面板详解](./docs/usage-edit-panel.md) | URL、偏移、缩放、旋转、透明度、镜射、移动拖拽 | [Edit Panel](./docs/en/usage-edit-panel.md) |
+| [姿势独立配置](./docs/usage-pose-settings.md) | 为不同姿势设置不同的贴图参数 | [Per-Pose](./docs/en/usage-pose-settings.md) |
+| [隐藏设置](./docs/usage-hide-settings.md) | 隐藏头部、身体、服饰、道具等部位（8 个分类） | [Hide Settings](./docs/en/usage-hide-settings.md) |
+| [导入导出](./docs/usage-import-export.md) | JSON 配置的导出、分享和导入 | [Import/Export](./docs/en/usage-import-export.md) |
+| [安全设置](./docs/usage-security.md) | 域名白名单、不可信域名提示、动图播放 | [Security](./docs/en/usage-security.md) |
+
+> 英文版完整文档见 [docs/en/](./docs/en/) 目录，英文版 README 见 [README.en.md](./README.en.md)。
 
 ### 开发版安装
 
@@ -42,7 +74,7 @@
 
 ### 自定义贴图道具
 
-- **多图层支持**：单个道具支持最多 16 个独立图层
+- **多图层支持**：单个道具支持最多 18 个独立图层
 - **全部位可用**：注册到所有物品部位组，任意位置都可使用
 - **URL 贴图**：玩家输入图床链接，动态加载自定义贴图
 - **参数调节**：每个图层可独立调整 X/Y 偏移、缩放、旋转
@@ -108,6 +140,8 @@
 }
 ```
 
+
+
 ## 🛠️ 开发
 
 ```bash
@@ -137,13 +171,17 @@ wrangler login
 
 # 部署到 Cloudflare Pages（项目名：shuang-custom-assets）
 wrangler pages deploy dist --project-name=shuang-custom-assets
-netlify deploy --prod
 ```
 
 部署后会得到类似这样的 URL：
 - `https://shuang-custom-assets.pages.dev/shuang-assets.js`
 
 更新 `loader.user.js` 中的 `SCRIPT_URL` 指向新地址即可。
+
+> 代码快速更新
+npm run build
+wrangler pages deploy dist --project-name=shuang-custom-assets
+netlify deploy --prod
 
 ### 添加新道具
 
@@ -212,3 +250,7 @@ const ALL_ITEM_GROUPS = [
 ## License
 
 MIT
+
+## Build and maintenance
+
+Run `npm ci`, `npm test`, and `npm run build`. Deploy the whole `dist/` directory; the entry is `dist/assets/main.js`. SDK and application modules are bundled locally. [Loading, backup and translation architecture](./docs/architecture.md).

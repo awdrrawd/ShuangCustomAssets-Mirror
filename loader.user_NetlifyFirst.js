@@ -1,18 +1,17 @@
 // ==UserScript==
-// @name         ShuangCustomAssets (Shuang自定义道具)
-// @namespace    http://tampermonkey.net/
+// @name         ShuangCustomAssets (NetlifyFirst)
+// @name:zh      Shuang自定义道具 (NetlifyFirst)
+// @namespace    https://gitgud.io/yeshuang26/shuangcustomassets
 // @version      0.1.0
 // @description  Shuang的自定义道具扩展 - 支持动态贴图等功能
 // @author       Shuang
-// @match        https://bondageprojects.elementfx.com/*
-// @match        https://www.bondageprojects.elementfx.com/*
-// @match        https://bondage-europe.com/*
-// @match        https://www.bondage-europe.com/*
-// @match        https://bondageprojects.com/*
-// @match        https://www.bondageprojects.com/*
-// @match        https://www.bondage-asia.com/club/R*
+// @icon         https://shuang-custom-assets.pages.dev/SCA_slider.png
+// @match        https://*.bondageprojects.elementfx.com/R*/*
+// @match        https://*.bondage-europe.com/R*/*
+// @match        https://*.bondageprojects.com/R*/*
+// @match        https://*.bondage-asia.com/club/R*/*
 // @grant        none
-// @run-at       document-end
+// @run-at       document-start
 // ==/UserScript==
 
 const supportedDomains = [
@@ -29,11 +28,11 @@ const isSupportedDomain = supportedDomains.some(domain =>
 const MIRROR_SOURCES = [
     {
         name: 'Netlify',
-        getUrl: (timestamp) => `https://shuang-custom-assets.netlify.app/shuang-assets.js?t=${timestamp}`
+        getUrl: (timestamp) => `https://shuang-custom-assets.netlify.app/assets/main.js?t=${timestamp}`
     },
     {
         name: 'Cloudflare Pages',
-        getUrl: (timestamp) => `https://shuang-custom-assets.pages.dev/shuang-assets.js?t=${timestamp}`
+        getUrl: (timestamp) => `https://shuang-custom-assets.pages.dev/assets/main.js?t=${timestamp}`
     },
 ];
 

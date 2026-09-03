@@ -1,18 +1,17 @@
 // ==UserScript==
-// @name         ShuangCustomAssets Dev (Shuang自定义道具 - 开发版)
-// @namespace    http://tampermonkey.net/
+// @name         ShuangCustomAssets Dev
+// @name:zh      Shuang自定义道具 - 开发版
+// @namespace    https://gitgud.io/yeshuang26/shuangcustomassets
 // @version      0.1.0-dev
 // @description  Shuang的自定义道具扩展 - 开发版本
 // @author       Shuang
-// @match        https://bondageprojects.elementfx.com/*
-// @match        https://www.bondageprojects.elementfx.com/*
-// @match        https://bondage-europe.com/*
-// @match        https://www.bondage-europe.com/*
-// @match        https://bondageprojects.com/*
-// @match        https://www.bondageprojects.com/*
-// @match        https://www.bondage-asia.com/club/R*
+// @icon         https://shuang-custom-assets.pages.dev/SCA_slider.png
+// @match        https://*.bondageprojects.elementfx.com/R*/*
+// @match        https://*.bondage-europe.com/R*/*
+// @match        https://*.bondageprojects.com/R*/*
+// @match        https://*.bondage-asia.com/club/R*/*
 // @grant        none
-// @run-at       document-end
+// @run-at       document-start
 // ==/UserScript==
 
 const supportedDomains = [
@@ -27,7 +26,7 @@ const isSupportedDomain = supportedDomains.some(domain =>
 );
 
 // 本地开发服务器地址
-const DEV_URL = 'http://localhost:8080/shuang-assets.js';
+const DEV_URL = 'http://localhost:8080/assets/main.js';
 
 async function loadAssets() {
     const timestamp = Date.now();
