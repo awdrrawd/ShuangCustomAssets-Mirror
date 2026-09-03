@@ -886,7 +886,7 @@ export function initSettings() {
     }
 
     PreferenceRegisterExtensionSetting({
-        Identifier: EXTENSION_ID,
+        Identifier: SETTINGS_KEY,
         ButtonText: t("settings.custom_texture_settings"),
         Image: BADGE_IMAGE_URL,
         load: () => {
