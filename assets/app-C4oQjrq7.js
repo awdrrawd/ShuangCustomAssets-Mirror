@@ -2329,7 +2329,7 @@ function initSettings() {
         return;
     }
     PreferenceRegisterExtensionSetting({
-        Identifier: EXTENSION_ID,
+        Identifier: SETTINGS_KEY,
         ButtonText: t$2("settings.custom_texture_settings"),
         Image: BADGE_IMAGE_URL,
         load: () => {
