@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
 const resolve = require("@rollup/plugin-node-resolve");
@@ -24,30 +25,50 @@ function getBuildVersion() {
 }
 const buildVersion = getBuildVersion();
 
-// 油猴脚本头部
-const userScriptHeader = `// ==UserScript==
-// @name         ${pkg.displayName}
-// @namespace    https://github.com/shuang/
-// @version      ${buildVersion}
-// @description  ${pkg.description}
-// @author       ${pkg.author}
-// @match        https://bondageprojects.elementfx.com/*
-// @match        https://www.bondageprojects.com/*
-// @match        https://bondage-club.net/*
-// @grant        none
-// @run-at       document-start
-// ==/UserScript==
-`;
-
 module.exports = {
     input: pkg.modConfig.entry,
     output: {
-        file: path.join("dist", pkg.modConfig.output),
-        format: "iife",  // 立即执行函数格式，避免变量名冲突
+        dir: "dist",
+        entryFileNames: "assets/main.js",
+        chunkFileNames: "assets/[name]-[hash].js",
+        format: "es",  // Bootstrap and application are separate modules with a shared startup guard
         sourcemap: !isProd,
         compact: false
     },
     plugins: [
+        {
+            name: "distribution-assets",
+            writeBundle(output, bundle) {
+                // Only prune generated scripts after a successful write, preserving the last working build on errors.
+                const root = path.resolve(output.dir);
+                const current = new Set(Object.keys(bundle));
+                for (const chunk of Object.values(bundle)) {
+                    if (chunk.type === "chunk" && chunk.map && output.sourcemap) {
+                        current.add(`${chunk.fileName}.map`);
+                    }
+                }
+                for (const relativeDir of ["", "assets"]) {
+                    const directory = path.join(root, relativeDir);
+                    if (!fs.existsSync(directory)) continue;
+                    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+                        const relative = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+                        const generated = relativeDir === "assets"
+                            ? /^(?:main|app-[\w-]+)\.js(?:\.map)?$/.test(entry.name)
+                            : entry.name === "shuang-assets.js.map";
+                        if (entry.isFile() && generated && !current.has(relative)) {
+                            fs.unlinkSync(path.join(directory, entry.name));
+                        }
+                    }
+                }
+            },
+            generateBundle() {
+                this.emitFile({ type: "asset", fileName: "shuang-assets.js", source: 'import "./assets/main.js";\n' });
+                for (const file of fs.readdirSync(path.join(__dirname, "assets"))) {
+                    if (!file.endsWith(".png")) continue;
+                    this.emitFile({ type: "asset", fileName: file, source: fs.readFileSync(path.join(__dirname, "assets", file)) });
+                }
+            }
+        },
         {
             // 把 modInfo.js 的 version 字段替换为构建版本号（含 git commit 数）
             name: "version-inject",
