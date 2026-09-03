@@ -30,24 +30,25 @@ The list page provides two separate import buttons at the bottom — click eithe
 
 1. Copy the config JSON to the clipboard
 2. Click the "Import (Append)" button
-3. The imported layers are appended after the existing layers (existing layers and hide toggles are not modified)
-4. Layer priorities are automatically remapped by the current layer count offset (e.g. imported Layer1 → Layer(currentCount+1))
+3. Empty slots are filled first, then remaining layers are appended (occupied slots and hide toggles are not modified)
+4. Layer priorities are remapped to the actual destination slots
 
-> If the total layer count would exceed 16 (the cap) on append, an error is shown and the import is aborted.
-> If the current layer count is already at the 16 cap, the append button shows an error immediately without executing.
+> If the total layer count would exceed 18 (the cap) on append, an error is shown and the import is aborted.
+> If the current layer count is already at the 18 cap, the append button shows an error immediately without executing.
 
 ## Config Format
 
 ```json
 {
   "type": "ShuangCustomAssets",
-  "version": 6,
+  "version": 7,
   "textures": [
     {
       "TextureURL": "https://example.com/image1.png",
       "OffsetX": 1,
       "OffsetY": 1,
-      "Scale": 100,
+      "ScaleX": 100,
+      "ScaleY": 100,
       "Rotation": 0,
       "Visible": true,
       "Opacity": 100,

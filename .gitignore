@@ -5,3 +5,4 @@ dist/
 tmp/
 # Local Netlify folder
 .netlify
+deploy.sh
