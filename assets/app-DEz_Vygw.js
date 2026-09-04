@@ -10322,6 +10322,8 @@ function setupLoginBadge(HookManager) {
         });
 }
 
+window.ShuangCustomAssets ??= {};
+window.ShuangCustomAssets.mapImgSrc = (src) => mt.imageMapping.storage.mapImgSrc(src);
 const TEXTURE_GROUPS = new Set(ALL_ITEM_GROUPS);
 function setupDialogHooks(HookManager) {
     setupTransformCapture(HookManager);
@@ -10365,6 +10367,26 @@ function setupDialogHooks(HookManager) {
                 if (hasTexture) return false;
             }
             return next(args);
+        });
+    }
+    if (typeof DialogMenuMapping !== "undefined" && DialogMenuMapping.crafted) {
+        HookManager.hookFunction("DialogMenuMapping.crafted._ReloadIcon", 0, (args, next) => {
+            const result = next(args);
+            try {
+                const [, icon, properties] = args;
+                const { C, focusGroup } = properties;
+                const item = InventoryGet(C, focusGroup.Name);
+                if (item?.Asset && icon?.id) {
+                    const img = document.getElementById(`${icon.id}-image`);
+                    if (img) {
+                        const rawSrc = `./Assets/Female3DCG/${item.Asset.DynamicGroupName}/Preview/${item.Asset.Name}.png`;
+                        img.src = window.ShuangCustomAssets.mapImgSrc(rawSrc);
+                    }
+                }
+            } catch (e) {
+                console.error("[ShuangCustomAssets] _ReloadIcon patch failed:", e);
+            }
+            return result;
         });
     }
 }
