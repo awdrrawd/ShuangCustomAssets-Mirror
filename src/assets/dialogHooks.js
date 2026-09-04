@@ -6,11 +6,22 @@ import { setupTransformCapture } from "./freeTransform.js";
  * 任务7：编辑单个图层时，进一步阻止点击角色身上的互动格（避免误触切换到其他部位，
  *        同时便于「移动」拖拽功能在角色预览区域正常拖动图片而不被切换部位打断）
  * 任务8：自定义贴图不 block 其他部位，也不被其他道具 block（双向豁免）
+ * 任务9：修复「查看已制作道具属性」弹窗预览图标破图
+ *        _DialogCraftedMenu._ReloadIcon（Dialog.js）直接拼接原始 Preview 路径塞进 <img src>，
+ *        绕过了 bc-asset-manager 的 ImageMapping，addImageMapping 注册的映射不生效，破图。
+ *        用 patchFunction 只替换拼路径的那一行，不影响其他 mod 挂在 _ReloadIcon 上的 hook，
+ *        也不建立新的共用底层攻截点。
  */
 
 import { ASSET_NAME, ALL_ITEM_GROUPS } from "./constants.js";
 import { state } from "./state.js";
 import { returnToListFromSubview } from "./listView.js";
+import { AssetManager } from "@sugarch/bc-asset-manager";
+
+// 内部命名空间：给 patchFunction 注入的全局作用域代码提供桥接入口
+// （window.ShuangSettings 是设置页面 onclick 专用，用途不同，不混用）
+window.ShuangCustomAssets ??= {};
+window.ShuangCustomAssets.mapImgSrc = (src) => AssetManager.imageMapping.storage.mapImgSrc(src);
 
 // 预计算：自定义贴图注册的所有 Item 组名集合，用于 O(1) 判断目标组是否包含贴图
 const TEXTURE_GROUPS = new Set(ALL_ITEM_GROUPS);
@@ -81,6 +92,28 @@ export function setupDialogHooks(HookManager) {
                 if (hasTexture) return false;
             }
             return next(args);
+        });
+    }
+
+    // 任务9：见文件头注释
+    if (typeof DialogMenuMapping !== "undefined" && DialogMenuMapping.crafted) {
+        HookManager.hookFunction("DialogMenuMapping.crafted._ReloadIcon", 0, (args, next) => {
+            const result = next(args); // 先让原本逻辑把 icon 画出来（含 <img id="{icon.id}-image">）
+            try {
+                const [, icon, properties] = args; // (root, icon, properties, options)
+                const { C, focusGroup } = properties;
+                const item = InventoryGet(C, focusGroup.Name);
+                if (item?.Asset && icon?.id) {
+                    const img = document.getElementById(`${icon.id}-image`);
+                    if (img) {
+                        const rawSrc = `./Assets/Female3DCG/${item.Asset.DynamicGroupName}/Preview/${item.Asset.Name}.png`;
+                        img.src = window.ShuangCustomAssets.mapImgSrc(rawSrc);
+                    }
+                }
+            } catch (e) {
+                console.error("[ShuangCustomAssets] _ReloadIcon patch failed:", e);
+            }
+            return result;
         });
     }
 }
