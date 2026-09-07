@@ -320,7 +320,21 @@ function _renderMainPage() {
         <div data-sca-scroll style="overflow-y:auto;min-height:0;flex:1;padding-right:12px">
         ${section('main', 'settings.main_controls', settingsToggle('pluginEnabled', 'settings.plugin_enabled', 'settings.plugin_help'))}
         ${section('display', 'settings.display_management', settingsToggle('imagesEnabled', 'settings.images_enabled', 'settings.images_help') + nav('modeSelect', 'settings.load_mode_settings', t(s.urlLoadMode === 'whitelist' ? 'settings.whitelist' : 'settings.unrestricted')) + nav('whitelist', 'settings.domain_whitelist', t('settings.domains', [s.allowedDomains?.length || 0])) + nav('blocked', 'settings.blocked_players', t('settings.players', [s.blockedPlayers?.length || 0])))}
-        ${section('images', 'settings.image_options', settingsToggle('domainWarningEnabled', 'settings.untrusted_domain_warning') + settingsToggle('animatedImageEnabled', 'settings.enable_animated_images') + settingRow('settings.gif_frame_rate', `<input aria-label="fps" class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:85px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? 'disabled' : ''}> fps`) + settingsToggle('gifFpsSyncGame', 'settings.sync_game_fps'))}
+        ${section('images', 'settings.image_options',
+            settingsToggle('domainWarningEnabled', 'settings.untrusted_domain_warning')
+            + settingsToggle('animatedImageEnabled', 'settings.enable_animated_images')
+            + settingRow('settings.gif_frame_rate', `<input aria-label="fps" class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:85px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? 'disabled' : ''}> fps`)
+            + settingsToggle('gifFpsSyncGame', 'settings.sync_game_fps')
+            + '<div style="border-top:1px solid var(--sca-line);margin-top:12px;padding-top:12px">'
+            + settingsToggle('imageLimitsEnabled', 'settings.image_limits_enabled', 'settings.image_limits_help')
+            + `<div style="${s.imageLimitsEnabled ? '' : 'opacity:0.4;pointer-events:none'}">`
+            + settingRow('settings.image_limit_max_file_size', `<input class="sca-input" type="number" min="1" max="100" value="${Math.round((s.imageLimitMaxBytes ?? 20971520) / 1048576)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxBytes', this.value * 1048576)"> <span style="font-size:13px;color:var(--sca-muted)">${t('settings.image_limit_mb')}</span>`)
+            + settingRow('settings.image_limit_max_frame_pixels', `<input class="sca-input" type="number" min="1" max="100" value="${Math.round((s.imageLimitMaxFramePixels ?? 16777216) / 1048576)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxFramePixels', this.value * 1048576)"> <span style="font-size:13px;color:var(--sca-muted)">${t('settings.image_limit_mpx')}</span>`)
+            + settingRow('settings.image_limit_max_animation_pixels', `<input class="sca-input" type="number" min="1" max="200" value="${Math.round((s.imageLimitMaxAnimationPixels ?? 33554432) / 1048576)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxAnimationPixels', this.value * 1048576)"> <span style="font-size:13px;color:var(--sca-muted)">${t('settings.image_limit_mpx')}</span>`)
+            + settingRow('settings.image_limit_max_animation_frames', `<input class="sca-input" type="number" min="1" max="2000" value="${s.imageLimitMaxAnimationFrames ?? 300}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxAnimationFrames', this.value)">`)
+            + settingRow('settings.image_limit_timeout', `<input class="sca-input" type="number" min="5" max="120" value="${Math.round((s.imageLimitTimeoutMs ?? 15000) / 1000)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitTimeoutMs', this.value * 1000)"> <span style="font-size:13px;color:var(--sca-muted)">${t('settings.image_limit_seconds')}</span>`)
+            + '</div></div>'
+        )}
         ${section('cache', 'settings.cache_management', settingRow('settings.backup_export', `<button class="sca-btn" onclick="ShuangSettings.exportBackup()">${t('settings.backup_export')}</button>`, 'settings.backup_help') + settingRow('settings.backup_import', `<button class="sca-btn" onclick="document.getElementById('ShuangBackupFile').click()">${t('settings.backup_import')}</button><input id="ShuangBackupFile" type="file" accept=".json,application/json" hidden onchange="ShuangSettings.importBackup(this)">`) + '<p data-sca-backup-status role="status" class="sca-card-desc"></p>')}
         </div></div>`;
     capacityUpdated = 0;
@@ -704,6 +718,15 @@ window.ShuangSettings = {
         _renderCurrentPage();
         const body = document.querySelector('[data-sca-scroll]');
         if (body) body.scrollTop = scroll;
+    },
+
+    setImageLimit: (key, val) => {
+        const s = getSettings();
+        const num = Number(val);
+        if (!Number.isFinite(num) || num <= 0) return;
+        s[key] = num;
+        saveSettings();
+        _renderCurrentPage();
     },
 
     setFps: (val) => {

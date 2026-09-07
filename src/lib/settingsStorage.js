@@ -24,6 +24,12 @@ export function getSettings() {
             gifFrameRate: 100,
             gifFpsSyncGame: false,
             blockedPlayers: [],
+            imageLimitsEnabled: false,
+            imageLimitMaxBytes: 20971520,
+            imageLimitMaxFramePixels: 16777216,
+            imageLimitMaxAnimationPixels: 33554432,
+            imageLimitMaxAnimationFrames: 300,
+            imageLimitTimeoutMs: 15000,
         };
     }
     return Player.ExtensionSettings[SETTINGS_KEY];

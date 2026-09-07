@@ -1,7 +1,7 @@
 import { L, isChineseLang } from "../i18n/index.js";
 export { L, isChineseLang } from "../i18n/index.js";
 import { t } from "../i18n/index.js";
-import { IMAGE_TIMEOUT_MS } from "./imageLimits.js";
+import { getImageTimeoutMs } from "./imageLimits.js";
 /**
  * 工具函数集合
  */
@@ -128,7 +128,7 @@ export function getCorsImage(url, onReady, playerTexture = false) {
     if (!entry) {
         const img = new Image();
         entry = { img, loaded: false, failed: false, lastUsed: Date.now(), _waiters: new Set(), playerTexture };
-        const timeout = setTimeout(() => { img.src = ""; fail(); }, IMAGE_TIMEOUT_MS);
+        const timeout = setTimeout(() => { img.src = ""; fail(); }, getImageTimeoutMs());
         img.addEventListener("load", () => {
             clearTimeout(timeout);
             entry.loaded = true;
