@@ -166,6 +166,17 @@ const messages$1 = {
         "settings.enable_animated_images": "启用动态图片",
         "settings.gif_frame_rate": "动图帧率",
         "settings.sync_fps": "同步游戏帧率: {0}",
+        "settings.image_limits": "图片加载限制",
+        "settings.image_limits_help": "加载贴图时检查图片大小，超限则中断（默认关闭，不限制）",
+        "settings.image_limits_enabled": "启用图片大小检查",
+        "settings.image_limit_max_file_size": "最大文件大小",
+        "settings.image_limit_max_frame_pixels": "单帧最大像素",
+        "settings.image_limit_max_animation_pixels": "动画总像素上限",
+        "settings.image_limit_max_animation_frames": "动画最大帧数",
+        "settings.image_limit_timeout": "加载超时",
+        "settings.image_limit_mb": "MB",
+        "settings.image_limit_mpx": "百万像素",
+        "settings.image_limit_seconds": "秒",
         "settings.blocked_players": "屏蔽玩家管理",
         "settings.players": "{0} 人",
         "settings.block_textures_from_or_configured_by_specific_players": "屏蔽某玩家的贴图来源或配置，其贴图将不显示",
@@ -483,6 +494,17 @@ const messages$1 = {
         "settings.enable_animated_images": "Enable animated images",
         "settings.gif_frame_rate": "GIF Frame Rate",
         "settings.sync_fps": "Sync FPS: {1}",
+        "settings.image_limits": "Image Loading Limits",
+        "settings.image_limits_help": "Check image size when loading textures; abort if exceeded (disabled by default)",
+        "settings.image_limits_enabled": "Enable image size check",
+        "settings.image_limit_max_file_size": "Max file size",
+        "settings.image_limit_max_frame_pixels": "Max frame pixels",
+        "settings.image_limit_max_animation_pixels": "Max animation pixels",
+        "settings.image_limit_max_animation_frames": "Max animation frames",
+        "settings.image_limit_timeout": "Load timeout",
+        "settings.image_limit_mb": "MB",
+        "settings.image_limit_mpx": "Mpx",
+        "settings.image_limit_seconds": "sec",
         "settings.blocked_players": "Blocked Players",
         "settings.players": "{0} players",
         "settings.block_textures_from_or_configured_by_specific_players": "Block textures from or configured by specific players",
@@ -1070,6 +1092,12 @@ function getSettings() {
             gifFrameRate: 100,
             gifFpsSyncGame: false,
             blockedPlayers: [],
+            imageLimitsEnabled: false,
+            imageLimitMaxBytes: 20971520,
+            imageLimitMaxFramePixels: 16777216,
+            imageLimitMaxAnimationPixels: 33554432,
+            imageLimitMaxAnimationFrames: 300,
+            imageLimitTimeoutMs: 15000,
         };
     }
     return Player.ExtensionSettings[SETTINGS_KEY];
@@ -1086,33 +1114,49 @@ function t$2(key, values = []) {
     return message.replace(/\{(\d+)\}/g, (match, index) => values[index] === undefined ? match : String(values[index]));
 }
 
-const IMAGE_TIMEOUT_MS = 15000;
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-const MAX_FRAME_PIXELS = 4096 * 4096;
-const MAX_ANIMATION_PIXELS = 32 * 1024 * 1024;
-const MAX_ANIMATION_FRAMES = 300;
+const DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const DEFAULT_MAX_FRAME_PIXELS = 4096 * 4096;
+const DEFAULT_MAX_ANIMATION_PIXELS = 32 * 1024 * 1024;
+const DEFAULT_MAX_ANIMATION_FRAMES = 300;
+const DEFAULT_IMAGE_TIMEOUT_MS = 15000;
+function getImageTimeoutMs() { return cfg().timeoutMs; }
+function cfg() {
+    const s = getSettings();
+    return {
+        enabled: s.imageLimitsEnabled === true,
+        maxImageBytes: s.imageLimitMaxBytes ?? DEFAULT_MAX_IMAGE_BYTES,
+        maxFramePixels: s.imageLimitMaxFramePixels ?? DEFAULT_MAX_FRAME_PIXELS,
+        maxAnimationPixels: s.imageLimitMaxAnimationPixels ?? DEFAULT_MAX_ANIMATION_PIXELS,
+        maxAnimationFrames: s.imageLimitMaxAnimationFrames ?? DEFAULT_MAX_ANIMATION_FRAMES,
+        timeoutMs: s.imageLimitTimeoutMs ?? DEFAULT_IMAGE_TIMEOUT_MS,
+    };
+}
+function checkImageBudget(width, height, frames = 1) {
+    const c = cfg();
+    if (!c.enabled) return;
+    if (![width, height, frames].every(n => Number.isSafeInteger(n) && n > 0)
+        || width * height > c.maxFramePixels
+        || frames > c.maxAnimationFrames
+        || width * height * frames > c.maxAnimationPixels) {
+        throw new Error("Image exceeds decoding limits");
+    }
+}
 let downloadsEnabled = true;
 const downloads = new Set();
 function setTextureDownloadsEnabled(enabled) {
     downloadsEnabled = enabled;
     if (!enabled) for (const controller of downloads) controller.abort();
 }
-function checkImageBudget(width, height, frames = 1) {
-    if (![width, height, frames].every(n => Number.isSafeInteger(n) && n > 0)
-        || width * height > MAX_FRAME_PIXELS || frames > MAX_ANIMATION_FRAMES
-        || width * height * frames > MAX_ANIMATION_PIXELS) {
-        throw new Error("Image exceeds decoding limits");
-    }
-}
 async function fetchImageBuffer(url) {
     if (!downloadsEnabled) { const error = new Error("Texture loading disabled"); error.name = "AbortError"; throw error; }
+    const { enabled, maxImageBytes, timeoutMs } = cfg();
     const controller = new AbortController();
     downloads.add(controller);
-    const timer = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
         const response = await fetch(url, { mode: "cors", credentials: "omit", signal: controller.signal });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        if (Number(response.headers.get("content-length")) > MAX_IMAGE_BYTES) throw new Error("Image too large");
+        if (enabled && Number(response.headers.get("content-length")) > maxImageBytes) throw new Error("Image too large");
         const reader = response.body.getReader();
         const chunks = [];
         let length = 0;
@@ -1120,7 +1164,7 @@ async function fetchImageBuffer(url) {
             const { value, done } = await reader.read();
             if (done) break;
             length += value.byteLength;
-            if (length > MAX_IMAGE_BYTES) throw new Error("Image too large");
+            if (enabled && length > maxImageBytes) throw new Error("Image too large");
             chunks.push(value);
         }
         const bytes = new Uint8Array(length);
@@ -1228,7 +1272,7 @@ function getCorsImage(url, onReady, playerTexture = false) {
     if (!entry) {
         const img = new Image();
         entry = { img, loaded: false, failed: false, lastUsed: Date.now(), _waiters: new Set(), playerTexture };
-        const timeout = setTimeout(() => { img.src = ""; fail(); }, IMAGE_TIMEOUT_MS);
+        const timeout = setTimeout(() => { img.src = ""; fail(); }, getImageTimeoutMs());
         img.addEventListener("load", () => {
             clearTimeout(timeout);
             entry.loaded = true;
@@ -1827,7 +1871,21 @@ function _renderMainPage() {
         <div data-sca-scroll style="overflow-y:auto;min-height:0;flex:1;padding-right:12px">
         ${section('main', 'settings.main_controls', settingsToggle('pluginEnabled', 'settings.plugin_enabled', 'settings.plugin_help'))}
         ${section('display', 'settings.display_management', settingsToggle('imagesEnabled', 'settings.images_enabled', 'settings.images_help') + nav('modeSelect', 'settings.load_mode_settings', t$2(s.urlLoadMode === 'whitelist' ? 'settings.whitelist' : 'settings.unrestricted')) + nav('whitelist', 'settings.domain_whitelist', t$2('settings.domains', [s.allowedDomains?.length || 0])) + nav('blocked', 'settings.blocked_players', t$2('settings.players', [s.blockedPlayers?.length || 0])))}
-        ${section('images', 'settings.image_options', settingsToggle('domainWarningEnabled', 'settings.untrusted_domain_warning') + settingsToggle('animatedImageEnabled', 'settings.enable_animated_images') + settingRow('settings.gif_frame_rate', `<input aria-label="fps" class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:85px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? 'disabled' : ''}> fps`) + settingsToggle('gifFpsSyncGame', 'settings.sync_game_fps'))}
+        ${section('images', 'settings.image_options',
+            settingsToggle('domainWarningEnabled', 'settings.untrusted_domain_warning')
+            + settingsToggle('animatedImageEnabled', 'settings.enable_animated_images')
+            + settingRow('settings.gif_frame_rate', `<input aria-label="fps" class="sca-input" type="number" min="2" max="30" value="${Math.round(1000 / getGifFrameRate())}" style="width:85px" onchange="ShuangSettings.setFps(this.value)" ${s.gifFpsSyncGame ? 'disabled' : ''}> fps`)
+            + settingsToggle('gifFpsSyncGame', 'settings.sync_game_fps')
+            + '<div style="border-top:1px solid var(--sca-line);margin-top:12px;padding-top:12px">'
+            + settingsToggle('imageLimitsEnabled', 'settings.image_limits_enabled', 'settings.image_limits_help')
+            + `<div style="${s.imageLimitsEnabled ? '' : 'opacity:0.4;pointer-events:none'}">`
+            + settingRow('settings.image_limit_max_file_size', `<input class="sca-input" type="number" min="1" max="100" value="${Math.round((s.imageLimitMaxBytes ?? 20971520) / 1048576)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxBytes', this.value * 1048576)"> <span style="font-size:13px;color:var(--sca-muted)">${t$2('settings.image_limit_mb')}</span>`)
+            + settingRow('settings.image_limit_max_frame_pixels', `<input class="sca-input" type="number" min="1" max="100" value="${Math.round((s.imageLimitMaxFramePixels ?? 16777216) / 1048576)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxFramePixels', this.value * 1048576)"> <span style="font-size:13px;color:var(--sca-muted)">${t$2('settings.image_limit_mpx')}</span>`)
+            + settingRow('settings.image_limit_max_animation_pixels', `<input class="sca-input" type="number" min="1" max="200" value="${Math.round((s.imageLimitMaxAnimationPixels ?? 33554432) / 1048576)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxAnimationPixels', this.value * 1048576)"> <span style="font-size:13px;color:var(--sca-muted)">${t$2('settings.image_limit_mpx')}</span>`)
+            + settingRow('settings.image_limit_max_animation_frames', `<input class="sca-input" type="number" min="1" max="2000" value="${s.imageLimitMaxAnimationFrames ?? 300}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitMaxAnimationFrames', this.value)">`)
+            + settingRow('settings.image_limit_timeout', `<input class="sca-input" type="number" min="5" max="120" value="${Math.round((s.imageLimitTimeoutMs ?? 15000) / 1000)}" style="width:85px" onchange="ShuangSettings.setImageLimit('imageLimitTimeoutMs', this.value * 1000)"> <span style="font-size:13px;color:var(--sca-muted)">${t$2('settings.image_limit_seconds')}</span>`)
+            + '</div></div>'
+        )}
         ${section('cache', 'settings.cache_management', settingRow('settings.backup_export', `<button class="sca-btn" onclick="ShuangSettings.exportBackup()">${t$2('settings.backup_export')}</button>`, 'settings.backup_help') + settingRow('settings.backup_import', `<button class="sca-btn" onclick="document.getElementById('ShuangBackupFile').click()">${t$2('settings.backup_import')}</button><input id="ShuangBackupFile" type="file" accept=".json,application/json" hidden onchange="ShuangSettings.importBackup(this)">`) + '<p data-sca-backup-status role="status" class="sca-card-desc"></p>')}
         </div></div>`;
     capacityUpdated = 0;
@@ -2169,6 +2227,14 @@ window.ShuangSettings = {
         _renderCurrentPage();
         const body = document.querySelector('[data-sca-scroll]');
         if (body) body.scrollTop = scroll;
+    },
+    setImageLimit: (key, val) => {
+        const s = getSettings();
+        const num = Number(val);
+        if (!Number.isFinite(num) || num <= 0) return;
+        s[key] = num;
+        saveSettings();
+        _renderCurrentPage();
     },
     setFps: (val) => {
         const p = parseInt(val);
