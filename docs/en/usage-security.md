@@ -1,5 +1,9 @@
 # Security Settings
 
+## Online mod detection
+
+Custom texture assets are hidden from the inventory for characters without SCA, preventing an item from being equipped and then removed because the target cannot recognize it. Users without SCA also cannot remove or replace SCA assets worn by you. The mod detects users through hidden room status messages and clears that status when a member leaves.
+
 ## What It Does
 
 Custom textures load images from external image hosts. To prevent malicious image loading, the mod provides a domain whitelist. It also provides an animated-image (GIF) playback toggle and frame-rate control, balancing security and performance.

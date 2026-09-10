@@ -14,7 +14,7 @@ before(async () => {
         gizmo: 'assets/freeTransform', settings: 'assets/settings', capacity: 'lib/accountCapacity', editor: 'assets/editPanel', validation: 'assets/textureValidation', renderer: 'assets/render', importer: 'assets/importExport',
         persistence: 'lib/persistence', list: 'assets/listView', slots: 'assets/textureListCanvas',
         shared: 'assets/state', constants: 'assets/constants', limits: 'lib/imageLimits',
-        images: 'lib/gifPlayer', i18n: 'i18n/index', catalog: 'i18n/messages', animation: 'lib/gifAnimationLoop'
+        images: 'lib/gifPlayer', i18n: 'i18n/index', catalog: 'i18n/messages', animation: 'lib/gifAnimationLoop', modTag: 'lib/modTag'
     };
     const bundle = await rollup({
         input: 'test-entry',
@@ -49,6 +49,38 @@ function session(overrides = {}) {
 }
 
 const texture = () => ({ TextureURL: 'https://example.com/image.png', ScaleX: 100, ScaleY: 100 });
+test('custom assets are available only to players advertising SCA', () => {
+    const hooks = {};
+    const tagged = { MemberNumber: 8 };
+    const untagged = { MemberNumber: 9 };
+    const { api, context, player } = session({
+        ChatRoomCharacter: [tagged, untagged], ChatRoomMessage() {},
+        ChatRoomSyncMemberLeave() {}, ChatRoomSyncMemberJoin() {}
+    });
+    api.modTag.setupModTagHooks({
+        hookFunction: (name, priority, callback) => { hooks[name] = callback; },
+        afterPlayerLogin() {}
+    });
+    assert.equal(api.modTag.hasScaTag(player), true);
+    hooks.ChatRoomMessage([{ Type:'Hidden', Content:'SCA_INFO', Sender:8,
+        Dictionary:[{ Type:'SCA_INFO', Content:{ version:'1.0.0' } }] }], () => {});
+    assert.equal(api.modTag.hasScaTag(tagged), true);
+    assert.equal(api.modTag.hasScaTag(untagged), false);
+    assert.equal(api.modTag.isScaUser(player.MemberNumber), true);
+    assert.equal(api.modTag.isScaUser(tagged.MemberNumber), true);
+    assert.equal(api.modTag.isScaUser(untagged.MemberNumber), false);
+    context.ChatRoomCharacter[0] = { MemberNumber: 8 };
+    assert.equal(api.modTag.isScaUser(tagged.MemberNumber), true);
+    hooks.ChatRoomSyncMemberLeave([{ SourceMemberNumber:8 }], () => {});
+    assert.equal(api.modTag.isScaUser(tagged.MemberNumber), false);
+    // Rejoining without the plugin must not resurrect the previous tag.
+    hooks.ChatRoomMessage([{ Type:'Hidden', Content:'SCA_INFO', Sender:8,
+        Dictionary:[{ Type:'SCA_INFO', Content:{ version:'1.0.0' } }] }], () => {});
+    assert.equal(api.modTag.isScaUser(tagged.MemberNumber), true);
+    hooks.ChatRoomSyncMemberJoin([{ SourceMemberNumber:8 }], () => {});
+    assert.equal(api.modTag.isScaUser(tagged.MemberNumber), false);
+});
+
 test('settings registration uses its own key for immediate and delayed initialization', () => {
     for (const delayed of [false, true]) {
         const registrations = [], pending = [];

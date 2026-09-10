@@ -18,6 +18,36 @@ import { Logger } from "./utils.js";
 const TAG_CONTENT = "SCA_INFO";
 // 收到他人广播后，写入对方角色对象的字段名
 const TAG_KEY = "SCA_INFO";
+const tagsByMember = new Map();
+
+function tagOf(C) {
+    if (!C) return null;
+    if (C === Player) return C[TAG_KEY] || { version: ModInfo.version };
+    return tagsByMember.get(C.MemberNumber) || C[TAG_KEY] || null;
+}
+
+export function hasScaTag(C) {
+    return !!tagOf(C);
+}
+
+export function isScaUser(memberNumber) {
+    if (Player?.MemberNumber === memberNumber) return hasScaTag(Player);
+    return typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)
+        && hasScaTag(ChatRoomCharacter.find(C => C.MemberNumber === memberNumber));
+}
+
+/**
+ * 丢弃某成员的标记缓存（Map + 角色对象上的残留字段）
+ *
+ * 用于离房与再次进房：对方可能这次没装插件，不能沿用上一次的标记。
+ * @param {number} memberNumber
+ */
+function forgetTag(memberNumber) {
+    tagsByMember.delete(memberNumber);
+    if (typeof ChatRoomCharacter === "undefined" || !Array.isArray(ChatRoomCharacter)) return;
+    const C = ChatRoomCharacter.find(c => c.MemberNumber === memberNumber);
+    if (C && C !== Player) delete C[TAG_KEY];
+}
 
 // 图标位置与大小（角色顶部状态图标第一行下方，单独占第二行，避免与 BC 原生 / echo 图标重叠）
 // BC 原生图标：X=70/110/150/310/350/390，Y=CharY，大小 40；echo：X=420，Y=CharY+5，大小 35
@@ -50,6 +80,8 @@ function sendTag(target) {
 export function setupModTagHooks(HookManager) {
     if (!HookManager || typeof HookManager.hookFunction !== "function") return;
 
+    if (Player?.MemberNumber) Player[TAG_KEY] = { version: ModInfo.version };
+
     // ① 登录后给自己打本地 tag（绘制自己图标时自读）
     if (typeof HookManager.afterPlayerLogin === "function") {
         HookManager.afterPlayerLogin(() => {
@@ -60,19 +92,30 @@ export function setupModTagHooks(HookManager) {
     // ② 房间同步时广播给全员（进房 / 房间更新都会触发，频率不高）
     if (typeof ChatRoomSync === "function") {
         HookManager.hookFunction("ChatRoomSync", 0, (args, next) => {
+            tagsByMember.clear();
             const ret = next(args);
             try { sendTag(); } catch (e) { Logger.error("[ShuangAssets] 广播 mod 状态失败", e); }
             return ret;
         });
     }
 
+    // A member may later rejoin without the plugin; do not reuse their old tag.
+    if (typeof ChatRoomSyncMemberLeave === "function") {
+        HookManager.hookFunction("ChatRoomSyncMemberLeave", 0, (args, next) => {
+            const member = args[0]?.SourceMemberNumber;
+            if (typeof member === "number") forgetTag(member);
+            return next(args);
+        });
+    }
+
     // ③ 有人进房时定向发给进房者（让新人立即看到老成员的图标，不必等下次 ChatRoomSync）
+    //    同时清掉他的旧标记：他可能这次没装插件，不能沿用上一次进房时的标记
     if (typeof ChatRoomSyncMemberJoin === "function") {
         HookManager.hookFunction("ChatRoomSyncMemberJoin", 0, (args, next) => {
             const ret = next(args);
             try {
                 const source = args[0]?.SourceMemberNumber;
-                if (typeof source === "number") sendTag(source);
+                if (typeof source === "number") { forgetTag(source); sendTag(source); }
             } catch (e) { Logger.error("[ShuangAssets] 定向发送 mod 状态失败", e); }
             return ret;
         });
@@ -88,10 +131,12 @@ export function setupModTagHooks(HookManager) {
                     const payload = Array.isArray(data.Dictionary)
                         ? data.Dictionary.find(d => d?.Type === TAG_CONTENT)?.Content
                         : undefined;
-                    if (typeof sender === "number" && payload
-                        && typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)) {
-                        const C = ChatRoomCharacter.find(c => c.MemberNumber === sender);
-                        if (C) C[TAG_KEY] = payload;
+                    if (typeof sender === "number" && payload) {
+                        tagsByMember.set(sender, payload);
+                        if (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)) {
+                            const C = ChatRoomCharacter.find(c => c.MemberNumber === sender);
+                            if (C) C[TAG_KEY] = payload;
+                        }
                     }
                 }
             } catch (e) { Logger.error("[ShuangAssets] 接收 mod 状态失败", e); }
@@ -108,7 +153,8 @@ export function setupModTagHooks(HookManager) {
                 const [C, CharX, CharY, Zoom] = args;
                 // ChatRoomHideIconState === 0 (SHOW_ALL) 时才画，尊重玩家「隐藏状态图标」设置
                 if (typeof ChatRoomHideIconState !== "undefined" && ChatRoomHideIconState !== 0) return;
-                if (!C?.[TAG_KEY]) return;
+                const tag = tagOf(C);
+                if (!tag) return;
                 const iconX = CharX + ICON_X * Zoom;
                 const iconY = CharY + ICON_Y * Zoom;
                 const iconW = ICON_SIZE * Zoom;
@@ -118,7 +164,7 @@ export function setupModTagHooks(HookManager) {
                 // DrawHoverElements 在主绘制末尾统一渲染，保证悬浮框在最上层不被遮挡
                 if (typeof MouseIn === "function" && typeof MainCanvas !== "undefined"
                     && MouseIn(iconX, iconY, iconW, iconH) && Array.isArray(DrawHoverElements)) {
-                    const ver = C[TAG_KEY]?.version ?? ModInfo.version;
+                    const ver = tag.version ?? ModInfo.version;
                     DrawHoverElements.push(() => {
                         const boxW = 120 * Zoom;
                         const boxH = 24 * Zoom;

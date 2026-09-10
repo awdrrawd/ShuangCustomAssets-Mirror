@@ -36,6 +36,7 @@ BC（Bondage Club）游戏的自定义贴图/装扮插件，油猴脚本形式�
 - 清理完成：容量只保留纯计算，不再 hook ServerSend 统计历史；拖曳鼠标/触控共用开始/结束处理；移除旧容量词条与重复封锁按钮分派。
 - 图片下载有超时/大小限制，动图解码有单图和全局预算；关闭动图跳过完整 JS 解码。翻译引擎、字库及教程结构集中 src/i18n/。npm test 运行回归测试。
 - Rollup 输出 dist/assets/main.js + 内容哈希应用模块，SDK 随包，入口在载入相依模块前检查同名 SDK 注册（等待游戏后再次检查）；旧 shuang-assets.js 保留相容入口，构建复制 PNG 资源。部署整个 dist。
+- AssetManager 使用 SCA_INFO 安装标记限制自定义资产：未安装插件的目标角色不在道具列表显示贴图资产，操作来源也必须已广播 SCA 标记；标记按 MemberNumber 缓存，避免 BC 替换角色对象后误判，离房时清除。
 
 ### 技术要点 / 关键结构
 - **入口**：`src/main.js`（HookManager 注册所有 hooks）
