@@ -2583,6 +2583,26 @@ function notifyGifFrame(C, layerIndex, frameIndex, nextDueAt) {
 
 const TAG_CONTENT = "SCA_INFO";
 const TAG_KEY = "SCA_INFO";
+const tagsByMember = new Map();
+function tagOf(C) {
+    if (!C) return null;
+    if (C === Player) return C[TAG_KEY] || { version: ModInfo.version };
+    return tagsByMember.get(C.MemberNumber) || C[TAG_KEY] || null;
+}
+function hasScaTag(C) {
+    return !!tagOf(C);
+}
+function isScaUser(memberNumber) {
+    if (Player?.MemberNumber === memberNumber) return hasScaTag(Player);
+    return typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)
+        && hasScaTag(ChatRoomCharacter.find(C => C.MemberNumber === memberNumber));
+}
+function forgetTag(memberNumber) {
+    tagsByMember.delete(memberNumber);
+    if (typeof ChatRoomCharacter === "undefined" || !Array.isArray(ChatRoomCharacter)) return;
+    const C = ChatRoomCharacter.find(c => c.MemberNumber === memberNumber);
+    if (C && C !== Player) delete C[TAG_KEY];
+}
 const ICON_X = 320;
 const ICON_Y = 0;
 const ICON_SIZE = 40;
@@ -2600,6 +2620,7 @@ function sendTag(target) {
 }
 function setupModTagHooks(HookManager) {
     if (!HookManager || typeof HookManager.hookFunction !== "function") return;
+    if (Player?.MemberNumber) Player[TAG_KEY] = { version: ModInfo.version };
     if (typeof HookManager.afterPlayerLogin === "function") {
         HookManager.afterPlayerLogin(() => {
             Player[TAG_KEY] = { version: ModInfo.version };
@@ -2607,9 +2628,17 @@ function setupModTagHooks(HookManager) {
     }
     if (typeof ChatRoomSync === "function") {
         HookManager.hookFunction("ChatRoomSync", 0, (args, next) => {
+            tagsByMember.clear();
             const ret = next(args);
             try { sendTag(); } catch (e) { Logger.error("[ShuangAssets] 广播 mod 状态失败", e); }
             return ret;
+        });
+    }
+    if (typeof ChatRoomSyncMemberLeave === "function") {
+        HookManager.hookFunction("ChatRoomSyncMemberLeave", 0, (args, next) => {
+            const member = args[0]?.SourceMemberNumber;
+            if (typeof member === "number") forgetTag(member);
+            return next(args);
         });
     }
     if (typeof ChatRoomSyncMemberJoin === "function") {
@@ -2617,7 +2646,7 @@ function setupModTagHooks(HookManager) {
             const ret = next(args);
             try {
                 const source = args[0]?.SourceMemberNumber;
-                if (typeof source === "number") sendTag(source);
+                if (typeof source === "number") { forgetTag(source); sendTag(source); }
             } catch (e) { Logger.error("[ShuangAssets] 定向发送 mod 状态失败", e); }
             return ret;
         });
@@ -2631,10 +2660,12 @@ function setupModTagHooks(HookManager) {
                     const payload = Array.isArray(data.Dictionary)
                         ? data.Dictionary.find(d => d?.Type === TAG_CONTENT)?.Content
                         : undefined;
-                    if (typeof sender === "number" && payload
-                        && typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)) {
-                        const C = ChatRoomCharacter.find(c => c.MemberNumber === sender);
-                        if (C) C[TAG_KEY] = payload;
+                    if (typeof sender === "number" && payload) {
+                        tagsByMember.set(sender, payload);
+                        if (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter)) {
+                            const C = ChatRoomCharacter.find(c => c.MemberNumber === sender);
+                            if (C) C[TAG_KEY] = payload;
+                        }
                     }
                 }
             } catch (e) { Logger.error("[ShuangAssets] 接收 mod 状态失败", e); }
@@ -2647,7 +2678,8 @@ function setupModTagHooks(HookManager) {
             try {
                 const [C, CharX, CharY, Zoom] = args;
                 if (typeof ChatRoomHideIconState !== "undefined" && ChatRoomHideIconState !== 0) return;
-                if (!C?.[TAG_KEY]) return;
+                const tag = tagOf(C);
+                if (!tag) return;
                 const iconX = CharX + ICON_X * Zoom;
                 const iconY = CharY + ICON_Y * Zoom;
                 const iconW = ICON_SIZE * Zoom;
@@ -2655,7 +2687,7 @@ function setupModTagHooks(HookManager) {
                 DrawImageResize(BADGE_IMAGE_URL, iconX, iconY, iconW, iconH);
                 if (typeof MouseIn === "function" && typeof MainCanvas !== "undefined"
                     && MouseIn(iconX, iconY, iconW, iconH) && Array.isArray(DrawHoverElements)) {
-                    const ver = C[TAG_KEY]?.version ?? ModInfo.version;
+                    const ver = tag.version ?? ModInfo.version;
                     DrawHoverElements.push(() => {
                         const boxW = 120 * Zoom;
                         const boxH = 24 * Zoom;
@@ -10695,6 +10727,8 @@ async function start() {
             repository: ModInfo.repository
         });
         u$1.initWithMod(mod);
+        mt.enableCustomAssetUseValidation(hasScaTag);
+        mt.enableFromModUserValidation(param => param.sourceMemberNumber === 0 || isScaUser(param.sourceMemberNumber));
         setupPersistence(u$1);
         setupSettingsHooks(u$1);
         u$1.hookFunction("CraftingDeserialize", 0, (args, next) => {
