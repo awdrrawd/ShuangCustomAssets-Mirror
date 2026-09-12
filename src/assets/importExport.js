@@ -181,9 +181,9 @@ export function importConfig(item, mode) {
 
             const count = item.Property.Textures.filter(t => t != null).length;
             const modeText = mode === "append" ? "追加" : "覆盖";
-            const modeTextEn = mode === "append" ? "Append" : "Replace";
+            const localizedMode = t(mode === "append" ? "importExport.mode_append" : "importExport.mode_replace");
             Logger.info(`${modeText}导入成功:`, count, "个图层");
-            showStatus(t("importExport.import_ok_layers", [modeText, count, modeTextEn]), "#4CAF50");
+            showStatus(t("importExport.import_ok_layers", [localizedMode, count]), "#4CAF50");
 
             // 同步到服务器并刷新角色
             syncItemToServer(item);

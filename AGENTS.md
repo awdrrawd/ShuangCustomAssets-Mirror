@@ -34,7 +34,7 @@ BC（Bondage Club）游戏的自定义贴图/装扮插件，油猴脚本形式�
 - 编辑页保留原始 MouseX/MouseY 差值「移动」与缩放「拖移」两个 100×40 按钮，和任意变形互斥；缩放拖移每像素 0.5%，支持等比与独立 XY，旋转保留 BAR。BAR 使用 SCA_slider.png 缩为 35px；容量摘要带底框与线性进度条。
 - 实验任意变形：编辑页新增独立按钮，支持中心缩放/旋转与平移，仅当前编辑角色/物件/图层启用；与旧移动/拖移互斥。不可见/未信任或无有效绘图捕获时不画框；最小边长约 32 CSS px，启用工具时恢复旧零/极小尺寸。
 - 清理完成：容量只保留纯计算，不再 hook ServerSend 统计历史；拖曳鼠标/触控共用开始/结束处理；移除旧容量词条与重复封锁按钮分派。
-- 图片下载有超时/大小限制，动图解码有单图和全局预算；关闭动图跳过完整 JS 解码。翻译引擎、字库及教程结构集中 src/i18n/。npm test 运行回归测试。
+- 图片下载有超时/大小限制，动图解码有单图和全局预算；关闭动图跳过完整 JS 解码。翻译引擎、字库及教程结构集中 src/i18n/，支持 TW/CN/EN/DE/FR/RU/UA；字库按语言拆分于 src/i18n/locales/，messages.js 仅汇出目录；教程保存 key 并在绘制时翻译，旧 L(cn,en) 标签经字库映射沿用七语。npm test 运行回归测试。
 - Rollup 输出 dist/assets/main.js + 内容哈希应用模块，SDK 随包，入口在载入相依模块前检查同名 SDK 注册（等待游戏后再次检查）；旧 shuang-assets.js 保留相容入口，构建复制 PNG 资源。部署整个 dist。
 - AssetManager 使用 SCA_INFO 安装标记限制自定义资产：未安装插件的目标角色不在道具列表显示贴图资产，操作来源也必须已广播 SCA 标记；标记按 MemberNumber 缓存，避免 BC 替换角色对象后误判，离房时清除。
 
@@ -55,7 +55,7 @@ BC（Bondage Club）游戏的自定义贴图/装扮插件，油猴脚本形式�
 - **拖拽卡顿**：`CharacterRefresh` 节流 200ms，拖拽场景需独立更短的刷新间隔。
 - **CDN 双源 fallback**：固定资源（logo、警告图）主源失败自动回退备用源。
 - **图层底图 404**：贴图靠 AfterDraw 手绘，图层本身没有服务器 PNG。BC 会为每个 `HasImage` 的图层请求 `<Group>/<AssetName>_LayerN.png` → 全部 404。解法：afterLoad 里给每层设 `HasImage=false`（AfterDraw 与 HasImage 相互独立，仍照常逐层触发），比映射 1x1 透明 PNG 更干净。
-- **图层数量**：改 `MAX_TEXTURE_COUNT`（constants.js）即可，LAYER_NAMES / asset.Layer / 分页 / 导入上限全部由它派生；教程数字文案位于 src/i18n/messages.js，修改上限时需同步。
+- **图层数量**：改 `MAX_TEXTURE_COUNT`（constants.js）即可，LAYER_NAMES / asset.Layer / 分页 / 导入上限全部由它派生；教程数字文案位于 src/i18n/locales/<语言>.js，修改上限时需同步。
 
 ### 部署 / 分发
 - Netlify（`netlify.toml`）+ Cloudflare Pages 双源分发。

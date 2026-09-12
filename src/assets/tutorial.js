@@ -1,5 +1,5 @@
 import { TUTORIAL_PAGES } from "../i18n/tutorial.js";
-import { t, L, isChineseLang } from "../i18n/index.js";
+import { t } from "../i18n/index.js";
 /**
  * 自定义贴图道具 - 内置教程
  * 从列表页点击「?」按钮进入，多页翻页浏览
@@ -11,7 +11,7 @@ import { state } from "./state.js";
 
 /**
  * 教程页面数据
- * 每页包含 title 和 lines（每行有 cn/en 文本和可选颜色）
+ * 每页包含 title 和 lines（每行有翻译 key 和可选颜色）
  */
 // === 布局常量 ===
 const TITLE_Y = 360;
@@ -31,10 +31,10 @@ export function drawTutorial() {
     if (state.tutorialPage < 0) state.tutorialPage = 0;
 
     const page = TUTORIAL_PAGES[state.tutorialPage];
-    const cn = isChineseLang();
+
 
     // 标题
-    DrawText(L(page.title.cn, page.title.en), 1500, TITLE_Y, "White", "Gray");
+    DrawText(t(page.title), 1500, TITLE_Y, "White", "Gray");
     // 页码
     DrawText(t("tutorial.page", [state.tutorialPage + 1, totalPages]),
         1505, SUBTITLE_Y, "#ebfe58", "Gray");
@@ -42,7 +42,7 @@ export function drawTutorial() {
     // 内容行
     let y = CONTENT_START_Y;
     for (const line of page.lines) {
-        const text = cn ? line.cn : line.en;
+        const text = line.key ? t(line.key) : "";
         if (text) {
             const color = line.color || "White";
             DrawText(text, 1500, y, color, "Gray");

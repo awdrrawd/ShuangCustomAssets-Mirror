@@ -14,7 +14,7 @@ before(async () => {
         gizmo: 'assets/freeTransform', settings: 'assets/settings', capacity: 'lib/accountCapacity', editor: 'assets/editPanel', validation: 'assets/textureValidation', renderer: 'assets/render', importer: 'assets/importExport',
         persistence: 'lib/persistence', list: 'assets/listView', slots: 'assets/textureListCanvas',
         shared: 'assets/state', constants: 'assets/constants', limits: 'lib/imageLimits',
-        images: 'lib/gifPlayer', i18n: 'i18n/index', catalog: 'i18n/messages', animation: 'lib/gifAnimationLoop', modTag: 'lib/modTag'
+        tutorial: 'assets/tutorial', tutorialPages: 'i18n/tutorial', images: 'lib/gifPlayer', i18n: 'i18n/index', catalog: 'i18n/messages', animation: 'lib/gifAnimationLoop', modTag: 'lib/modTag'
     };
     const bundle = await rollup({
         input: 'test-entry',
@@ -921,5 +921,67 @@ test('resize cannot collapse either axis and preserves center at the minimum', (
         assert.ok(w>=50 && h>=50);
         assert.equal(values.OffsetX+w/2,100); assert.equal(values.OffsetY+h/2,200);
         if (locked) assert.equal(values.ScaleX,values.ScaleY);
+    }
+});
+
+
+test('seven locales have complete nonempty strings and matching placeholders', () => {
+    const { api, context } = session();
+    const languages = ['TW', 'CN', 'EN', 'DE', 'FR', 'RU', 'UA'];
+    assert.deepEqual(Object.keys(api.catalog.messages), languages);
+    const reference = api.catalog.messages.EN;
+    const parameters = text => [...text.matchAll(/\{\d+\}/g)].map(m => m[0]).sort();
+    for (const language of languages) {
+        const table = api.catalog.messages[language];
+        assert.deepEqual(Object.keys(table), Object.keys(reference));
+        for (const [key, value] of Object.entries(table)) {
+            assert.equal(typeof value, 'string');
+            assert.ok(value.trim(), language + ': ' + key);
+            assert.deepEqual(parameters(value), parameters(reference[key]), language + ': ' + key);
+        }
+        context.TranslationLanguage = language;
+        const input = '$& {1} <name>';
+        assert.ok(api.i18n.t('itemEditBeacon.edited_their_own_custom_texture', [input]).includes(input));
+        assert.equal(api.i18n.t('missing.key'), 'missing.key');
+        assert.equal(api.i18n.t('toString'), 'toString');
+        assert.equal(api.i18n.L(api.catalog.messages.CN['constants.head'], reference['constants.head']), table['constants.head']);
+    }
+});
+
+test('locale aliases, Traditional Chinese and localized legacy labels follow language changes', () => {
+    const { api, context } = session();
+    for (const [raw, code] of Object.entries({'zh-TW':'TW','zh_Hant':'TW','zh-CN':'CN','zh-Hans':'CN','de-DE':'DE','fr-FR':'FR','ru-RU':'RU','uk-UA':'UA','unknown':'EN'})) {
+        assert.equal(api.i18n.getLanguage(raw), code);
+    }
+    const pose = api.constants.POSE_LABELS.Hogtied;
+    for (const language of api.i18n.SUPPORTED_LANGUAGES) {
+        context.TranslationLanguage = language;
+        assert.equal(api.i18n.L(pose.cn, pose.en), api.catalog.messages[language]['constants.hogtied']);
+        const mode = api.i18n.t('importExport.mode_append');
+        const text = api.i18n.t('importExport.import_ok_layers', [mode, 3]);
+        assert.ok(text.includes(mode) && text.includes('3'));
+        assert.ok(!/\{\d+\}/.test(text));
+    }
+    context.TranslationLanguage = 'TW';
+    assert.equal(api.i18n.t('settings.backup_export'), '匯出備份');
+    context.TranslationLanguage = 'CN';
+    assert.equal(api.i18n.t('settings.backup_export'), '导出备份');
+});
+
+test('all tutorial pages render the current locale, including after a language switch', () => {
+    const drawn = [];
+    const { api, context } = session({DrawText: text => drawn.push(text), DrawButton() {}});
+    for (const language of api.i18n.SUPPORTED_LANGUAGES) {
+        context.TranslationLanguage = language;
+        api.tutorialPages.TUTORIAL_PAGES.forEach((page, index) => {
+            drawn.length = 0;
+            api.shared.state.tutorialPage = index;
+            api.tutorial.drawTutorial();
+            assert.equal(drawn[0], api.catalog.messages[language][page.title]);
+            for (const line of page.lines) if (line.key) {
+                assert.ok(Object.hasOwn(api.catalog.messages[language], line.key), line.key);
+                assert.ok(drawn.includes(api.catalog.messages[language][line.key]));
+            }
+        });
     }
 });
