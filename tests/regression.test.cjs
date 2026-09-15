@@ -569,6 +569,35 @@ test('PNG frame control cannot allocate a frame larger than the declared canvas'
 });
 
 
+test('SCA source checks isolate removal and swap without modifying other mod flags', () => {
+    const { api, player } = session({ ChatRoomCharacter: [{ MemberNumber: 8, SCA_INFO: { version: 'test' } }] });
+    const hooks = {};
+    api.settings.setupSettingsHooks({ hookFunction: (name, priority, hook) => { hooks[name] = hook; } });
+    for (const name of ['ValidationResolveRemoveDiff', 'ValidationResolveSwapDiff']) {
+        for (const fromModUser of [undefined, false, true]) {
+            const params = Object.freeze({ C: player, fromSelf: false, sourceMemberNumber: 9, fromModUser });
+            const sca = { Asset: { Name: api.constants.ASSET_NAME } };
+            const echo = { Asset: { Name: 'EchoItem' } };
+            const run = (previous, p, next) => {
+                const args = name === 'ValidationResolveSwapDiff' ? [previous, echo, p] : [previous, p];
+                return hooks[name](args, forwarded => { assert.equal(forwarded, args); return next(); });
+            };
+            assert.equal(run(sca, params, () => assert.fail('unmarked source passed')).item, sca);
+            const downstream = { item: null, valid: true };
+            assert.equal(run(echo, params, () => downstream), downstream);
+            for (const override of [{ sourceMemberNumber: 8 }, { sourceMemberNumber: 0 },
+                { fromSelf: true, sourceMemberNumber: player.MemberNumber }, { C: { IsPlayer: () => false } }]) {
+                assert.equal(run(sca, Object.freeze({ ...params, ...override }), () => downstream), downstream);
+            }
+            // A later native/mod rejection must remain authoritative for allowed sources.
+            const denied = { item: sca, valid: false };
+            assert.equal(run(sca, { ...params, sourceMemberNumber: 8 }, () => denied), denied);
+            assert.equal(params.fromModUser, fromModUser);
+        }
+    }
+    assert.doesNotMatch(fs.readFileSync('src/app.js', 'utf8'), /enableFromModUserValidation\s*\(/);
+});
+
 test('plugin switch rejects remote texture application but display switch preserves permissions', () => {
     const { api, player } = session();
     const hooks = {};

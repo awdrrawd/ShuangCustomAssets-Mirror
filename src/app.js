@@ -12,7 +12,7 @@ import ModInfo from "./modInfo.js";
 import { registerAssets, initAssets } from "./lib/assetManager.js";
 import { Logger } from "./lib/utils.js";
 import { setupGifAnimationHooks } from "./lib/gifAnimationLoop.js";
-import { setupModTagHooks, hasScaTag, isScaUser } from "./lib/modTag.js";
+import { setupModTagHooks, hasScaTag } from "./lib/modTag.js";
 import assets from "./assets/index.js";
 import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
 import { initSettings, setupSettingsHooks } from "./assets/settings.js";
@@ -84,8 +84,6 @@ export async function start() {
         // Hide custom assets from characters without SCA instead of letting BC equip
         // and subsequently remove them during synchronization.
         AssetManager.enableCustomAssetUseValidation(hasScaTag);
-        // Source 0 is the server/script origin (BC special-cases it in ChatRoom.js): never treat it as a mod-less player.
-        AssetManager.enableFromModUserValidation(param => param.sourceMemberNumber === 0 || isScaUser(param.sourceMemberNumber));
         setupPersistence(HookManager);
         setupSettingsHooks(HookManager);
 

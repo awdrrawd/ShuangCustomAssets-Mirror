@@ -7,6 +7,7 @@ import { Logger, cancelTextureImageLoads } from "@lib/utils.js";
 import { setTextureDownloadsEnabled } from "../lib/imageLimits.js";
 import { BADGE_IMAGE_URL, ASSET_NAME } from "./constants.js";
 import ModInfo from "../modInfo.js";
+import { isScaUser } from "../lib/modTag.js";
 import { exportPlayerBackup, importPlayerBackup, CRAFT_KEY } from "../lib/persistence.js";
 import { packetBytes, extensionPacket, ACCOUNT_UPDATE_LIMIT } from "../lib/accountCapacity.js";
 
@@ -36,6 +37,18 @@ export function getPluginEnabled() { return getSettings().pluginEnabled !== fals
 export function getImageLoadingEnabled() { return getPluginEnabled() && getSettings().imagesEnabled !== false; }
 
 export function setupSettingsHooks(hooks) {
+    // AssetManager's source validator writes the shared params.fromModUser field,
+    // which can overwrite Echo's decision. Check only SCA removals/swaps locally.
+    for (const [name, paramsIndex] of [["ValidationResolveRemoveDiff", 1], ["ValidationResolveSwapDiff", 2]]) {
+        hooks.hookFunction(name, 1, (args, next) => {
+            const previous = args[0], params = args[paramsIndex];
+            if (previous?.Asset?.Name === ASSET_NAME && params?.C?.IsPlayer() &&
+                !params.fromSelf && params.sourceMemberNumber !== 0 && !isScaUser(params.sourceMemberNumber)) {
+                return { item: previous, valid: false };
+            }
+            return next(args);
+        });
+    }
     hooks.hookFunction("ValidationResolveAppearanceDiff", 10, (args, next) => {
         const [, previous, incoming, params] = args;
         // Reject remote additions/edits locally using BC's standard diff rejection path.
