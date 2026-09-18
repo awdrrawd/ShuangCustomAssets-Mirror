@@ -4,11 +4,12 @@ if (!globalThis[key] && !alreadyRegistered()) {
     globalThis[key] = Promise.resolve().then(async () => {
         while (typeof LoginResponse !== "function" || typeof AssetGroup === "undefined"
             || typeof TextAllScreenCache === "undefined" || typeof CraftingLoadServer !== "function"
-            || typeof AssetGet !== "function" || typeof GLDraw2DCanvas !== "function") {
+            || typeof AssetGet !== "function" || typeof GLDraw2DCanvas !== "function"
+            || typeof ChatRoomPublishCustomAction !== "function") {
             await new Promise(resolve => setTimeout(resolve, 50));
         }
         if (alreadyRegistered()) return;
-        const app = await import('./app-B_yf2CfW.js');
+        const app = await import('./app-B0eMVXNw.js');
         await app.start();
     }).catch(error => {
         if (!alreadyRegistered()) delete globalThis[key];
