@@ -20,7 +20,7 @@
         "@rollup/plugin-commonjs": "^28.0.6",
         "@rollup/plugin-node-resolve": "^16.0.1",
         "@rollup/plugin-terser": "^0.4.4",
-        "@sugarch/bc-asset-manager": "^1.4.0",
+        "@sugarch/bc-asset-manager": "^1.4.1",
         "@sugarch/bc-mod-hook-manager": "^0.3.4",
         "@sugarch/bc-mod-utility": "^0.2.11",
         "bc-stubs": "129.0.0-Beta.1",
