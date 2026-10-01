@@ -50,6 +50,7 @@ BC（Bondage Club）游戏的自定义贴图/装扮插件，油猴脚本形式�
 ### 已知坑（踩过，别再踩）
 - **拖曳与 Canvas**：旧变形框曾在实机错位。新实验模式由 render.js 捕获当前编辑角色/物件/图层几何，通过 DrawCharacter 内最终 DrawImageEx 的 SourcePos/目标尺寸/上下文矩阵映射到 SVG，反矩阵处理指针。GLDraw2DCanvas 捕获当前贴图实际 atlas 偏移（含 ECHO 扩画布），排除眨眼。 不 hook 原生 Canvas；受控浏览器已验证，仍待完整游戏测试。原始移动/拖移保留。
 - **Crafting 校验**：BC 的 `CraftingValidate` 用 `typeof value !== typeof baseline[key]` 校验，删字段会导致老配置被静默丢弃 → 删字段时必须留兼容字段 + Load 钩子迁移。
+- **R132 noarch 属性丢弃**：R132 的 `CraftingUpdateFromItem` 把 noarch 道具的 `craft.TypeRecord` 强写为 `{}`（R131 只在道具自身有 TypeRecord 时才写，noarch 保持 null），而 `ExtendedItemSetOptionByRecord` 收集允许字段的循环跳过 NoArch 选项 → 传入非空 TypeRecord 时，`Textures` / `Hide*` 等 baselineProperty 字段被判非法丢弃（控制台报 "Ignoring unsanctioned/invalid item properties"），预览刷新与佩戴时配置不生效。解法：app.js hook `InventoryCraft`，把本插件道具的空 TypeRecord 归一为 null（对 noarch 而言 {} 与 null 语义一致）。
 - **锁机制**：noarch archetype 的 `ChangeWhenLocked` 不自动生效，需手动检查 `item.Property.LockedBy`。
 - **Block 拦截**：贴图需 `Block=[]` + `InventoryGroupIsBlockedForCharacter` 豁免，避免被其他道具 Block。
 - **拖拽卡顿**：`CharacterRefresh` 节流 200ms，拖拽场景需独立更短的刷新间隔。

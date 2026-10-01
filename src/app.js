@@ -14,6 +14,7 @@ import { Logger } from "./lib/utils.js";
 import { setupGifAnimationHooks } from "./lib/gifAnimationLoop.js";
 import { setupModTagHooks, hasScaTag } from "./lib/modTag.js";
 import assets from "./assets/index.js";
+import { ASSET_NAME } from "./assets/constants.js";
 import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
 import { initSettings, setupSettingsHooks } from "./assets/settings.js";
 import { setupItemEditBeacon } from "./assets/itemEditBeacon.js";
@@ -118,6 +119,22 @@ export async function start() {
                 craft.ItemProperty.HideBodyLower = true;
             }
             return craft;
+        });
+
+        // Hook InventoryCraft：绕过 BC R132 的 noarch 属性丢弃回归
+        // R132 起 CraftingUpdateFromItem 会把 noarch 道具的 craft.TypeRecord 强制写成 {}（R131 保持 null），
+        // 而 ExtendedItemSetOptionByRecord 收集允许字段时会跳过 NoArch 选项类型 —— 于是传入非空
+        // TypeRecord 时，本插件 BaselineProperty 的字段（Textures / Hide* 等）被判为非法字段丢弃
+        // （控制台报 "Ignoring unsanctioned/invalid item properties"），制作界面预览刷新与佩戴时配置不生效。
+        // 对 noarch 道具来说 {} 与 null 语义完全一致，这里在应用前把空对象归一为 null，
+        // 让 BC 走 typeRecord == null 的正确分支；BC 上游修复后本 hook 无副作用。
+        HookManager.hookFunction("InventoryCraft", 0, (args, next) => {
+            const craft = args[3];
+            if (craft && craft.Item === ASSET_NAME && craft.TypeRecord
+                && typeof craft.TypeRecord === "object" && Object.keys(craft.TypeRecord).length === 0) {
+                craft.TypeRecord = null;
+            }
+            return next(args);
         });
 
         // Hook GLDraw2DCanvas：修复 BC WebGL 纹理泄漏
