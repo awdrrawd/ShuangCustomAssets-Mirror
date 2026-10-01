@@ -12428,6 +12428,14 @@ async function start() {
             }
             return craft;
         });
+        u$1.hookFunction("InventoryCraft", 0, (args, next) => {
+            const craft = args[3];
+            if (craft && craft.Item === ASSET_NAME && craft.TypeRecord
+                && typeof craft.TypeRecord === "object" && Object.keys(craft.TypeRecord).length === 0) {
+                craft.TypeRecord = null;
+            }
+            return next(args);
+        });
         u$1.hookFunction("GLDraw2DCanvas", 0, (args, next) => {
             const gl = args[0];
             const Img = args[1];

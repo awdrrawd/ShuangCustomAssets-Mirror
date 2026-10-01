@@ -9,7 +9,7 @@ if (!globalThis[key] && !alreadyRegistered()) {
             await new Promise(resolve => setTimeout(resolve, 50));
         }
         if (alreadyRegistered()) return;
-        const app = await import('./app-B0eMVXNw.js');
+        const app = await import('./app-BX4iHZUm.js');
         await app.start();
     }).catch(error => {
         if (!alreadyRegistered()) delete globalThis[key];
