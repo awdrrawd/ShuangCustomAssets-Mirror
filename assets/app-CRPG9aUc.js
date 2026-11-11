@@ -134,6 +134,18 @@ var TW = {
     "listView.shown": "已顯示",
     "listView.toggle_hiding": "切換「{0}」的隱藏狀態",
     "listView.confirm_back_to_list": "確認並返回列表",
+    "listView.hide_guard": "貼圖異常保護",
+    "listView.hide_guard_help": "貼圖未就緒、載入失敗或網域不受信任時不隱藏部位，保留原服裝",
+    "listView.detailed_adjustment": "詳細調整",
+    "listView.detailed_adjustment_help": "逐個部位組調整是否隱藏",
+    "listView.detailed_hide": "詳細調整",
+    "listView.detailed_hide_hint": "逐組切換；確認後統一同步，返回則放棄修改",
+    "listView.partial": "部分",
+    "listView.confirm_and_sync": "確認並同步",
+    "listView.back_and_discard": "返回並放棄修改",
+    "listView.equipped_item": "正在使用：{0}",
+    "listView.none": "無",
+    "listView.clear_category_overrides": "清除本分類覆蓋",
     "listView.texture_manager": "貼圖管理",
     "listView.slots_used": "已使用 {0}/{1} 個欄位",
     "listView.hide_settings_hide_body_parts_clothing": "隱藏設定：隱藏身體部位或服飾",
@@ -276,7 +288,8 @@ var TW = {
     "tutorial.head_body_upper_body_lower": "• 頭部／上半身／下半身",
     "tutorial.clothing_clothes_shoes_etc": "• 服飾：衣服、鞋子等",
     "tutorial.restraints_all_restraint_items": "• 拘束道具：所有拘束物品",
-    "tutorial.click_the_hide_icon_on_the_list_page": "點擊列表頁面的隱藏圖示。",
+    "tutorial.hide_guard_keeps_outfit_when_textures_fail": "• 貼圖異常保護：貼圖未載入/失敗/網域不受信任時保留原服裝",
+    "tutorial.click_the_hide_icon_on_the_list_page": "點擊列表頁面的隱藏圖示；每個分類右側的「詳細調整」可逐組設定。",
     "tutorial.security_whitelist": "安全與信任清單",
     "tutorial.whitelist_mode_only_trusted_domains_load": "信任清單模式：只載入信任網域的內容。",
     "tutorial.ways_to_add_trusted_domains": "新增信任網域的方式：",
@@ -464,6 +477,18 @@ var CN = {
     "listView.hidden": "隐藏",
     "listView.shown": "显示",
     "listView.toggle_hiding": "点击切换是否隐藏「{0}」",
+    "listView.hide_guard": "贴图异常保护",
+    "listView.hide_guard_help": "贴图未就绪、加载失败或域名不可信时不隐藏部位，保留原服装",
+    "listView.detailed_adjustment": "详细调整",
+    "listView.detailed_adjustment_help": "逐个部位组调整是否隐藏",
+    "listView.detailed_hide": "详细调整",
+    "listView.detailed_hide_hint": "逐组切换；确认后统一同步，返回则放弃修改",
+    "listView.partial": "部分",
+    "listView.confirm_and_sync": "确认并同步",
+    "listView.back_and_discard": "返回并放弃修改",
+    "listView.equipped_item": "正在使用：{0}",
+    "listView.none": "无",
+    "listView.clear_category_overrides": "清除本分类覆盖",
     "listView.confirm_back_to_list": "确认并返回列表",
     "listView.texture_manager": "贴图管理",
     "listView.slots_used": "已使用 {0}/{1} 个槽位",
@@ -607,7 +632,8 @@ var CN = {
     "tutorial.head_body_upper_body_lower": "• 头部 / 上半身 / 下半身：身体模型",
     "tutorial.clothing_clothes_shoes_etc": "• 服饰：衣服、鞋子、饰品等",
     "tutorial.restraints_all_restraint_items": "• 拘束道具：所有拘束物品",
-    "tutorial.click_the_hide_icon_on_the_list_page": "在列表页右上角点击隐藏图标进入。",
+    "tutorial.hide_guard_keeps_outfit_when_textures_fail": "• 贴图异常保护：贴图未加载/失败/域名不可信时保留原服装",
+    "tutorial.click_the_hide_icon_on_the_list_page": "在列表页右上角点击隐藏图标进入；每个分类右侧的「详细调整」可逐组设置。",
     "tutorial.security_whitelist": "安全与域名白名单",
     "tutorial.whitelist_mode_only_trusted_domains_load": "白名单模式（推荐）：只加载可信域名的图片。",
     "tutorial.ways_to_add_trusted_domains": "添加可信域名的方式：",
@@ -795,6 +821,18 @@ var EN = {
     "listView.hidden": "Hidden",
     "listView.shown": "Shown",
     "listView.toggle_hiding": "Toggle hiding \"{0}\"",
+    "listView.hide_guard": "Texture Failure Guard",
+    "listView.hide_guard_help": "Keeps the original outfit while textures load, fail, or are untrusted",
+    "listView.detailed_adjustment": "Details",
+    "listView.detailed_adjustment_help": "Adjust individual part groups",
+    "listView.detailed_hide": "Details",
+    "listView.detailed_hide_hint": "Toggle groups; confirm to sync once; going back discards changes",
+    "listView.partial": "Partial",
+    "listView.confirm_and_sync": "Confirm",
+    "listView.back_and_discard": "Back and discard",
+    "listView.equipped_item": "Equipped: {0}",
+    "listView.none": "None",
+    "listView.clear_category_overrides": "Clear category overrides",
     "listView.confirm_back_to_list": "Confirm & back to list",
     "listView.texture_manager": "Texture Manager",
     "listView.slots_used": "{0}/{1} slots used",
@@ -938,7 +976,8 @@ var EN = {
     "tutorial.head_body_upper_body_lower": "• Head / Body Upper / Body Lower",
     "tutorial.clothing_clothes_shoes_etc": "• Clothing: clothes, shoes, etc.",
     "tutorial.restraints_all_restraint_items": "• Restraints: all restraint items",
-    "tutorial.click_the_hide_icon_on_the_list_page": "Click the hide icon on the list page.",
+    "tutorial.hide_guard_keeps_outfit_when_textures_fail": "• Failure guard: keep the original outfit while textures load, fail, or are untrusted",
+    "tutorial.click_the_hide_icon_on_the_list_page": "Click the hide icon on the list page; use Details on each category for individual groups.",
     "tutorial.security_whitelist": "Security & Whitelist",
     "tutorial.whitelist_mode_only_trusted_domains_load": "Whitelist mode: only trusted domains load.",
     "tutorial.ways_to_add_trusted_domains": "Ways to add trusted domains:",
@@ -1127,6 +1166,18 @@ var DE = {
     "listView.shown": "Sichtbar",
     "listView.toggle_hiding": "„{0}“ ein-/ausblenden",
     "listView.confirm_back_to_list": "Bestätigen und zur Liste",
+    "listView.hide_guard": "Texturfehler-Schutz",
+    "listView.hide_guard_help": "Outfit bleibt sichtbar, solange Texturen laden, fehlschlagen oder nicht vertrauenswürdig sind",
+    "listView.detailed_adjustment": "Details",
+    "listView.detailed_adjustment_help": "Einzelne Gruppen ein-/ausblenden",
+    "listView.detailed_hide": "Details",
+    "listView.detailed_hide_hint": "Gruppen umschalten; bestätigen synchronisiert einmalig, zurück verwirft",
+    "listView.partial": "Teils",
+    "listView.confirm_and_sync": "Bestätigen",
+    "listView.back_and_discard": "Zurück und verwerfen",
+    "listView.equipped_item": "Ausgerüstet: {0}",
+    "listView.none": "Keine",
+    "listView.clear_category_overrides": "Kategorie-Overrides löschen",
     "listView.texture_manager": "Texturverwaltung",
     "listView.slots_used": "{0}/{1} Plätze belegt",
     "listView.hide_settings_hide_body_parts_clothing": "Ausblenden: Körperteile oder Kleidung",
@@ -1269,7 +1320,8 @@ var DE = {
     "tutorial.head_body_upper_body_lower": "• Kopf / Oberkörper / Unterkörper",
     "tutorial.clothing_clothes_shoes_etc": "• Kleidung: Kleider, Schuhe usw.",
     "tutorial.restraints_all_restraint_items": "• Fesseln: sämtliche Fesselgegenstände",
-    "tutorial.click_the_hide_icon_on_the_list_page": "Das Ausblendsymbol auf der Listenseite anklicken.",
+    "tutorial.hide_guard_keeps_outfit_when_textures_fail": "• Fehlerschutz: Original-Outfit bleibt sichtbar, solange Texturen laden oder fehlschlagen",
+    "tutorial.click_the_hide_icon_on_the_list_page": "Das Ausblendsymbol auf der Listenseite anklicken; „Details“ je Kategorie für einzelne Gruppen.",
     "tutorial.security_whitelist": "Sicherheit und Vertrauensliste",
     "tutorial.whitelist_mode_only_trusted_domains_load": "Vertrauenslistenmodus: nur vertraute Domains laden.",
     "tutorial.ways_to_add_trusted_domains": "Vertrauenswürdige Domains hinzufügen:",
@@ -1458,6 +1510,18 @@ var FR = {
     "listView.shown": "Affiché",
     "listView.toggle_hiding": "Afficher/masquer « {0} »",
     "listView.confirm_back_to_list": "Confirmer et revenir à la liste",
+    "listView.hide_guard": "Protection des textures",
+    "listView.hide_guard_help": "La tenue d'origine reste visible si une texture charge, échoue ou n'est pas fiable",
+    "listView.detailed_adjustment": "Détails",
+    "listView.detailed_adjustment_help": "Ajuster chaque groupe de parties",
+    "listView.detailed_hide": "Détails",
+    "listView.detailed_hide_hint": "Basculez les groupes ; confirmer synchronise une fois, retour annule",
+    "listView.partial": "Partiel",
+    "listView.confirm_and_sync": "Confirmer",
+    "listView.back_and_discard": "Retour et annuler",
+    "listView.equipped_item": "Équipé : {0}",
+    "listView.none": "Aucun",
+    "listView.clear_category_overrides": "Effacer les exceptions de la catégorie",
     "listView.texture_manager": "Gestion des textures",
     "listView.slots_used": "{0}/{1} emplacements utilisés",
     "listView.hide_settings_hide_body_parts_clothing": "Masquage : parties du corps ou vêtements",
@@ -1600,7 +1664,8 @@ var FR = {
     "tutorial.head_body_upper_body_lower": "• Tête / Haut du corps / Bas du corps",
     "tutorial.clothing_clothes_shoes_etc": "• Vêtements : habits, chaussures, etc.",
     "tutorial.restraints_all_restraint_items": "• Entraves : tous les objets de contrainte",
-    "tutorial.click_the_hide_icon_on_the_list_page": "Clique sur l’icône de masquage dans la liste.",
+    "tutorial.hide_guard_keeps_outfit_when_textures_fail": "• Protection : garde la tenue d'origine si une texture charge, échoue ou n'est pas fiable",
+    "tutorial.click_the_hide_icon_on_the_list_page": "Clique sur l’icône de masquage dans la liste ; « Détails » par catégorie pour les groupes.",
     "tutorial.security_whitelist": "Sécurité et liste autorisée",
     "tutorial.whitelist_mode_only_trusted_domains_load": "Liste autorisée : seuls les domaines fiables sont chargés.",
     "tutorial.ways_to_add_trusted_domains": "Pour ajouter des domaines fiables :",
@@ -1789,6 +1854,18 @@ var RU = {
     "listView.shown": "Показано",
     "listView.toggle_hiding": "Показать/скрыть «{0}»",
     "listView.confirm_back_to_list": "Подтвердить и вернуться к списку",
+    "listView.hide_guard": "Защита при ошибке текстуры",
+    "listView.hide_guard_help": "Исходная одежда остаётся, пока текстуры загружаются, недоступны или недоверенны",
+    "listView.detailed_adjustment": "Детали",
+    "listView.detailed_adjustment_help": "Настройка отдельных групп",
+    "listView.detailed_hide": "Детали",
+    "listView.detailed_hide_hint": "Переключайте группы; подтверждение синхронизирует один раз, назад отменяет",
+    "listView.partial": "Часть",
+    "listView.confirm_and_sync": "Подтвердить",
+    "listView.back_and_discard": "Назад и отменить",
+    "listView.equipped_item": "Надето: {0}",
+    "listView.none": "Нет",
+    "listView.clear_category_overrides": "Сбросить исключения категории",
     "listView.texture_manager": "Управление текстурами",
     "listView.slots_used": "Занято ячеек: {0}/{1}",
     "listView.hide_settings_hide_body_parts_clothing": "Скрыть части тела или одежду",
@@ -1931,7 +2008,8 @@ var RU = {
     "tutorial.head_body_upper_body_lower": "• Голова / Верх тела / Низ тела",
     "tutorial.clothing_clothes_shoes_etc": "• Одежда: одежда, обувь и т. д.",
     "tutorial.restraints_all_restraint_items": "• Средства связывания: все такие предметы",
-    "tutorial.click_the_hide_icon_on_the_list_page": "Нажмите значок скрытия на странице списка.",
+    "tutorial.hide_guard_keeps_outfit_when_textures_fail": "• Защита: исходная одежда остаётся, пока текстура загружается или недоступна",
+    "tutorial.click_the_hide_icon_on_the_list_page": "Нажмите значок скрытия на странице списка; «Детали» у категории — для отдельных групп.",
     "tutorial.security_whitelist": "Безопасность и доверенные домены",
     "tutorial.whitelist_mode_only_trusted_domains_load": "В этом режиме загружаются только доверенные домены.",
     "tutorial.ways_to_add_trusted_domains": "Способы добавить доверенные домены:",
@@ -2120,6 +2198,18 @@ var UA = {
     "listView.shown": "Показано",
     "listView.toggle_hiding": "Показати/приховати «{0}»",
     "listView.confirm_back_to_list": "Підтвердити й повернутися до списку",
+    "listView.hide_guard": "Захист при помилці текстури",
+    "listView.hide_guard_help": "Початковий одяг залишається, доки текстури завантажуються, недоступні або недовірені",
+    "listView.detailed_adjustment": "Деталі",
+    "listView.detailed_adjustment_help": "Налаштування окремих груп",
+    "listView.detailed_hide": "Деталі",
+    "listView.detailed_hide_hint": "Перемикайте групи; підтвердження синхронізує один раз, назад скасовує",
+    "listView.partial": "Частка",
+    "listView.confirm_and_sync": "Підтвердити",
+    "listView.back_and_discard": "Назад і скасувати",
+    "listView.equipped_item": "Вдягнено: {0}",
+    "listView.none": "Немає",
+    "listView.clear_category_overrides": "Скинути винятки категорії",
     "listView.texture_manager": "Керування текстурами",
     "listView.slots_used": "Зайнято комірок: {0}/{1}",
     "listView.hide_settings_hide_body_parts_clothing": "Приховати частини тіла чи одяг",
@@ -2262,7 +2352,8 @@ var UA = {
     "tutorial.head_body_upper_body_lower": "• Голова / Верх тіла / Низ тіла",
     "tutorial.clothing_clothes_shoes_etc": "• Одяг: одяг, взуття тощо",
     "tutorial.restraints_all_restraint_items": "• Засоби зв’язування: усі такі предмети",
-    "tutorial.click_the_hide_icon_on_the_list_page": "Натисніть значок приховування на сторінці списку.",
+    "tutorial.hide_guard_keeps_outfit_when_textures_fail": "• Захист: початковий одяг залишається, доки текстура завантажується або недоступна",
+    "tutorial.click_the_hide_icon_on_the_list_page": "Натисніть значок приховування на сторінці списку; «Деталі» біля категорії — для окремих груп.",
     "tutorial.security_whitelist": "Безпека й довірені домени",
     "tutorial.whitelist_mode_only_trusted_domains_load": "У цьому режимі завантажуються лише довірені домени.",
     "tutorial.ways_to_add_trusted_domains": "Способи додати довірені домени:",
@@ -2363,6 +2454,8 @@ const DEFAULT_PROPS = {
     HideBodyLower: false,
     HideClothing: false,
     HideItems: false,
+    HideOnlyWhenReady: false,
+    HideOverrides: {},
     HideBody: false
 };
 const POSE_CATEGORIES = {
@@ -2682,6 +2775,9 @@ const state = {
     tempTextureData: null,
     currentListPage: 0,
     currentView: "list",
+    hideDetailCategory: 0,
+    hideDetailPage: 0,
+    originalHideOverrides: null,
     pendingDomainToAdd: null,
     tutorialPage: 0,
     originalEditTexture: null,
@@ -2885,6 +2981,7 @@ function pruneAll() {
         let pruned = 0;
         for (const [key, entry] of cache) {
             if (entry?.loaded && now - (entry.lastUsed || 0) > STALE_ENTRY_TIMEOUT_MS) {
+                try { entry.dispose?.(); } catch {  }
                 cache.delete(key);
                 pruned++;
             }
@@ -3238,7 +3335,7 @@ class t{constructor(e,t){this.fulfilled=e,this.value=t;}then(e,t){ void 0!==this
  * https://github.com/SugarChain-Studio/sugarch-utilities
  * @preserve
  */
-function ne(e){return globalThis[e]}let oe=class e{static _initStorage(){var e,t;ne(this._namespace)||(e=this._namespace,t={},globalThis[e]=t);}static get(e,t){this._initStorage();const r=ne(this._namespace);return e in r||(r[e]=t()),r[e]}static getMayOverride(e,t){this._initStorage();const r=ne(this._namespace);return r[e]=t(r[e]),r[e]}static getByVersion(e,t,r,s){if(this._initStorage(),!te(t))throw new Error(`Invalid version for ${e}: ${t}`);const n=ne(this._namespace),o=`${e}.__Version`,i=n[e],a=n[o];return i?a&&!se(a,t)||(n[e]=s(a,i),n[o]=t):(n[e]=r(i),n[o]=t),n[e]}static set(e,t){this._initStorage(),ne(this._namespace)[e]=t;}static has(e){return this._initStorage(),e in ne(this._namespace)}static delete(e){this._initStorage();const t=ne(this._namespace);return e in t&&delete t[e]}static setImplementation(t){const r=["get","set","has","delete"];for(const s of r){if("function"!=typeof t[s])throw new Error(`Implementation must provide a '${s}' function`);e[s]=t[s];}}static createNamespace(t){return {get:(r,s)=>e.get(`${t}.${r}`,s),getMayOverride:(r,s)=>e.getMayOverride(`${t}.${r}`,s),set:(r,s)=>e.set(`${t}.${r}`,s),has:r=>e.has(`${t}.${r}`),delete:r=>e.delete(`${t}.${r}`)}}};oe._namespace="__BC_LUZI_GLOBALS__";const ie=oe.createNamespace("OnceFlag");function ae(e,t){ie.get(e,()=>false)||(ie.set(e,true),t());}function ce(e){return new Promise(t=>setTimeout(t,e))}let ue=class{static get emptyImage(){return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAG3RFWHRTb2Z0d2FyZQBDZWxzeXMgU3R1ZGlvIFRvb2zBp+F8AAAADUlEQVQI12P4//8/AwAI/AL+XJ/P2gAAAABJRU5ErkJggg=="}static assetPreviewIconPath(e){const t="Asset"in e?e.Asset:e;return `${AssetGetPreviewPath(t)}/${t.Name}.png`}static activityPreviewIconPath(e){return `Assets/Female3DCG/Activity/${("Activity"in e?e.Activity:e).Name}.png`}};class le{get globalFuncName(){return this._globalFuncName}constructor(e,t){this.functions=[],this._globalFuncName=`${e}_${Math.random().toString(16).substring(2)}`,this.functions.push((e,...r)=>t(...r)),globalThis[this._globalFuncName]=(...e)=>this.run(...e);}register(e){return this.functions.push(e),this}run(...e){let t;for(const r of this.functions)t=r(t,...e);return t}}function me(e,t,r){return oe.get(e,()=>{const s=new le(e,t);return r?.(s),s})}function fe(e){return v.translateEntry(e,e.CN)}function he(e,t){return e?e.CN?e:{...e,CN:t}:{CN:t}}function pe(e,t,r){const s={};for(const[n,o]of Object.entries(r))o[e]?.[t]&&(s[n]=o[e][t]);return s}function Ee(e,t,r){const s={};for(const[n,o]of Object.entries(r))o[e]?.[t]&&(s[n]=o[e][t]);return s}const de={},Ae={};class ge{static setAsset(e,t,r){Object.entries(r).forEach(([r,s])=>{const n=r;de[n]||(de[n]={}),de[n][e]||(de[n][e]={}),de[n][e][t]=s;});}static setGroup(e,t){Object.entries(t).forEach(([t,r])=>{const s=t;Ae[s]||(Ae[s]={}),Ae[s][e]=r;});}}function Ie(e,t){e.Description=t;}function Ne(){Object.values(a()).forEach(e=>Ie(e,function(e){return v.translateString(Ae,e,e.replace(/_.*?Luzi$/,""))}(e.Name))),Object.values(c()).map(e=>Object.values(e)).flat().forEach(e=>Ie(e,function(e,t){return v.translateGroupedEntries(de,e,t,t.replace(/_.*?Luzi$/,""))}(e.Group.Name,e.Name))),Object.entries(c()).map(([e,t])=>({group:A(e),asset:t})).filter(({group:e})=>!!e).map(({group:e,asset:t})=>Object.entries(t).map(([t,r])=>({asset:r,fromAsset:AssetGet("Female3DCG",e,t)}))).flat().filter(({fromAsset:e})=>!!e).forEach(({asset:e,fromAsset:t})=>Ie(e,t.Description));const e=TextAllScreenCache.get(AssetStringsPath),t=e=>{const t=p,r=new Set,s=AssetGroup.map(e=>e.Name).sort((e,t)=>t.length-e.length);Object.entries(e.cache).forEach(([n,o])=>{if(r.has(n))return;const i=s.find(e=>n.startsWith(e));if(!i)return;r.add(n);const a=t[i];if(!a)return;const c=n.slice(i.length);a.forEach(t=>{const r=t+c;e.cache[r]||(e.cache[r]=o);});});};e&&(e.loaded?t(e):e.rebuildListeners.push(e=>e&&t(e)));}let $e=false;const Le=new Map,Re=new Map;let Oe,Ge,ve;function Ce(e,t,r){const s=e.get(t);if(s){const n=r.noOverride?{...r.desc,...s.desc}:{...s.desc,...r.desc},o=r.noOverride?s.fallback:r.fallback;e.set(t,{desc:n,fallback:o,noOverride:r.noOverride});}else e.set(t,r);}function De(e,t,r,s=false){s&&Le.has(e)||Ce(Le,e,{desc:t,fallback:r,noOverride:s});}function Se(e,t,r,s=false){s&&Re.has(e)||Ce(Re,e,{desc:t,fallback:r,noOverride:s});}function Te(e){const t={};for(const[r,s]of Object.entries(e))for(const[e,n]of Object.entries(s))t[e]||(t[e]={}),t[e][r]=n;return Object.entries(t).reduce((e,[t,r])=>(e.push({key:t,value:r}),e),[])}function ye(e,t,{entries:r,noOverride:s}={}){const n=function(e){if(!e)return e=>({CN:e});const t={};for(const[r,s]of Object.entries(e))for(const[e,n]of Object.entries(s))t[e]||(t[e]={}),t[e][r]=n;return e=>t[e]||{CN:e}}(r),o=new Set;t.Layer?.filter(e=>!e.CopyLayerColor&&(e.AllowColorize??true)&&!e.HideColoring).forEach(({Name:r,ColorGroup:i})=>{r?De(`${e}${t.Name}${r}`,n(r),r,!!s):De(`${e}${t.Name}`,{CN:t.Name.replace(/_.*?Luzi$/,"")},t.Name,!!s),i&&o.add(i);}),o.forEach(r=>Se(`${e}${t.Name}${r}`,n(r),r,!!s));}function Fe(){me("LayerNameInject",()=>{},t=>u$1.patchFunction("ItemColorLoad",{"ItemColorGroupNames = new TextCache(`Assets/${c.AssetFamily}/ColorGroups.csv`);":`ItemColorGroupNames = new TextCache(\`Assets/\${c.AssetFamily}/ColorGroups.csv\`);${t.globalFuncName}(()=>ItemColorLayerNames, ()=>ItemColorGroupNames);`})).register((e,t,r)=>{Oe=t,Ge=r;}),u$1.hookFunction("ItemColorLoad",0,(e,t)=>{const r=t(e),s=Oe?.();var n;s&&s.cache&&(n=s,Le.forEach((e,t)=>{n.cache[t]&&e.noOverride||(n.cache[t]=v.translateEntry(e.desc,e.fallback));}));const o=Ge?.();return o&&o.cache&&function(e){Re.forEach((t,r)=>{e.cache[r]&&t.noOverride||(e.cache[r]=v.translateEntry(t.desc,t.fallback));});}(o),r});}class we{static info(e){ve?.info(e);}static warn(e){ve?.warn(e);}static error(e){ve?.error(e);}}let be=false;const Me=[];function Pe(e){be?e():Me.push(e);}const _e=[];let je=false;function xe(e){je?e():_e.push(e);}const Ue={};const ke={};function Be(e,t){const r=AssetGroupGet("Female3DCG",e);be&&r?t(r):(ke[e]||(ke[e]=[]),ke[e].push(t));}let Xe=false;const Ve=[];function We(e){Xe?e():Ve.push(e);}const He=new Set;function ze(t={start:"Start loading",end:"Loading completed, time usage: "}){const r=async()=>{we.info(t.start);const e=Date.now();for(!function(){for(;Me.length>0;)Me.shift()();}(),be=true,function(){for(;_e.length>0;)_e.shift()();}(),je=true,AssetGroup.forEach(e=>function(e){if(Ue[e.Name])for(;Ue[e.Name].length>0;)Ue[e.Name].shift()(e);}(e)),AssetGroup.forEach(e=>function(e){if(ke[e.Name])for(;ke[e.Name].length>0;)ke[e.Name].shift()(e);}(e)),CraftingAssets=CraftingAssetsPopulate(),Xe=true;Ve.length>0;)Ve.shift()();const r=Date.now();we.info(`${t.end} ${r-e}ms`);};AssetGroup.length>50?r():u$1.progressiveHook("AssetLoadAll",1).next().inject(()=>r());}function Ze(r,n,{extendedConfig:i,translation:a,dynamicName:u,preimage:l,noMirror:m,layerNames:f,assetStrings:h}={}){!function(e,t){const r=AssetGroupGet("Female3DCG",e);be&&r?t(r):(Ue[e]||(Ue[e]=[]),Ue[e].push(t));}(r,e=>{N.add(e.Name,n),i&&g.add(i);});const p=r;!function(e,t,r){const s=r=>{const n=t?[d(e)]:E(e),o=n.find(({group:e})=>!e);if(o)return He.has(o.name)?void console.error(`[AssetManager] Required group "${o.name}" not found`):(He.add(o.name),void Be(o.name,()=>s(r)));n.forEach(({group:e,groupDef:t})=>r(e,t));};be?s(r):Be(e,()=>s(r));}(r,!!m,(r,i)=>{const m=r.Name,E=$(n),d=AssetResolveCopyConfig.AssetDefinition(E,m,N.value);if(!d)return;const A=he(a,d.Name.replace(/_.*?Luzi$/,""));void 0!==c()[m]?.[E.Name]&&console.warn(`[AssetManager] Asset {${m}:${E.Name}} already existed!`),function(...[r,n,o,i]){u$1.invokeOriginal("AssetAdd",r,n,o,i);const a=r.Name,c=n.Name;s[a]||(s[a]={});const u=AssetGet("Female3DCG",a,c);return u?(s[a][c]=u,t.resolve(u)):t.reject(`Asset ${a}:${c} not found`)}(r,d,g.value,i).then(e=>{if(e.DynamicGroupName===e.Group.Name&&(e.DynamicGroupName=u||p),l){const t=AssetGet("Female3DCG",l.Name,d.Name);t&&(e.Description=t.Description,e.DynamicGroupName=t.DynamicGroupName,["ScriptDraw","BeforeDraw","AfterDraw"].filter(e=>t[`Dynamic${e}`]).forEach(e=>function(e,t,r,s){const n=`Assets${t}${r.Name}${s}`,o=`Assets${e}${r.Name}${s}`;globalThis[n]&&(globalThis[o]=globalThis[n]);}(m,l.Name,d,e)));}else e.Description=fe(A),function(e,t){o.push({name:e,asset:t});}(d.Name,e),ye(e.DynamicGroupName,d,{entries:f,noOverride:!f});h&&D(e.Group.Name,e.Name,h);}),ge.setAsset(m,d.Name,A);});}const Je={};const Ye={};function Qe(e,t,r){if(!e.DialogPrefix){const s=`${t}${r}`;if("modular"===e.Archetype)return {DialogPrefix:{Header:`${s}Select`,Module:`${s}Module`,Option:`${s}Option`,Chat:`${s}Set`}};if("typed"===e.Archetype)return {DialogPrefix:{Header:`${s}Select`,Option:s,Chat:`${s}Set`,Npc:s}}}return {}}function qe(s,{translation:o,dynamicName:i,preimage:a}={}){Pe(()=>{const c=he(o,s.Group.replace(/_.*?Luzi$/,""));((function(...[s,o]){const i=u$1.invokeOriginal("AssetGroupAdd",s,o);return r[i.Name]=i,n[i.Name]=o,t.resolve(i)}))("Female3DCG",s).then(e=>{e.Description=fe(c),i&&(e.DynamicGroupName=i);const t=(()=>{if(!a)return;const e=AssetFemale3DCGExtended[a.Name];if(!e)return;const t={};for(const[r,s]of Object.entries(e))t[r]={Archetype:s.Archetype,CopyConfig:{GroupName:a.Name,AssetName:r},...Qe(s,a.Name,r)};return {[s.Group]:t}})();s.Asset.forEach(e=>{const r=$(e);if(t&&a){const e=Ye[a.Name]?.[r.Name];e&&We(()=>{const n=AssetGet("Female3DCG",s.Group,r.Name);n&&AssetBuildExtended(n,e,t,null,false);});}Ze(s.Group,r,{dynamicName:i,preimage:a,extendedConfig:t});});}),ge.setGroup(s.Group,c);});}Pe(()=>{let t=false;u$1.hookFunction("AssetBuildExtended",0,(e,r)=>{if(t){const[t,r]=e;return Ye[t.Group.Name]??={},Ye[t.Group.Name][t.Name]=r,null}return r(e)}),t=true,u$1.invokeOriginal("ExtendedItemManualRegister"),t=false;});const Ke=new Set;function et(e,t,r,s){const n=()=>{const o=AssetFemale3DCG.find(e=>e.Group===t)||a()[t],i=AssetGroupGet("Female3DCG",t),c=AssetFemale3DCGExtended[t];if(!o||!i)return Ke.has(t)?void console.error(`[AssetManager] Group ${t} not found`):(Ke.add(t),void xe(n));var u,l;l=e,f[u=t]||(f[u]=new Set([u])),f[u].add(l),p[u]||(p[u]=new Set),p[u].add(l),h[l]=u;const m=he(r,e.replace(/_.*?Luzi$/,""));qe({...o,...s,Group:e,Default:false,Random:false},{translation:m,dynamicName:o.DynamicGroupName||o.Group,preimage:i}),AssetFemale3DCGExtended[e]=c;};xe(n);}function tt(){let t=false;u$1.hookFunction("DialogInventoryBuild",0,(e,r)=>{e[2]||(t="permissions"!==DialogMenuMode);const s=r(e);return "items"!==DialogMenuMode&&null!==DialogMenuMode||!u||e[0].IsPlayer()||u(e[0])||(DialogInventory=DialogInventory.filter(e=>!l(e))),s});const r=(t,r,s)=>{const n=h[s];return !!n&&u$1.invokeOriginal("InventoryAvailable",t,r,n)};u$1.hookFunction("DialogInventoryAdd",10,(e,s)=>{const n=s(e);if(!t)return n;t=false;const o=e[1].Asset.Group.Name,i=new Set(DialogInventory.map(e=>e.Asset.Name)),a=c()[o];return a?(Object.entries(a).filter(([e])=>!i.has(e)).filter(([t,s])=>s.Value>=0||r(e[0],t,o)).forEach(([t,r])=>DialogInventoryAdd(e[0],{Asset:r},false)),n):n});const s=[u$1.insideFlag("CharacterAppearanceValidate"),u$1.insideFlag("CraftingItemListBuild"),u$1.insideFlag("WardrobeFastLoad"),u$1.insideFlag("CraftingValidate")];u$1.hookFunction("InventoryAvailable",0,(...[e,t])=>s.some(e=>e.inside)&&!(!function(e,t){const r=i(e,t);return !!r&&r.Value>=0}(e[2],e[1])&&!r(...e))||t(e));}let rt,st=false;function nt(t){rt=t,st||(st=true,u$1.hookFunction("ValidationResolveRemoveDiff",1,(e,t)=>{const[r,s]=e;return s.C.IsPlayer()&&!s.fromModUser&&i(r.Asset.Group.Name,r.Asset.Name)?{item:r,valid:false}:t(e)}),u$1.hookFunction("ValidationResolveSwapDiff",1,(e,t)=>{const[r,s,n]=e;return n.C.IsPlayer()&&!n.fromModUser&&i(r.Asset.Group.Name,r.Asset.Name)?{item:r,valid:false}:t(e)}),u$1.hookFunction("ValidationResolveAppearanceDiff",1,(e,t)=>(rt&&(e[3].fromModUser=rt(e[3])),t(e))));}
+function ne(e){return globalThis[e]}let oe=class e{static _initStorage(){var e,t;ne(this._namespace)||(e=this._namespace,t={},globalThis[e]=t);}static get(e,t){this._initStorage();const r=ne(this._namespace);return e in r||(r[e]=t()),r[e]}static getMayOverride(e,t){this._initStorage();const r=ne(this._namespace);return r[e]=t(r[e]),r[e]}static getByVersion(e,t,r,s){if(this._initStorage(),!te(t))throw new Error(`Invalid version for ${e}: ${t}`);const n=ne(this._namespace),o=`${e}.__Version`,i=n[e],a=n[o];return i?a&&!se(a,t)||(n[e]=s(a,i),n[o]=t):(n[e]=r(i),n[o]=t),n[e]}static set(e,t){this._initStorage(),ne(this._namespace)[e]=t;}static has(e){return this._initStorage(),e in ne(this._namespace)}static delete(e){this._initStorage();const t=ne(this._namespace);return e in t&&delete t[e]}static setImplementation(t){const r=["get","set","has","delete"];for(const s of r){if("function"!=typeof t[s])throw new Error(`Implementation must provide a '${s}' function`);e[s]=t[s];}}static createNamespace(t){return {get:(r,s)=>e.get(`${t}.${r}`,s),getMayOverride:(r,s)=>e.getMayOverride(`${t}.${r}`,s),set:(r,s)=>e.set(`${t}.${r}`,s),has:r=>e.has(`${t}.${r}`),delete:r=>e.delete(`${t}.${r}`)}}};oe._namespace="__BC_LUZI_GLOBALS__";const ie=oe.createNamespace("OnceFlag");function ae(e,t){ie.get(e,()=>false)||(ie.set(e,true),t());}function ce(e){return new Promise(t=>setTimeout(t,e))}let ue=class{static get emptyImage(){return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAC4jAAAuIwF4pT92AAAAG3RFWHRTb2Z0d2FyZQBDZWxzeXMgU3R1ZGlvIFRvb2zBp+F8AAAADUlEQVQI12P4//8/AwAI/AL+XJ/P2gAAAABJRU5ErkJggg=="}static assetPreviewIconPath(e){const t="Asset"in e?e.Asset:e;return `${AssetGetPreviewPath(t)}/${t.Name}.png`}static activityPreviewIconPath(e){return `Assets/Female3DCG/Activity/${("Activity"in e?e.Activity:e).Name}.png`}};class le{get globalFuncName(){return this._globalFuncName}constructor(e,t){this.functions=[],this._globalFuncName=`${e}_${Math.random().toString(16).substring(2)}`,this.functions.push((e,...r)=>t(...r)),globalThis[this._globalFuncName]=(...e)=>this.run(...e);}register(e){return this.functions.push(e),this}run(...e){let t;for(const r of this.functions)t=r(t,...e);return t}}function me(e,t,r){return oe.get(e,()=>{const s=new le(e,t);return r?.(s),s})}function fe(e){return v.translateEntry(e,e.CN)}function he(e,t){return e?e.CN?e:{...e,CN:t}:{CN:t}}function pe(e,t,r){const s={};for(const[n,o]of Object.entries(r))o[e]?.[t]&&(s[n]=o[e][t]);return s}function Ee(e,t,r){const s={};for(const[n,o]of Object.entries(r))o[e]?.[t]&&(s[n]=o[e][t]);return s}const de={},Ae={};class ge{static setAsset(e,t,r){Object.entries(r).forEach(([r,s])=>{const n=r;de[n]||(de[n]={}),de[n][e]||(de[n][e]={}),de[n][e][t]=s;});}static setGroup(e,t){Object.entries(t).forEach(([t,r])=>{const s=t;Ae[s]||(Ae[s]={}),Ae[s][e]=r;});}}function Ie(e,t){e.Description=t;}function Ne(){Object.values(a()).forEach(e=>Ie(e,function(e){return v.translateString(Ae,e,e.replace(/_.*?Luzi$/,""))}(e.Name))),Object.values(c()).map(e=>Object.values(e)).flat().forEach(e=>Ie(e,function(e,t){return v.translateGroupedEntries(de,e,t,t.replace(/_.*?Luzi$/,""))}(e.Group.Name,e.Name))),Object.entries(c()).map(([e,t])=>({group:A(e),asset:t})).filter(({group:e})=>!!e).map(({group:e,asset:t})=>Object.entries(t).map(([t,r])=>({asset:r,fromAsset:AssetGet("Female3DCG",e,t)}))).flat().filter(({fromAsset:e})=>!!e).forEach(({asset:e,fromAsset:t})=>Ie(e,t.Description));const e=TextAllScreenCache.get(AssetStringsPath),t=e=>{const t=p,r=new Set,s=AssetGroup.map(e=>e.Name).sort((e,t)=>t.length-e.length);Object.entries(e.cache).forEach(([n,o])=>{if(r.has(n))return;const i=s.find(e=>n.startsWith(e));if(!i)return;r.add(n);const a=t[i];if(!a)return;const c=n.slice(i.length);a.forEach(t=>{const r=t+c;e.cache[r]||(e.cache[r]=o);});});};e&&(e.loaded?t(e):e.rebuildListeners.push(e=>e&&t(e)));}let $e=false;const Le=new Map,Re=new Map;let Oe,Ge,ve;function Ce(e,t,r){const s=e.get(t);if(s){const n=r.noOverride?{...r.desc,...s.desc}:{...s.desc,...r.desc},o=r.noOverride?s.fallback:r.fallback;e.set(t,{desc:n,fallback:o,noOverride:r.noOverride});}else e.set(t,r);}function De(e,t,r,s=false){s&&Le.has(e)||Ce(Le,e,{desc:t,fallback:r,noOverride:s});}function Se(e,t,r,s=false){s&&Re.has(e)||Ce(Re,e,{desc:t,fallback:r,noOverride:s});}function Te(e){const t={};for(const[r,s]of Object.entries(e))for(const[e,n]of Object.entries(s))t[e]||(t[e]={}),t[e][r]=n;return Object.entries(t).reduce((e,[t,r])=>(e.push({key:t,value:r}),e),[])}function ye(e,t,{entries:r,noOverride:s}={}){const n=function(e){if(!e)return e=>({CN:e});const t={};for(const[r,s]of Object.entries(e))for(const[e,n]of Object.entries(s))t[e]||(t[e]={}),t[e][r]=n;return e=>t[e]||{CN:e}}(r),o=new Set;t.Layer?.filter(e=>!e.CopyLayerColor&&(e.AllowColorize??true)&&!e.HideColoring).forEach(({Name:r,ColorGroup:i})=>{r?De(`${e}${t.Name}${r}`,n(r),r,!!s):De(`${e}${t.Name}`,{CN:t.Name.replace(/_.*?Luzi$/,"")},t.Name,!!s),i&&o.add(i);}),o.forEach(r=>Se(`${e}${t.Name}${r}`,n(r),r,!!s));}function Fe(){me("LayerNameInject",()=>{},t=>u$1.patchFunction("ItemColorLoad",(()=>{const resolve=n=>n.split(".").reduce((o,k)=>o?.[k],globalThis);const original=globalThis.bcModSdk?.getPatchingInfo?.().get("ItemColorLoad")?.original;const source=String(original??resolve("ItemColorLoad")??"");const result={};for(const [key,value] of Object.entries({"ItemColorGroupNames = new TextCache(`Assets/ColorGroups.csv`);":`ItemColorGroupNames = new TextCache(\`Assets/ColorGroups.csv\`);${t.globalFuncName}(()=>ItemColorLayerNames, ()=>ItemColorGroupNames);`})){if(source.includes(key))result[key]=value;else console.debug("[ShuangAssets] bc-asset-manager 补丁锚点已失效，已跳过",key);}return result;})())).register((e,t,r)=>{Oe=t,Ge=r;}),u$1.hookFunction("ItemColorLoad",0,(e,t)=>{const r=t(e),s=Oe?.();var n;s&&s.cache&&(n=s,Le.forEach((e,t)=>{n.cache[t]&&e.noOverride||(n.cache[t]=v.translateEntry(e.desc,e.fallback));}));const o=Ge?.();return o&&o.cache&&function(e){Re.forEach((t,r)=>{e.cache[r]&&t.noOverride||(e.cache[r]=v.translateEntry(t.desc,t.fallback));});}(o),r});}class we{static info(e){ve?.info(e);}static warn(e){ve?.warn(e);}static error(e){ve?.error(e);}}let be=false;const Me=[];function Pe(e){be?e():Me.push(e);}const _e=[];let je=false;function xe(e){je?e():_e.push(e);}const Ue={};const ke={};function Be(e,t){const r=AssetGroupGet("Female3DCG",e);be&&r?t(r):(ke[e]||(ke[e]=[]),ke[e].push(t));}let Xe=false;const Ve=[];function We(e){Xe?e():Ve.push(e);}const He=new Set;function ze(t={start:"Start loading",end:"Loading completed, time usage: "}){const r=async()=>{we.info(t.start);const e=Date.now();for(!function(){for(;Me.length>0;)Me.shift()();}(),be=true,function(){for(;_e.length>0;)_e.shift()();}(),je=true,AssetGroup.forEach(e=>function(e){if(Ue[e.Name])for(;Ue[e.Name].length>0;)Ue[e.Name].shift()(e);}(e)),AssetGroup.forEach(e=>function(e){if(ke[e.Name])for(;ke[e.Name].length>0;)ke[e.Name].shift()(e);}(e)),CraftingAssets=CraftingAssetsPopulate(),Xe=true;Ve.length>0;)Ve.shift()();const r=Date.now();we.info(`${t.end} ${r-e}ms`);};AssetGroup.length>50?r():u$1.progressiveHook("AssetLoadAll",1).next().inject(()=>r());}function Ze(r,n,{extendedConfig:i,translation:a,dynamicName:u,preimage:l,noMirror:m,layerNames:f,assetStrings:h}={}){!function(e,t){const r=AssetGroupGet("Female3DCG",e);be&&r?t(r):(Ue[e]||(Ue[e]=[]),Ue[e].push(t));}(r,e=>{N.add(e.Name,n),i&&g.add(i);});const p=r;!function(e,t,r){const s=r=>{const n=t?[d(e)]:E(e),o=n.find(({group:e})=>!e);if(o)return He.has(o.name)?void console.error(`[AssetManager] Required group "${o.name}" not found`):(He.add(o.name),void Be(o.name,()=>s(r)));n.forEach(({group:e,groupDef:t})=>r(e,t));};be?s(r):Be(e,()=>s(r));}(r,!!m,(r,i)=>{const m=r.Name,E=$(n),d=AssetResolveCopyConfig.AssetDefinition(E,m,N.value);if(!d)return;const A=he(a,d.Name.replace(/_.*?Luzi$/,""));void 0!==c()[m]?.[E.Name]&&console.warn(`[AssetManager] Asset {${m}:${E.Name}} already existed!`),function(...[r,n,o,i]){u$1.invokeOriginal("AssetAdd",r,n,o,i);const a=r.Name,c=n.Name;s[a]||(s[a]={});const u=AssetGet("Female3DCG",a,c);return u?(s[a][c]=u,t.resolve(u)):t.reject(`Asset ${a}:${c} not found`)}(r,d,g.value,i).then(e=>{if(e.DynamicGroupName===e.Group.Name&&(e.DynamicGroupName=u||p),l){const t=AssetGet("Female3DCG",l.Name,d.Name);t&&(e.Description=t.Description,e.DynamicGroupName=t.DynamicGroupName,["ScriptDraw","BeforeDraw","AfterDraw"].filter(e=>t[`Dynamic${e}`]).forEach(e=>function(e,t,r,s){const n=`Assets${t}${r.Name}${s}`,o=`Assets${e}${r.Name}${s}`;globalThis[n]&&(globalThis[o]=globalThis[n]);}(m,l.Name,d,e)));}else e.Description=fe(A),function(e,t){o.push({name:e,asset:t});}(d.Name,e),ye(e.DynamicGroupName,d,{entries:f,noOverride:!f});h&&D(e.Group.Name,e.Name,h);}),ge.setAsset(m,d.Name,A);});}const Je={};const Ye={};function Qe(e,t,r){if(!e.DialogPrefix){const s=`${t}${r}`;if("modular"===e.Archetype)return {DialogPrefix:{Header:`${s}Select`,Module:`${s}Module`,Option:`${s}Option`,Chat:`${s}Set`}};if("typed"===e.Archetype)return {DialogPrefix:{Header:`${s}Select`,Option:s,Chat:`${s}Set`,Npc:s}}}return {}}function qe(s,{translation:o,dynamicName:i,preimage:a}={}){Pe(()=>{const c=he(o,s.Group.replace(/_.*?Luzi$/,""));((function(...[s,o]){const i=u$1.invokeOriginal("AssetGroupAdd",s,o);return r[i.Name]=i,n[i.Name]=o,t.resolve(i)}))("Female3DCG",s).then(e=>{e.Description=fe(c),i&&(e.DynamicGroupName=i);const t=(()=>{if(!a)return;const e=AssetFemale3DCGExtended[a.Name];if(!e)return;const t={};for(const[r,s]of Object.entries(e))t[r]={Archetype:s.Archetype,CopyConfig:{GroupName:a.Name,AssetName:r},...Qe(s,a.Name,r)};return {[s.Group]:t}})();s.Asset.forEach(e=>{const r=$(e);if(t&&a){const e=Ye[a.Name]?.[r.Name];e&&We(()=>{const n=AssetGet("Female3DCG",s.Group,r.Name);n&&AssetBuildExtended(n,e,t,null,false);});}Ze(s.Group,r,{dynamicName:i,preimage:a,extendedConfig:t});});}),ge.setGroup(s.Group,c);});}Pe(()=>{let t=false;u$1.hookFunction("AssetBuildExtended",0,(e,r)=>{if(t){const[t,r]=e;return Ye[t.Group.Name]??={},Ye[t.Group.Name][t.Name]=r,null}return r(e)}),t=true,u$1.invokeOriginal("ExtendedItemManualRegister"),t=false;});const Ke=new Set;function et(e,t,r,s){const n=()=>{const o=AssetFemale3DCG.find(e=>e.Group===t)||a()[t],i=AssetGroupGet("Female3DCG",t),c=AssetFemale3DCGExtended[t];if(!o||!i)return Ke.has(t)?void console.error(`[AssetManager] Group ${t} not found`):(Ke.add(t),void xe(n));var u,l;l=e,f[u=t]||(f[u]=new Set([u])),f[u].add(l),p[u]||(p[u]=new Set),p[u].add(l),h[l]=u;const m=he(r,e.replace(/_.*?Luzi$/,""));qe({...o,...s,Group:e,Default:false,Random:false},{translation:m,dynamicName:o.DynamicGroupName||o.Group,preimage:i}),AssetFemale3DCGExtended[e]=c;};xe(n);}function tt(){let t=false;u$1.hookFunction("DialogInventoryBuild",0,(e,r)=>{e[2]||(t="permissions"!==DialogMenuMode);const s=r(e);return "items"!==DialogMenuMode&&null!==DialogMenuMode||!u||e[0].IsPlayer()||u(e[0])||(DialogInventory=DialogInventory.filter(e=>!l(e))),s});const r=(t,r,s)=>{const n=h[s];return !!n&&u$1.invokeOriginal("InventoryAvailable",t,r,n)};u$1.hookFunction("DialogInventoryAdd",10,(e,s)=>{const n=s(e);if(!t)return n;t=false;const o=e[1].Asset.Group.Name,i=new Set(DialogInventory.map(e=>e.Asset.Name)),a=c()[o];return a?(Object.entries(a).filter(([e])=>!i.has(e)).filter(([t,s])=>s.Value>=0||r(e[0],t,o)).forEach(([t,r])=>DialogInventoryAdd(e[0],{Asset:r},false)),n):n});const s=[u$1.insideFlag("CharacterAppearanceValidate"),u$1.insideFlag("CraftingItemListBuild"),u$1.insideFlag("WardrobeFastLoad"),u$1.insideFlag("CraftingValidate")];u$1.hookFunction("InventoryAvailable",0,(...[e,t])=>s.some(e=>e.inside)&&!(!function(e,t){const r=i(e,t);return !!r&&r.Value>=0}(e[2],e[1])&&!r(...e))||t(e));}let rt,st=false;function nt(t){rt=t,st||(st=true,u$1.hookFunction("ValidationResolveRemoveDiff",1,(e,t)=>{const[r,s]=e;return s.C.IsPlayer()&&!s.fromModUser&&i(r.Asset.Group.Name,r.Asset.Name)?{item:r,valid:false}:t(e)}),u$1.hookFunction("ValidationResolveSwapDiff",1,(e,t)=>{const[r,s,n]=e;return n.C.IsPlayer()&&!n.fromModUser&&i(r.Asset.Group.Name,r.Asset.Name)?{item:r,valid:false}:t(e)}),u$1.hookFunction("ValidationResolveAppearanceDiff",1,(e,t)=>(rt&&(e[3].fromModUser=rt(e[3])),t(e))));}
 /**
  * @sugarch/bc-image-mapping v2.2.1
  *
@@ -3246,7 +3343,7 @@ function ne(e){return globalThis[e]}let oe=class e{static _initStorage(){var e,t
  * License: MIT
  * https://github.com/SugarChain-Studio/sugarch-utilities
  * @preserve
- */function ot(e,t){const r=new Set;let s=e;for(;t[s];){if(r.has(s))return console.warn(`Circular dependency detected during resolution: ${s}`),"";r.add(s),s=t[s];}return s}function it(e){const t={};for(const r of Object.keys(e)){const s=ot(r,e);if(!s)return console.warn(`Circular dependency detected during optimization: ${r}`),null;t[r]=s;}return t}class at{constructor(e,t){this.path=e,this.storage=t;}map(e){const t=Array.isArray(e)?e:[e],r={};for(const e of t)r[e]=this.path;return this.storage.addImgMapping(r),this}resolve(e){return this.storage.addImgMapping({[this.path]:e}),this}}const ct=new class{constructor(){this.basic={},this.custom={},this.customSrc={};}addImgMapping(e){const t={...this.customSrc,...e},r=it(t);r?(this.customSrc=t,this.custom=r):console.warn("Failed to add mappings due to circular dependencies.");}rebuildCustomMapping(){const e=it(this.customSrc);e?this.custom=e:console.warn("Failed to rebuild mappings due to circular dependencies.");}migrateTo(e){e.customSrc={...e.customSrc,...this.customSrc},e.basic={...e.basic,...this.basic},e.rebuildCustomMapping(),this.customSrc=e.customSrc,this.basic=e.basic,this.custom=e.custom;}setBasicImgMapping(e){this.basic={...e,...this.basic};}mapImgSrc(e){if("string"!=typeof e)return e;if(!e.endsWith(".png"))return e;if(e.startsWith("blob:"))return e;if(e.startsWith("data:"))return e;if(e.startsWith("http:"))return e;if(e.startsWith("https:"))return e;if(e.startsWith("@nomap/"))return e;const t=e.startsWith("./")?e.slice(2):e;let r=t;return this.custom[r]&&(r=this.custom[r]),this.basic[r]&&(r=this.basic[r]),r!==t?r:e}mapImg(e,t){let r=e;r.startsWith("data:image")||r.startsWith("http")||(this.custom[r]&&(r=this.custom[r]),this.basic[r]&&(r=this.basic[r]),r!==e&&t(r));}};class ut{constructor(){ae("ImgMappingOnce.GLDrawLoadImage.crossOrigin",()=>{u$1.patchFunction("GLDrawLoadImage",{"\tImg.src = url;":'\tImg.crossOrigin = "Anonymous";\n\t\t\tImg.src = url;',"\ttmpImg.src = url;":'\ttmpImg.crossOrigin = "Anonymous";\n\t\t\ttmpImg.src = url;'});}),["DrawImageEx","DrawImageResize","GLDrawImage","DrawGetImage"].forEach(t=>{u$1.hookFunction(t,10,(e,t)=>(e[0]=ct.mapImgSrc(e[0]),t(e)));}),ae("ImgMappingOnce.nomap",()=>{["DrawImageEx","DrawImageResize","GLDrawImage","DrawGetImage"].forEach(t=>{u$1.hookFunction(t,0,(e,t)=>("string"==typeof e[0]&&e[0].startsWith("@nomap/")&&(e[0]=e[0].substring(7)),t(e)));});}),u$1.hookFunction("GLDrawLoadTextureAlphaMask",0,(e,t)=>(Array.isArray(e[5])&&(e[5]=e[5].map(e=>({...e,Url:ct.mapImgSrc(e.Url)}))),t(e))),(async()=>{await function(e,t=100){return (async()=>{for(;!e();)await ce(t);})()}(()=>void 0!==globalThis.ElementButton),u$1.hookFunction("ElementButton.CreateForAsset",0,(e,t)=>(ct.mapImg(ue.assetPreviewIconPath(e[1]),t=>{e[4]={...e[4],image:t};}),t(e))),u$1.hookFunction("ElementButton.CreateForActivity",0,(e,t)=>{const r=e[1],s=e[4]?.image??(r.Item?ue.assetPreviewIconPath(r.Item.Asset):`Assets/Female3DCG/Activity/${r.Activity.Name}.png`);return ct.mapImg(s,t=>{e[4]={...e[4],image:t};}),t(e)}),u$1.hookFunction("ElementButton.Create",0,(e,t)=>{if(e[0]?.startsWith("dialog-inventory")){const t=e[2];t?.icons&&(t.icons=t.icons.map(e=>{if("string"==typeof e&&e.endsWith("Padlock")){const t=`Assets/Female3DCG/ItemMisc/Preview/${e}.png`,r=ct.mapImgSrc(t);if(r!==t)return {name:e,iconSrc:r,tooltipText:InterfaceTextGet("PreviewIconPadlock").replace("AssetName",AssetGet("Female3DCG","ItemMisc",e)?.Description??e)}}return e}));}if(e[0]?.startsWith("dialog-expression-button-grid-Emoticon")){const t=e[2];t?.image&&(t.image=ct.mapImgSrc(t.image));}return t(e)});})();}get storage(){return ct}addImgMapping(e){ct.addImgMapping(e);}setBasicImgMapping(e){ct.setBasicImgMapping(e);}createVirtualPath(e){return new at(e,ct)}}const lt=oe.get("ImageMapping@2.2.1",()=>new ut);const mt=new class{addAsset(e,t,r,s,n=false){if(r){Ze(e,t,{extendedConfig:{[e]:{[t.Name]:r}},translation:s,noMirror:n});}else Ze(e,t,{translation:s,noMirror:n});}addAssetWithConfig(e,t,r){const s=(e,t,r)=>{const s=Array.isArray(e)?e:[e],n={[t.Name]:r.extended},o={translation:r.translation,noMirror:r.noMirror,layerNames:r.layerNames,...r.extended?{extendedConfig:Object.fromEntries(s.map(e=>[e,n]))}:{},assetStrings:r.assetStrings};for(const e of s)Ze(e,t,o);};if(function(e){return Array.isArray(e)&&(0===e.length||Array.isArray(e[0])&&3===e[0].length)}(e))for(const[t,r,n]of e)s(t,r,n);else if(t&&Array.isArray(t))for(const[r,n]of t)s(e,r,n);else t&&r&&s(e,t,r);}addGroupedAssetsWithConfig(e,t,r){for(const[s,n]of Object.entries(e))for(const e of n){const n=s;Ze(n,e,{translation:Ee(n,e.Name,t),layerNames:pe(n,e.Name,r)});}}addGroupedAssets(e,t,r){for(const[s,n]of Object.entries(e))for(const e of n){const n=s,o=t&&Ee(n,e.Name,t);Ze(n,e,{extendedConfig:r&&r[n]?.[e.Name]&&{[n]:{[e.Name]:r[n][e.Name]}},translation:o});}}addGroupedConfig(e){!function(e){e&&g.add(e);}(e);}modifyAsset(e,t,r){!function(e,t,r){"string"==typeof e&&(e=[e]);for(const s of e){const e=n=>{const o=AssetGet("Female3DCG",n.Name,t);if(o)r(n,o);else {if(Je[s]||(Je[s]=new Set),Je[s].has(t))return void console.error(`[AssetManager] Asset ${s}:${t} not found`);Je[s].add(t),Be(s,e);}};Be(s,e);}}(e,t,r);}supplyExtended(t,r,s,n){!function(t,r,s,n){We(()=>{const o=Array.isArray(t)?t:[t];for(const t of o){const o=AssetGet("Female3DCG",t,r);o?g.value[t]?.[r]?console.warn(`[AssetManager] Asset {${t}:${r}} already has extended config!`):(g.add({[t]:{[r]:s}}),u$1.invokeOriginal("AssetBuildExtended",o,s,g.value),D(o.Group.Name,o.Name,n)):console.error(`[AssetManager] Asset {${t}:${r}} not found`);}});}(t,r,s,n);}modifyAssetLayers(e,t){!function(e,t){We(()=>{Asset.filter(e).forEach(e=>{e.Layer.forEach(r=>t(e,r));});});}(e,t);}modifyGroup(e,t){!function(e,t){Be(e,e=>t(e));}(e,t);}addCustomAssetString(e){!function(e){for(const[t,r]of Object.entries(e)){C[t]||(C[t]={});for(const[e,s]of Object.entries(r))C[t][e]=s,e.includes("ItemTorso2")?C[t][e.replace("ItemTorso2","ItemTorso")]=s:e.includes("ItemTorso")&&(C[t][e.replace("ItemTorso","ItemTorso2")]=s);}}(e);}addImageMapping(e){lt.addImgMapping(e);}get imageMapping(){return lt}addGroup(e,t){qe(e,{translation:t});}addCopyGroup(e,t,r,s){et(e,t,r,s);}addLayerNames(e,t,r){ye(e,t,{entries:r});}addLayerNamesRaw(e,t,r){!function(e,t,r){for(const{key:s,value:n}of Te(r))De(`${e}${t}${s}`,n,s);}(e,t,r);}addColorGroupNamesRaw(e,t,r){!function(e,t,r){for(const{key:s,value:n}of Te(r))Se(`${e}${t}${s}`,n,s);}(e,t,r);}assetIsCustomed(e){return void 0!==c()[e.Group.Name]?.[e.Name]}assetNameIsStrictCustomed(e){return void 0!==(t=e,o.find(e=>e.name===t)?.asset);var t;}afterLoad(e){We(e);}init(t){!function(){if(S)return;S=true;const t=e=>v.translateString(C,e);u$1.progressiveHook("AssetTextGet").override((e,r)=>t(e[0])||r(e)),u$1.progressiveHook("ChatRoomPublishCustomAction").inject(e=>{const[r,s,n]=e,o=t(r);o&&n.push({Tag:`MISSING TEXT IN "Interface.csv": ${r}`,Text:o});}).next();}(),function(){if($e)return;$e=true;const t=TextAllScreenCache.get(AssetStringsPath);t&&t.loaded&&("EN"===TranslationLanguage||"Bloated"!==t.get("Bloated"))&&Ne(),u$1.progressiveHook("AssetBuildDescription").next().inject(Ne),u$1.progressiveHook("TranslationAssetProcess").next().inject(Ne),me("CustomDialogInject",()=>{},t=>u$1.patchFunction("ChatRoomPublishAction",{"ChatRoomCharacterItemUpdate(":`${t.globalFuncName}(dictionary, PrevItem, NextItem);\nChatRoomCharacterItemUpdate(`})).register((e,t,r,s)=>{for(const[e,n]of [["PrevAsset",r],["NextAsset",s]])l(n)&&t.text(e,n.Craft?`${n.Craft.Name} (${n.Asset.Description})`:n.Asset.Description);});}(),Fe(),tt(),t(),ze();}enableValidation(e){nt(e);}enableFromModUserValidation(e){nt(e);}enableCustomAssetUseValidation(e){!function(e){u=e;}(e);}setLogger(e){!function(e){ve=e;}(e);}typeBodyGroupNames(){return this}};
+ */function ot(e,t){const r=new Set;let s=e;for(;t[s];){if(r.has(s))return console.warn(`Circular dependency detected during resolution: ${s}`),"";r.add(s),s=t[s];}return s}function it(e){const t={};for(const r of Object.keys(e)){const s=ot(r,e);if(!s)return console.warn(`Circular dependency detected during optimization: ${r}`),null;t[r]=s;}return t}class at{constructor(e,t){this.path=e,this.storage=t;}map(e){const t=Array.isArray(e)?e:[e],r={};for(const e of t)r[e]=this.path;return this.storage.addImgMapping(r),this}resolve(e){return this.storage.addImgMapping({[this.path]:e}),this}}const ct=new class{constructor(){this.basic={},this.custom={},this.customSrc={};}addImgMapping(e){const t={...this.customSrc,...e},r=it(t);r?(this.customSrc=t,this.custom=r):console.warn("Failed to add mappings due to circular dependencies.");}rebuildCustomMapping(){const e=it(this.customSrc);e?this.custom=e:console.warn("Failed to rebuild mappings due to circular dependencies.");}migrateTo(e){e.customSrc={...e.customSrc,...this.customSrc},e.basic={...e.basic,...this.basic},e.rebuildCustomMapping(),this.customSrc=e.customSrc,this.basic=e.basic,this.custom=e.custom;}setBasicImgMapping(e){this.basic={...e,...this.basic};}mapImgSrc(e){if("string"!=typeof e)return e;if(!e.endsWith(".png"))return e;if(e.startsWith("blob:"))return e;if(e.startsWith("data:"))return e;if(e.startsWith("http:"))return e;if(e.startsWith("https:"))return e;if(e.startsWith("@nomap/"))return e;const t=e.startsWith("./")?e.slice(2):e;let r=t;return this.custom[r]&&(r=this.custom[r]),this.basic[r]&&(r=this.basic[r]),r!==t?r:e}mapImg(e,t){let r=e;r.startsWith("data:image")||r.startsWith("http")||(this.custom[r]&&(r=this.custom[r]),this.basic[r]&&(r=this.basic[r]),r!==e&&t(r));}};class ut{constructor(){ae("ImgMappingOnce.GLDrawLoadImage.crossOrigin",()=>{u$1.patchFunction("GLDrawLoadImage",(()=>{const resolve=n=>n.split(".").reduce((o,k)=>o?.[k],globalThis);const original=globalThis.bcModSdk?.getPatchingInfo?.().get("GLDrawLoadImage")?.original;const source=String(original??resolve("GLDrawLoadImage")??"");const result={};for(const [key,value] of Object.entries({"\tImg.src = url;":'\tImg.crossOrigin = "Anonymous";\n\t\t\tImg.src = url;',"\ttmpImg.src = url;":'\ttmpImg.crossOrigin = "Anonymous";\n\t\t\ttmpImg.src = url;'})){if(source.includes(key))result[key]=value;else console.debug("[ShuangAssets] bc-asset-manager 补丁锚点已失效，已跳过",key);}return result;})());}),["DrawImageEx","DrawImageResize","GLDrawImage","DrawGetImage"].forEach(t=>{u$1.hookFunction(t,10,(e,t)=>(e[0]=ct.mapImgSrc(e[0]),t(e)));}),ae("ImgMappingOnce.nomap",()=>{["DrawImageEx","DrawImageResize","GLDrawImage","DrawGetImage"].forEach(t=>{u$1.hookFunction(t,0,(e,t)=>("string"==typeof e[0]&&e[0].startsWith("@nomap/")&&(e[0]=e[0].substring(7)),t(e)));});}),u$1.hookFunction("GLDrawLoadTextureAlphaMask",0,(e,t)=>(Array.isArray(e[5])&&(e[5]=e[5].map(e=>({...e,Url:ct.mapImgSrc(e.Url)}))),t(e))),(async()=>{await function(e,t=100){return (async()=>{for(;!e();)await ce(t);})()}(()=>void 0!==globalThis.ElementButton),u$1.hookFunction("ElementButton.CreateForAsset",0,(e,t)=>(ct.mapImg(ue.assetPreviewIconPath(e[1]),t=>{e[4]={...e[4],image:t};}),t(e))),u$1.hookFunction("ElementButton.CreateForActivity",0,(e,t)=>{const r=e[1],s=e[4]?.image??(r.Item?ue.assetPreviewIconPath(r.Item.Asset):`Assets/Female3DCG/Activity/${r.Activity.Name}.png`);return ct.mapImg(s,t=>{e[4]={...e[4],image:t};}),t(e)}),u$1.hookFunction("ElementButton.Create",0,(e,t)=>{if(e[0]?.startsWith("dialog-inventory")){const t=e[2];t?.icons&&(t.icons=t.icons.map(e=>{if("string"==typeof e&&e.endsWith("Padlock")){const t=`Assets/Female3DCG/ItemMisc/Preview/${e}.png`,r=ct.mapImgSrc(t);if(r!==t)return {name:e,iconSrc:r,tooltipText:InterfaceTextGet("PreviewIconPadlock").replace("AssetName",AssetGet("Female3DCG","ItemMisc",e)?.Description??e)}}return e}));}if(e[0]?.startsWith("dialog-expression-button-grid-Emoticon")){const t=e[2];t?.image&&(t.image=ct.mapImgSrc(t.image));}return t(e)});})();}get storage(){return ct}addImgMapping(e){ct.addImgMapping(e);}setBasicImgMapping(e){ct.setBasicImgMapping(e);}createVirtualPath(e){return new at(e,ct)}}const lt=oe.get("ImageMapping@2.2.1",()=>new ut);const mt=new class{addAsset(e,t,r,s,n=false){if(r){Ze(e,t,{extendedConfig:{[e]:{[t.Name]:r}},translation:s,noMirror:n});}else Ze(e,t,{translation:s,noMirror:n});}addAssetWithConfig(e,t,r){const s=(e,t,r)=>{const s=Array.isArray(e)?e:[e],n={[t.Name]:r.extended},o={translation:r.translation,noMirror:r.noMirror,layerNames:r.layerNames,...r.extended?{extendedConfig:Object.fromEntries(s.map(e=>[e,n]))}:{},assetStrings:r.assetStrings};for(const e of s)Ze(e,t,o);};if(function(e){return Array.isArray(e)&&(0===e.length||Array.isArray(e[0])&&3===e[0].length)}(e))for(const[t,r,n]of e)s(t,r,n);else if(t&&Array.isArray(t))for(const[r,n]of t)s(e,r,n);else t&&r&&s(e,t,r);}addGroupedAssetsWithConfig(e,t,r){for(const[s,n]of Object.entries(e))for(const e of n){const n=s;Ze(n,e,{translation:Ee(n,e.Name,t),layerNames:pe(n,e.Name,r)});}}addGroupedAssets(e,t,r){for(const[s,n]of Object.entries(e))for(const e of n){const n=s,o=t&&Ee(n,e.Name,t);Ze(n,e,{extendedConfig:r&&r[n]?.[e.Name]&&{[n]:{[e.Name]:r[n][e.Name]}},translation:o});}}addGroupedConfig(e){!function(e){e&&g.add(e);}(e);}modifyAsset(e,t,r){!function(e,t,r){"string"==typeof e&&(e=[e]);for(const s of e){const e=n=>{const o=AssetGet("Female3DCG",n.Name,t);if(o)r(n,o);else {if(Je[s]||(Je[s]=new Set),Je[s].has(t))return void console.error(`[AssetManager] Asset ${s}:${t} not found`);Je[s].add(t),Be(s,e);}};Be(s,e);}}(e,t,r);}supplyExtended(t,r,s,n){!function(t,r,s,n){We(()=>{const o=Array.isArray(t)?t:[t];for(const t of o){const o=AssetGet("Female3DCG",t,r);o?g.value[t]?.[r]?console.warn(`[AssetManager] Asset {${t}:${r}} already has extended config!`):(g.add({[t]:{[r]:s}}),u$1.invokeOriginal("AssetBuildExtended",o,s,g.value),D(o.Group.Name,o.Name,n)):console.error(`[AssetManager] Asset {${t}:${r}} not found`);}});}(t,r,s,n);}modifyAssetLayers(e,t){!function(e,t){We(()=>{Asset.filter(e).forEach(e=>{e.Layer.forEach(r=>t(e,r));});});}(e,t);}modifyGroup(e,t){!function(e,t){Be(e,e=>t(e));}(e,t);}addCustomAssetString(e){!function(e){for(const[t,r]of Object.entries(e)){C[t]||(C[t]={});for(const[e,s]of Object.entries(r))C[t][e]=s,e.includes("ItemTorso2")?C[t][e.replace("ItemTorso2","ItemTorso")]=s:e.includes("ItemTorso")&&(C[t][e.replace("ItemTorso","ItemTorso2")]=s);}}(e);}addImageMapping(e){lt.addImgMapping(e);}get imageMapping(){return lt}addGroup(e,t){qe(e,{translation:t});}addCopyGroup(e,t,r,s){et(e,t,r,s);}addLayerNames(e,t,r){ye(e,t,{entries:r});}addLayerNamesRaw(e,t,r){!function(e,t,r){for(const{key:s,value:n}of Te(r))De(`${e}${t}${s}`,n,s);}(e,t,r);}addColorGroupNamesRaw(e,t,r){!function(e,t,r){for(const{key:s,value:n}of Te(r))Se(`${e}${t}${s}`,n,s);}(e,t,r);}assetIsCustomed(e){return void 0!==c()[e.Group.Name]?.[e.Name]}assetNameIsStrictCustomed(e){return void 0!==(t=e,o.find(e=>e.name===t)?.asset);var t;}afterLoad(e){We(e);}init(t){!function(){if(S)return;S=true;const t=e=>v.translateString(C,e);u$1.progressiveHook("AssetTextGet").override((e,r)=>t(e[0])||r(e)),u$1.progressiveHook("ChatRoomPublishCustomAction").inject(e=>{const[r,s,n]=e,o=t(r);o&&n.push({Tag:`MISSING TEXT IN "Interface.csv": ${r}`,Text:o});}).next();}(),function(){if($e)return;$e=true;const t=TextAllScreenCache.get(AssetStringsPath);t&&t.loaded&&("EN"===TranslationLanguage||"Bloated"!==t.get("Bloated"))&&Ne(),u$1.progressiveHook("AssetBuildDescription").next().inject(Ne),u$1.progressiveHook("TranslationAssetProcess").next().inject(Ne),me("CustomDialogInject",()=>{},t=>u$1.patchFunction("ChatRoomPublishAction",{"ChatRoomCharacterItemUpdate(":`${t.globalFuncName}(dictionary, PrevItem, NextItem);\nChatRoomCharacterItemUpdate(`})).register((e,t,r,s)=>{for(const[e,n]of [["PrevAsset",r],["NextAsset",s]])l(n)&&t.text(e,n.Craft?`${n.Craft.Name} (${n.Asset.Description})`:n.Asset.Description);});}(),Fe(),tt(),t(),ze();}enableValidation(e){nt(e);}enableFromModUserValidation(e){nt(e);}enableCustomAssetUseValidation(e){!function(e){u=e;}(e);}setLogger(e){!function(e){ve=e;}(e);}typeBodyGroupNames(){return this}};
 
 const ModInfo = {
     name: "ShuangCustomAssets",
@@ -4279,6 +4376,28 @@ function queueOneShotRefresh(C) {
         refreshCharacterAppearance(C);
     }, 0);
 }
+const _pendingDelayed = new Set();
+function queueDelayedRefresh(C, delayMs = 16) {
+    if (!C || _pendingDelayed.has(C)) return;
+    _pendingDelayed.add(C);
+    setTimeout(() => {
+        _pendingDelayed.delete(C);
+        refreshCharacterAppearance(C);
+    }, Math.max(0, delayMs));
+}
+const _pendingLayerRefresh = new Set();
+function queueLayerRefresh(C) {
+    if (!C || _pendingLayerRefresh.has(C)) return;
+    _pendingLayerRefresh.add(C);
+    setTimeout(() => {
+        _pendingLayerRefresh.delete(C);
+        try {
+            if (typeof CharacterRefresh === "function") CharacterRefresh(C, false, false);
+        } catch (err) {
+            Logger.error("[ShuangAssets] 角色外观图层重算失败", err);
+        }
+    }, 0);
+}
 
 const GIF_POLL_INTERVAL_DEFAULT_MS = 100;
 const STALE_CHARACTER_TIMEOUT_MS = 5 * 60 * 1000;
@@ -4390,1368 +4509,22 @@ function notifyGifFrame(C, layerIndex, frameIndex, nextDueAt) {
     }
 }
 
-function updateHideArray(item) {
-    if (!item || !item.Property) return false;
-    const hide = [];
-    const currentGroup = item.Asset?.Group?.Name;
-    for (const cat of HIDE_CATEGORIES) {
-        if (item.Property[cat.key] === true) {
-            for (const g of cat.groups) {
-                if (cat.key === "HideItems" && g === currentGroup) continue;
-                hide.push(g);
-            }
-        }
-    }
-    const oldHide = item.Property.Hide || [];
-    const newHideStr = [...hide].sort().join(",");
-    const oldHideStr = [...oldHide].sort().join(",");
-    const needsRefresh = newHideStr !== oldHideStr;
-    if (hide.length > 0) {
-        item.Property.Hide = hide;
-    } else {
-        delete item.Property.Hide;
-    }
-    return needsRefresh;
-}
-
-const BEACON_CONTENT = "SCA-itemedit";
-const MISSING_TAG = `MISSING TEXT IN "Interface.csv": ${BEACON_CONTENT}`;
-function nameOf(mn, carried) {
-    try {
-        const chars = (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter))
-            ? ChatRoomCharacter : [];
-        const C = chars.find(c => c?.MemberNumber === mn)
-            || (Player?.MemberNumber === mn ? Player : null);
-        if (C) {
-            const nn = typeof CharacterNickname === "function" ? CharacterNickname(C) : "";
-            return nn || C.Nickname || C.Name || carried || `#${mn}`;
-        }
-    } catch (_) {}
-    return `#${mn}`;
-}
-function buildText(srcName, tgtName, isSelf) {
-    if (isSelf) {
-        return t$2("itemEditBeacon.edited_their_own_custom_texture", [srcName]);
-    }
-    return t$2("itemEditBeacon.edited_s_custom_texture", [srcName, tgtName]);
-}
-function sendItemEditBeacon(targetChar) {
-    try {
-        if (typeof ServerSend !== "function") return;
-        if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
-        const srcMN = Player?.MemberNumber;
-        const tgtMN = targetChar?.MemberNumber;
-        if (typeof srcMN !== "number" || typeof tgtMN !== "number") return;
-        const srcName = nameOf(srcMN);
-        const tgtName = nameOf(tgtMN);
-        const fallback = buildText(srcName, tgtName, srcMN === tgtMN);
-        ServerSend("ChatRoomChat", {
-            Type: "Action",
-            Content: BEACON_CONTENT,
-            Dictionary: [
-                { Tag: MISSING_TAG, Text: fallback },
-                { Type: BEACON_CONTENT, Source: srcMN, Target: tgtMN },
-            ],
-        });
-    } catch (e) {
-        Logger.error("[ShuangAssets] 发送编辑动作信标失败", e);
-    }
-}
-function setupItemEditBeacon(HookManager) {
-    if (!HookManager || typeof HookManager.hookFunction !== "function") return;
-    if (typeof ChatRoomMessage !== "function") return;
-    HookManager.hookFunction("ChatRoomMessage", 0, (args, next) => {
-        try {
-            const data = args[0];
-            if (data?.Type === "Action" && data?.Content === BEACON_CONTENT && Array.isArray(data.Dictionary)) {
-                const payload = data.Dictionary.find(d => d?.Type === BEACON_CONTENT);
-                const missing = data.Dictionary.find(d => d?.Tag === MISSING_TAG);
-                if (payload && missing) {
-                    const srcName = nameOf(payload.Source);
-                    const tgtName = nameOf(payload.Target);
-                    missing.Text = buildText(srcName, tgtName, payload.Source === payload.Target);
-                }
-            }
-        } catch (e) { Logger.error("[ShuangAssets] 本地化编辑动作信标失败", e); }
-        return next(args);
-    });
-}
-
-const snapshotStore = new Map();
-const lastBroadcast = new Map();
-const BEACON_DEBOUNCE_MS = 3000;
-function itemKeyOf(item) {
-    const g = item?.Asset?.Group?.Name || "";
-    const n = item?.Asset?.Name || "";
-    return `${g}:${n}`;
-}
-function recordItemBaseline(item) {
-    if (!item) return;
-    snapshotStore.set(itemKeyOf(item), JSON.stringify(item.Property ?? {}));
-}
-function syncItemToServer(item) {
-    if (CurrentScreen === "Crafting") return;
-    const C = CharacterGetCurrent();
-    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
-    const key = itemKeyOf(item);
-    const snap = JSON.stringify(item.Property ?? {});
-    const prev = snapshotStore.get(key);
-    if (prev !== undefined && prev !== snap) {
-        const now = Date.now();
-        const last = lastBroadcast.get(key) || 0;
-        if (now - last >= BEACON_DEBOUNCE_MS) {
-            sendItemEditBeacon(C);
-            lastBroadcast.set(key, now);
-        }
-    }
-    snapshotStore.set(key, snap);
-    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
-    if (C.IsPlayer()) {
-        backupAppearance(true);
-        if (typeof ChatRoomCharacterUpdate === "function") {
-            ChatRoomCharacterUpdate(C);
-        }
-        if (typeof ServerPlayerAppearanceSync === "function") {
-            ServerPlayerAppearanceSync();
-        }
-    }
-    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
-}
-
-const HANDLES = [[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]];
-const MIN_HANDLE_EXTENT = 32;
-const VIEW_MAX_AGE_MS = 250;
-let svg, target, drag, scopedCharacter, textureDraw;
-function active() {
-    return state.freeTransform && state.currentEditTexture >= 0 && !state.poseSwitchMode &&
-        (!state.poseEditing || (state.poseViewMode && state.tempTextureData?.PoseSettings?.[state.poseEditing]?.enabled)) &&
-        typeof CharacterGetCurrent === "function" && CharacterGetCurrent() && DialogFocusItem &&
-        (!DialogFocusItem.Property?.LockedBy || DialogCanUnlock(CharacterGetCurrent(), DialogFocusItem));
-}
-function selected(C, item, layer) {
-    return active() && C === CharacterGetCurrent() && item === DialogFocusItem && layer === state.currentEditTexture;
-}
-function hasCurrentView() {
-    return active() && state.transformView && Date.now()-state.transformView.time <= VIEW_MAX_AGE_MS;
-}
-function clearTextureGeometry(C, item, layer) {
-    if (selected(C, item, layer)) state.transformGeometry = null;
-}
-function captureTextureGeometry(C, item, layer, geometry) {
-    if (selected(C, item, layer)) state.transformGeometry = { ...geometry, item, layer, C };
-}
-function drawCapturedTexture(C, item, layer, geometry, canvas, drawX, drawY, draw) {
-    captureTextureGeometry(C, item, layer, geometry);
-    const previous = textureDraw;
-    textureDraw = selected(C, item, layer) ? { canvas, drawX, drawY, geometry:state.transformGeometry } : null;
-    try { return draw(); } finally { textureDraw = previous; }
-}
-function imageMatrix(source, x, y, options = {}, m = { a:1,b:0,c:0,d:1,e:0,f:0 }) {
-    const [u,v,w,h] = options.SourcePos || [0,0,source.width,source.height];
-    const width = options.Width ?? w, height = options.Height ?? h, zoom = options.Zoom ?? 1;
-    const sx = zoom * (options.Mirror ? -1 : 1) * width / w;
-    const sy = zoom * (options.Invert ? -1 : 1) * height / h;
-    const tx = x + (options.Mirror ? width : 0) - u * sx;
-    const ty = y + (options.Invert ? height : 0) - v * sy;
-    return { a:m.a*sx, b:m.b*sx, c:m.c*sy, d:m.d*sy,
-        e:m.a*tx+m.c*ty+m.e, f:m.b*tx+m.d*ty+m.f };
-}
-function mapPoint(m, x, y) { return { x:m.a*x+m.c*y+m.e, y:m.b*x+m.d*y+m.f }; }
-function unmapPoint(m, x, y) {
-    const det = m.a*m.d-m.b*m.c;
-    if (!Number.isFinite(det) || Math.abs(det) < 1e-10) return null;
-    return { x:(m.d*(x-m.e)-m.c*(y-m.f))/det, y:(m.a*(y-m.f)-m.b*(x-m.e))/det };
-}
-function geometryPoint(g, hx, hy) {
-    const rad = g.rotation*Math.PI/180, dx = hx*g.width/2, dy = hy*g.height/2;
-    return { x:g.centerX+dx*Math.cos(rad)-dy*Math.sin(rad), y:g.centerY+dx*Math.sin(rad)+dy*Math.cos(rad) };
-}
-function setupTransformCapture(hooks) {
-    hooks.hookFunction("GLDraw2DCanvas", 0, (args, next) => {
-        if (textureDraw && args[1] === textureDraw.canvas) {
-            const dx = args[2] - textureDraw.drawX + (args[4] || 0);
-            const dy = args[3] - textureDraw.drawY;
-            const g = textureDraw.geometry;
-            state.transformGeometry = { ...g, anchorX:g.anchorX+dx, anchorY:g.anchorY+dy,
-                centerX:g.centerX+dx, centerY:g.centerY+dy };
-        }
-        return next(args);
-    });
-    hooks.hookFunction("DrawCharacter", 0, (args, next) => {
-        const previous = scopedCharacter;
-        scopedCharacter = active() && args[0] === CharacterGetCurrent() && args[1] < 1000 ? args[0] : null;
-        try { return next(args); } finally { scopedCharacter = previous; }
-    });
-    hooks.hookFunction("DrawImageEx", 0, (args, next) => {
-        const [source, canvas, x, y, options] = args;
-        if (scopedCharacter && canvas === MainCanvas && (source === scopedCharacter.Canvas || source === scopedCharacter.CanvasBlink)) {
-            state.transformView = { matrix:imageMatrix(source,x,y,options,canvas.getTransform()), time:Date.now() };
-        }
-        return next(args);
-    });
-    hooks.hookFunction("DrawProcess", 0, (args, next) => {
-        const result = next(args);
-        if (!hasCurrentView()) hideTransformOverlay();
-        return result;
-    });
-}
-const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-function transformValues(g, initial, start, point, handle) {
-    const dx = point.x-start.x, dy = point.y-start.y;
-    if (handle === 'move') return { OffsetX:clamp(Math.round(initial.OffsetX+dx),-1e4,10000), OffsetY:clamp(Math.round(initial.OffsetY+dy),-1e4,10000) };
-    if (handle === 'rotate') {
-        const a = Math.atan2(start.y-g.centerY,start.x-g.centerX), b = Math.atan2(point.y-g.centerY,point.x-g.centerX);
-        const delta = Math.atan2(Math.sin(b-a),Math.cos(b-a));
-        return { Rotation:Math.round(((initial.Rotation+delta*180/Math.PI+180)%360+360)%360-180) };
-    }
-    const [hx,hy] = HANDLES[Number(handle)], rad = g.rotation*Math.PI/180;
-    const lx = dx*Math.cos(rad)+dy*Math.sin(rad), ly = -dx*Math.sin(rad)+dy*Math.cos(rad);
-    let w = g.width+(hx ? 2*hx*lx : 0), h = g.height+(hy ? 2*hy*ly : 0);
-    if (initial.ScaleLocked !== false) {
-        const factor = hx && hy ? 1+2*(hx*lx*g.width+hy*ly*g.height)/(g.width*g.width+g.height*g.height)
-            : hx ? w/g.width : h/g.height;
-        const minFactor = Math.max((g.minimumWidth || MIN_HANDLE_EXTENT)/g.width, (g.minimumHeight || MIN_HANDLE_EXTENT)/g.height);
-        const maxFactor = Math.min(8192/g.width,8192/g.height,20*g.sourceWidth/g.width,20*g.sourceHeight/g.height);
-        const bounded = clamp(factor, Math.min(minFactor,maxFactor), maxFactor);
-        w = g.width*bounded; h = g.height*bounded;
-    }
-    const minX = Math.max(1,Math.ceil((g.minimumWidth || MIN_HANDLE_EXTENT)/g.sourceWidth*100));
-    const minY = Math.max(1,Math.ceil((g.minimumHeight || MIN_HANDLE_EXTENT)/g.sourceHeight*100));
-    const sx = Math.round(clamp(w/g.sourceWidth*100,Math.min(minX,2000),Math.min(2000,819200/g.sourceWidth)));
-    const sy = Math.round(clamp(h/g.sourceHeight*100,Math.min(minY,2000),Math.min(2000,819200/g.sourceHeight)));
-    return { ScaleX:sx, ScaleY:sy,
-        OffsetX:clamp(g.centerX-g.anchorX-Math.round(g.sourceWidth*sx/100)/2,-1e4,10000),
-        OffsetY:clamp(g.centerY-g.anchorY-Math.round(g.sourceHeight*sy/100)/2,-1e4,10000) };
-}
-function eventPoint(event, matrix) {
-    const canvas = MainCanvas.canvas, rect = canvas.getBoundingClientRect();
-    return unmapPoint(matrix,(event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height);
-}
-function minimumGeometry(g, matrix) {
-    const rect = MainCanvas.canvas.getBoundingClientRect(), rad = g.rotation*Math.PI/180;
-    const cssLength = (x,y) => Math.hypot((matrix.a*x+matrix.c*y)*rect.width/MainCanvas.canvas.width,
-        (matrix.b*x+matrix.d*y)*rect.height/MainCanvas.canvas.height);
-    return { ...g, minimumWidth:Math.min(8192,20*g.sourceWidth,MIN_HANDLE_EXTENT/cssLength(Math.cos(rad),Math.sin(rad))),
-        minimumHeight:Math.min(8192,20*g.sourceHeight,MIN_HANDLE_EXTENT/cssLength(-Math.sin(rad),Math.cos(rad))) };
-}
-function startDrag(event) {
-    const handle = event.target.getAttribute('data-handle');
-    if (handle === null || event.button !== 0 || !active() || !target || !state.transformGeometry || !state.transformView) return;
-    const g = state.transformGeometry, matrix = state.transformView.matrix, start = eventPoint(event,matrix);
-    if (!start) return;
-    event.preventDefault(); event.stopPropagation();
-    const sized = minimumGeometry(g,matrix);
-    drag = { g:sized, matrix, start, handle, target, pointer:event.pointerId, pose:state.poseEditing,
-        initial:{ ...g.params, ScaleLocked:target.ScaleLocked } };
-    state.transformDragging = true;
-    svg.setPointerCapture(event.pointerId);
-}
-function moveDrag(event) {
-    if (!drag || drag.pointer !== event.pointerId) return;
-    if (!active() || target !== drag.target || drag.g.item !== DialogFocusItem || drag.pose !== state.poseEditing) { finishDrag(); return; }
-    const point = eventPoint(event,drag.matrix);
-    if (!point) return;
-    Object.assign(target,transformValues(drag.g,drag.initial,drag.start,point,drag.handle));
-    state._fieldsDirty = true;
-    event.preventDefault(); event.stopPropagation();
-}
-function finishDrag() {
-    const pointer = drag?.pointer;
-    drag = null;
-    state.transformDragging = false;
-    state._lastTextureRefresh = 0;
-    if (pointer !== undefined && svg?.hasPointerCapture(pointer)) svg.releasePointerCapture(pointer);
-}
-function hideTransformOverlay() {
-    finishDrag();
-    if (svg) svg.style.display = 'none';
-}
-function createOverlay() {
-    svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-    svg.id = 'sca-free-transform';
-    svg.style.cssText = 'position:fixed;z-index:999;pointer-events:none;touch-action:none;user-select:none;overflow:hidden';
-    svg.innerHTML = '<defs><clipPath id="sca-transform-clip"><rect /></clipPath></defs><g clip-path="url(#sca-transform-clip)">' +
-        '<polygon data-handle="move" fill="rgba(150,60,255,.03)" stroke="#b360ff" stroke-width="2" style="pointer-events:auto;cursor:move"/>' +
-        '<line stroke="#b360ff" stroke-width="2"/>' +
-        '<circle data-handle="rotate" r="9" fill="#b360ff" stroke="white" style="pointer-events:auto;cursor:grab"/>' +
-        HANDLES.map((_,i)=>`<rect data-handle="${i}" width="12" height="12" fill="#b360ff" stroke="white" style="pointer-events:auto;cursor:crosshair"/>`).join('')+'</g>';
-    svg.addEventListener('pointerdown',startDrag);
-    svg.addEventListener('pointermove',moveDrag);
-    svg.addEventListener('pointerup',event=>{ moveDrag(event); finishDrag(); event.stopPropagation(); });
-    for (const name of ['pointercancel','lostpointercapture']) svg.addEventListener(name,finishDrag);
-    for (const name of ['mousedown','mouseup','click','touchstart','touchend']) svg.addEventListener(name,event=>event.stopPropagation());
-    window.addEventListener('blur',hideTransformOverlay);
-    document.body.appendChild(svg);
-}
-function attributes(node, values) { for (const [key,value] of Object.entries(values)) node.setAttribute(key,String(value)); }
-function updateTransformOverlay(editTarget) {
-    target = editTarget;
-    const g = state.transformGeometry, view = state.transformView;
-    if (!hasCurrentView() || !g || g.item !== DialogFocusItem || g.layer !== state.currentEditTexture) { hideTransformOverlay(); return; }
-    const sized = minimumGeometry(g,view.matrix);
-    if (g.width < sized.minimumWidth-1 || g.height < sized.minimumHeight-1) {
-        const recover = { ...sized, width:Math.max(g.width,1), height:Math.max(g.height,1) };
-        Object.assign(target,transformValues(recover,{...g.params,ScaleLocked:target.ScaleLocked},{x:0,y:0},{x:0,y:0},'4'));
-        state._fieldsDirty = true;
-        hideTransformOverlay();
-        return;
-    }
-    if (!svg) createOverlay();
-    const canvas = MainCanvas.canvas, rect = canvas.getBoundingClientRect(), m = view.matrix;
-    Object.assign(svg.style,{display:'block',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px'});
-    attributes(svg,{preserveAspectRatio:"none",viewBox:`0 0 ${canvas.width} ${canvas.height}`});
-    attributes(svg.querySelector('clipPath rect'),{width:canvas.width/2,height:canvas.height});
-    const points = HANDLES.map(([hx,hy])=>{ const p=geometryPoint(g,hx,hy); return mapPoint(m,p.x,p.y); });
-    const center = mapPoint(m,g.centerX,g.centerY), top = points[1];
-    const distance = Math.hypot(top.x-center.x,top.y-center.y) || 1;
-    const rotate = {x:top.x+32*(top.x-center.x)/distance,y:top.y+32*(top.y-center.y)/distance};
-    attributes(svg.querySelector('polygon'),{points:[0,2,4,6].map(i=>`${points[i].x},${points[i].y}`).join(' ')});
-    attributes(svg.querySelector('line'),{x1:top.x,y1:top.y,x2:rotate.x,y2:rotate.y});
-    attributes(svg.querySelector('circle'),{cx:rotate.x,cy:rotate.y});
-    svg.querySelectorAll('rect[data-handle]').forEach((node,i)=>attributes(node,{x:points[i].x-6,y:points[i].y-6}));
-}
-
-function getEditTarget() {
-    if (state.poseEditing && state.tempTextureData?.PoseSettings?.[state.poseEditing]) {
-        return state.tempTextureData.PoseSettings[state.poseEditing];
-    }
-    return state.tempTextureData;
-}
-function refreshEditInputs() {
-    if (!getEditTarget()) return;
-    state._fieldsDirty = true;
-}
-function inheritGlobalFields() {
-    const g = state.tempTextureData;
-    return {
-        enabled: false,
-        TextureURL: g?.TextureURL || "",
-        OffsetX: g?.OffsetX ?? 1,
-        OffsetY: g?.OffsetY ?? 1,
-        ScaleX: g?.ScaleX ?? 100,
-        ScaleY: g?.ScaleY ?? 100,
-        ScaleLocked: g?.ScaleLocked !== false,
-        Rotation: g?.Rotation ?? 0,
-        Opacity: g?.Opacity ?? 100,
-        MirrorH: g?.MirrorH === true,
-        MirrorV: g?.MirrorV === true
-    };
-}
-function clearPreviewPose() {
-    const C = CharacterGetCurrent();
-    if (!C) return;
-    state.previewPoseMapping = null;
-    CharacterLoadCanvas(C);
-}
-function derivePoseEditing(poseKey) {
-    if (!state.poseViewMode) {
-        state.poseEditing = null;
-        return;
-    }
-    const ps = state.tempTextureData?.PoseSettings?.[poseKey];
-    state.poseEditing = (ps && ps.enabled === true) ? poseKey : null;
-}
-function switchPose(newPoseKey) {
-    if (!newPoseKey) {
-        state.poseEditing = null;
-        refreshEditInputs();
-        return;
-    }
-    if (state.poseViewMode) {
-        const parts = newPoseKey.split("+");
-        const poseName = parts[0] || newPoseKey;
-        setPreviewPose(poseName);
-    }
-    derivePoseEditing(newPoseKey);
-    refreshEditInputs();
-}
-function drawPoseBar() {
-    const C = CharacterGetCurrent();
-    const poseKey = getPoseKey(C?.DrawPose);
-    if (poseKey) {
-        DrawText(t$2("editPanel.view"), POSE_EDIT_TOGGLE_X + POSE_EDIT_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
-        DrawButton(POSE_EDIT_TOGGLE_X, POSE_BUTTON_Y,
-            POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H,
-            state.poseViewMode ? t$2("editPanel.pose_view") : t$2("editPanel.global_view"),
-            state.poseViewMode ? "#4CAF50" : "White", null,
-            t$2("editPanel.switch_view_global_or_current_pose"), false);
-        DrawText(t$2("editPanel.active"), POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
-        const ps = state.tempTextureData?.PoseSettings?.[poseKey];
-        const isActive = ps?.enabled === true;
-        DrawButton(POSE_ACTIVE_TOGGLE_X, POSE_BUTTON_Y,
-            POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H,
-            isActive ? t$2("editPanel.unique") : t$2("editPanel.global"),
-            isActive ? "#4CAF50" : "White", null,
-            t$2("editPanel.switch_config_source_for_current_pose"), false);
-    }
-    DrawButton(POSE_SWITCH_X, POSE_BUTTON_Y,
-        POSE_SWITCH_W, POSE_TOGGLE_H,
-        t$2("editPanel.batch"), "White", null,
-        t$2("editPanel.open_pose_selection_page_for_batch_configuration"), false);
-}
-function handlePoseBarClick() {
-    const C = CharacterGetCurrent();
-    const poseKey = getPoseKey(C?.DrawPose);
-    if (MouseIn(POSE_SWITCH_X, POSE_BUTTON_Y,
-            POSE_SWITCH_W, POSE_TOGGLE_H)) {
-        state.poseSwitchMode = "select";
-        return true;
-    }
-    if (poseKey) {
-        if (MouseIn(POSE_EDIT_TOGGLE_X, POSE_BUTTON_Y,
-                POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H)) {
-            state.poseViewMode = !state.poseViewMode;
-            if (state.poseViewMode) {
-                const parts = poseKey.split("+");
-                setPreviewPose(parts[0] || poseKey);
-                derivePoseEditing(poseKey);
-            } else {
-                clearPreviewPose();
-                state.poseEditing = null;
-            }
-            refreshEditInputs();
-            return true;
-        }
-        if (MouseIn(POSE_ACTIVE_TOGGLE_X, POSE_BUTTON_Y,
-                POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H)) {
-            if (!state.tempTextureData) return true;
-            if (!state.tempTextureData.PoseSettings) {
-                state.tempTextureData.PoseSettings = {};
-            }
-            let ps = state.tempTextureData.PoseSettings[poseKey];
-            if (!ps) {
-                ps = inheritGlobalFields();
-                ps.enabled = true;
-                state.tempTextureData.PoseSettings[poseKey] = ps;
-            } else {
-                ps.enabled = !(ps.enabled === true);
-            }
-            if (state.poseViewMode) {
-                derivePoseEditing(poseKey);
-            }
-            state._fieldsDirty = true;
-            return true;
-        }
-    }
-    return false;
-}
-function drawPoseSwitchPage() {
-    const C = CharacterGetCurrent();
-    if (!C) return;
-    DrawText(t$2("editPanel.switch_pose"), 1500, 360, "White", "Gray");
-    DrawText(t$2("editPanel.select_poses_for_batch_configuration"),
-        1505, 405, "Yellow", "Black");
-    let rowY = POSE_PAGE_START_Y;
-    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
-        const categoryFirstRowY = rowY;
-        DrawText(L$1(cat.label, cat.labelEn), POSE_PAGE_LABEL_X,
-            categoryFirstRowY + POSE_PAGE_LABEL_Y_OFFSET, "White", "Gray");
-        for (let i = 0; i < cat.poses.length; i++) {
-            const poseName = cat.poses[i];
-            const col = i % POSE_PAGE_COLS;
-            const row = Math.floor(i / POSE_PAGE_COLS);
-            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
-            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
-            const isSelected = state.poseSelectedList.includes(poseName);
-            const label = POSE_LABELS[poseName];
-            const btnText = label ? L$1(label.cn, label.en) : poseName;
-            const bgColor = isSelected ? "#FF9800" : "White";
-            DrawButton(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
-                btnText, bgColor, null, null, false);
-        }
-        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
-        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
-    }
-    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
-    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
-    const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
-    const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
-    const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
-    const canEnter = (hasUpper && hasLower) || hasFull;
-    DrawButton(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H,
-        t$2("editPanel.edit_selected"), canEnter ? "White" : "Gray", null,
-        t$2("editPanel.set_unified_config_for_selected_pose_combinations_requires_both_u"), false);
-    DrawButton(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H,
-        t$2("editPanel.confirm"), "White", null,
-        t$2("editPanel.back_to_edit_panel"), false);
-}
-function handlePoseSwitchClick() {
-    const C = CharacterGetCurrent();
-    if (!C) return false;
-    if (MouseIn(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H)) {
-        const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
-        const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
-        const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
-        const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
-        const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
-        if ((hasUpper && hasLower) || hasFull) {
-            enterSpecialConfig();
-        } else {
-            showStatus(
-                t$2("editPanel.need_to_select_both_upper_and_lower_poses"),
-                "#FF6B6B", 3000
-            );
-        }
-        return true;
-    }
-    if (MouseIn(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H)) {
-        state.poseSwitchMode = false;
-        state.poseSelectedList = [];
-        return true;
-    }
-    let rowY = POSE_PAGE_START_Y;
-    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
-        const categoryFirstRowY = rowY;
-        for (let i = 0; i < cat.poses.length; i++) {
-            const poseName = cat.poses[i];
-            const col = i % POSE_PAGE_COLS;
-            const row = Math.floor(i / POSE_PAGE_COLS);
-            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
-            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
-            if (MouseIn(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
-                const idx = state.poseSelectedList.indexOf(poseName);
-                if (idx >= 0) {
-                    state.poseSelectedList.splice(idx, 1);
-                } else {
-                    state.poseSelectedList.push(poseName);
-                }
-                return true;
-            }
-        }
-        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
-        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
-    }
-    return false;
-}
-function enterSpecialConfig() {
-    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
-    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
-    const fullPoses = POSE_CATEGORIES.BodyFull.poses;
-    const selectedUpper = state.poseSelectedList.filter(p => upperPoses.includes(p));
-    const selectedLower = state.poseSelectedList.filter(p => lowerPoses.includes(p));
-    const selectedFull = state.poseSelectedList.filter(p => fullPoses.includes(p));
-    const combos = [];
-    for (const up of selectedUpper) {
-        for (const lo of selectedLower) {
-            combos.push(`${up}+${lo}`);
-        }
-    }
-    for (const fp of selectedFull) {
-        combos.push(fp);
-    }
-    state.poseComboList = combos;
-    state.poseComboIndex = 0;
-    state.poseSwitchMode = "special";
-    if (!state.tempTextureData.PoseSettings) {
-        state.tempTextureData.PoseSettings = {};
-    }
-    for (const comboKey of combos) {
-        if (!state.tempTextureData.PoseSettings[comboKey]) {
-            const cfg = inheritGlobalFields();
-            cfg.enabled = true;
-            state.tempTextureData.PoseSettings[comboKey] = cfg;
-        } else {
-            state.tempTextureData.PoseSettings[comboKey].enabled = true;
-        }
-    }
-    state.poseEditing = combos[0];
-    setPreviewPoseCombo(combos[0]);
-    createComboDropdown();
-    refreshEditInputs();
-}
-function setPreviewPoseCombo(poseKey) {
-    const poseNames = poseKey.split("+");
-    for (const name of poseNames) {
-        setPreviewPose(name);
-    }
-}
-function createComboDropdown() {
-    let sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
-    if (!sel) {
-        sel = document.createElement("select");
-        sel.id = POSE_COMBO_DROPDOWN_ID;
-        sel.style.position = "fixed";
-        sel.style.zIndex = "100";
-        sel.style.fontSize = "14px";
-        sel.addEventListener("change", () => {
-            const idx = parseInt(sel.value, 10);
-            if (Number.isFinite(idx) && idx >= 0 && idx < state.poseComboList.length) {
-                state.poseComboIndex = idx;
-                state.poseEditing = state.poseComboList[idx];
-                setPreviewPoseCombo(state.poseEditing);
-                refreshEditInputs();
-            }
-        });
-        document.body.appendChild(sel);
-    }
-    sel.innerHTML = "";
-    for (let i = 0; i < state.poseComboList.length; i++) {
-        const comboKey = state.poseComboList[i];
-        const labels = comboKey.split("+").map(p => {
-            const label = POSE_LABELS[p];
-            return label ? L$1(label.cn, label.en) : p;
-        });
-        const opt = document.createElement("option");
-        opt.value = String(i);
-        opt.textContent = `(${i + 1}/${state.poseComboList.length}) ${labels.join(" + ")}`;
-        sel.appendChild(opt);
-    }
-    sel.value = String(state.poseComboIndex);
-    positionComboDropdown();
-}
-function positionComboDropdown() {
-    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
-    if (!sel) return;
-    sel.value = String(state.poseComboIndex);
-    const canvas = MainCanvas?.canvas;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = rect.width / (MainCanvas?.width || 2000);
-    const scaleY = rect.height / (MainCanvas?.height || 1000);
-    sel.style.left = `${rect.left + POSE_COMBO_DROPDOWN_X * scaleX}px`;
-    sel.style.top = `${rect.top + POSE_COMBO_DROPDOWN_Y * scaleY}px`;
-    sel.style.width = `${POSE_COMBO_DROPDOWN_W * scaleX}px`;
-    sel.style.height = `${POSE_COMBO_DROPDOWN_H * scaleY}px`;
-    sel.style.display = state.poseSwitchMode === "special" ? "block" : "none";
-}
-function removeComboDropdown() {
-    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
-    if (sel) sel.remove();
-}
-function drawComboSelector() {
-    DrawButton(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
-        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
-        "\u25C0", "White", null, t$2("editPanel.previous_combo"), false);
-    DrawButton(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
-        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
-        "\u25B6", "White", null, t$2("editPanel.next_combo"), false);
-    positionComboDropdown();
-    DrawButton(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
-        POSE_CONFIRM_BTN_W, POSE_TOGGLE_H,
-        t$2("editPanel.save_back"), "White", null,
-        t$2("editPanel.save_config_and_return_to_pose_selection"), false);
-}
-function handlePoseSpecialConfigClick(item, textureIndex, data) {
-    if (MouseIn(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
-            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
-        state.poseComboIndex = (state.poseComboIndex - 1 + state.poseComboList.length) % state.poseComboList.length;
-        state.poseEditing = state.poseComboList[state.poseComboIndex];
-        setPreviewPoseCombo(state.poseEditing);
-        refreshEditInputs();
-        return true;
-    }
-    if (MouseIn(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
-            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
-        state.poseComboIndex = (state.poseComboIndex + 1) % state.poseComboList.length;
-        state.poseEditing = state.poseComboList[state.poseComboIndex];
-        setPreviewPoseCombo(state.poseEditing);
-        refreshEditInputs();
-        return true;
-    }
-    if (MouseIn(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
-            POSE_CONFIRM_BTN_W, POSE_TOGGLE_H)) {
-        for (const comboKey of state.poseComboList) {
-            if (state.tempTextureData?.PoseSettings?.[comboKey]) {
-                state.tempTextureData.PoseSettings[comboKey].enabled = true;
-            }
-        }
-        removeComboDropdown();
-        state.poseSwitchMode = "select";
-        state.poseEditing = null;
-        refreshEditInputs();
-        return true;
-    }
-    return false;
-}
-function setupStepperListeners() {
-    if (state._stepperListenerReady) return;
-    state._stepperListenerReady = true;
-    const begin = () => {
-        state._pointerDown = true;
-        updateDragMove();
-        updateScaleDrag();
-        tryStartBarDrag();
-    };
-    const finish = event => {
-        if (event.type !== "blur") {
-            updateDragMove();
-            updateScaleDrag();
-        }
-        state._pointerDown = false;
-        state.dragMove = null;
-        state.scaleDrag = null;
-        state.dragActive = false;
-        stepperPress.fieldId = null;
-        state._lastTextureRefresh = 0;
-        if (event.type === "blur") barDrag.fieldId = null;
-    };
-    document.addEventListener("mousedown", begin);
-    document.addEventListener("touchstart", begin, { passive: true });
-    for (const type of ["mouseup", "touchend", "touchcancel"]) document.addEventListener(type, finish);
-    window.addEventListener("blur", finish);
-}
-function tryStartBarDrag() {
-    if (state.currentEditTexture < 0 || state.poseSwitchMode === "select") return;
-    for (const field of BAR_FIELDS) {
-        const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
-        if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
-            setFieldValue(field, barValueFromMouseX(field, MouseX));
-            barDrag.fieldId = field.id;
-            return;
-        }
-    }
-}
-function getFieldValue(field) {
-    if (field.prop === null) return state.tempPriority;
-    const target = getEditTarget();
-    const v = target ? target[field.prop] : undefined;
-    return typeof v === "number" && !isNaN(v) ? v : field.def;
-}
-function setFieldValue(field, value) {
-    if (isNaN(value)) value = field.def;
-    if (field.min !== null) value = Math.max(field.min, value);
-    if (field.max !== null) value = Math.min(field.max, value);
-    if (field.prop === null) {
-        if (state.tempPriority !== value) {
-            state.tempPriority = value;
-            state._fieldsDirty = true;
-        }
-    } else {
-        const target = getEditTarget();
-        if (target) {
-            if (target[field.prop] !== value) {
-                target[field.prop] = value;
-                state._fieldsDirty = true;
-            }
-            if (target.ScaleLocked !== false) {
-                if (field.prop === "ScaleX" && target.ScaleY !== value) {
-                    target.ScaleY = value;
-                    state._fieldsDirty = true;
-                } else if (field.prop === "ScaleY" && target.ScaleX !== value) {
-                    target.ScaleX = value;
-                    state._fieldsDirty = true;
-                }
-            }
-        }
-    }
-}
-function applyStepperChange(field, delta) {
-    setFieldValue(field, getFieldValue(field) + delta);
-}
-function createEditPanelDomInputs() {
-    if (state._editInputsReady) return;
-    state._editInputsReady = true;
-    const urlInput = ElementCreateInput(FIELD_URL, "text", "", "https://");
-    urlInput.addEventListener("input", () => {
-        const target = getEditTarget();
-        if (!target) return;
-        target.TextureURL = urlInput.value.trim();
-        state._fieldsDirty = true;
-    });
-    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
-        const input = ElementCreateInput(field.id, "number", String(field.def), "");
-        if (field.min !== null) input.min = String(field.min);
-        if (field.max !== null) input.max = String(field.max);
-        input.step = "1";
-        hideNumberInputSpinner(input);
-        input.addEventListener("input", () => {
-            const parsed = parseInt(input.value, 10);
-            if (!Number.isFinite(parsed)) return;
-            setFieldValue(field, parsed);
-        });
-        input.addEventListener("change", () => {
-            input.value = String(getFieldValue(field));
-        });
-    }
-}
-function positionEditPanelInputs() {
-    const showing = state.currentEditTexture >= 0 && state.poseSwitchMode !== "select";
-    const urlInput = document.getElementById(FIELD_URL);
-    if (urlInput) {
-        if (showing) {
-            ElementPosition(FIELD_URL, URL_BOX_X + URL_BOX_W / 2, URL_BOX_Y + URL_BOX_H / 2, URL_BOX_W, URL_BOX_H);
-            if (document.activeElement !== urlInput) {
-                const val = getEditTarget()?.TextureURL || "";
-                if (urlInput.value !== val) urlInput.value = val;
-            }
-        } else {
-            ElementPosition(FIELD_URL, -999, -999, 0, 0);
-        }
-    }
-    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
-        const input = document.getElementById(field.id);
-        if (!input) continue;
-        if (showing) {
-            ElementPosition(field.id, STEPPER_INPUT_X + STEPPER_INPUT_W / 2, field.y + STEPPER_INPUT_H / 2,
-                STEPPER_INPUT_W, STEPPER_INPUT_H);
-            if (document.activeElement !== input) {
-                const val = String(getFieldValue(field));
-                if (input.value !== val) input.value = val;
-            }
-        } else {
-            ElementPosition(field.id, -999, -999, 0, 0);
-        }
-    }
-    positionComboDropdown();
-}
-function removeEditPanelInputs() {
-    if (!state._editInputsReady) return;
-    state._editInputsReady = false;
-    const ids = [FIELD_URL, ...STEPPER_FIELDS.map(f => f.id), ...BAR_FIELDS.map(f => f.id)];
-    for (const id of ids) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-    }
-    removeComboDropdown();
-}
-function drawBarField(field) {
-    const value = getFieldValue(field);
-    const ratio = (value - field.min) / (field.max - field.min);
-    const trackY = field.y + STEPPER_INPUT_H / 2 - BAR_TRACK_H / 2;
-    MainCanvas.fillStyle = "#999999";
-    MainCanvas.fillRect(BAR_TRACK_X, trackY, BAR_TRACK_W, BAR_TRACK_H);
-    if (field.min < 0 && field.max > 0) {
-        const zeroRatio = (0 - field.min) / (field.max - field.min);
-        const zeroX = BAR_TRACK_X + zeroRatio * BAR_TRACK_W;
-        MainCanvas.fillStyle = "#000000";
-        MainCanvas.fillRect(zeroX - 1, trackY - 4, 2, BAR_TRACK_H + 8);
-    }
-    const handleX = BAR_TRACK_X + ratio * BAR_TRACK_W - BAR_HANDLE_SIZE / 2;
-    const handleY = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
-    DrawImageResize(new URL("../SCA_slider.png", import.meta.url).href, handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
-}
-function barValueFromMouseX(field, mouseX) {
-    const ratio = Math.max(0, Math.min(1, (mouseX - BAR_TRACK_X) / BAR_TRACK_W));
-    return Math.round(field.min + ratio * (field.max - field.min));
-}
-function handleBarFieldClick(field) {
-    const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
-    if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
-        setFieldValue(field, barValueFromMouseX(field, MouseX));
-        barDrag.fieldId = field.id;
-        return true;
-    }
-    return false;
-}
-function updateBarDrag() {
-    if (!barDrag.fieldId) return;
-    if (!state._pointerDown) {
-        barDrag.fieldId = null;
-        return;
-    }
-    const field = BAR_FIELDS.find(f => f.id === barDrag.fieldId);
-    if (!field) {
-        barDrag.fieldId = null;
-        return;
-    }
-    setFieldValue(field, barValueFromMouseX(field, MouseX));
-}
-function drawAspectLockButton() {
-    const target = getEditTarget();
-    const locked = target?.ScaleLocked !== false;
-    DrawButton(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H,
-        t$2("editPanel.lock"), locked ? "#4CAF50" : "White", null, null, false);
-    if (MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) {
-        const hintX = 1820;
-        const hintY = ASPECT_LOCK_BTN_Y + ASPECT_LOCK_BTN_H / 2;
-        const lines = [t$2("editPanel.help_line_4"), t$2("editPanel.help_line_5")];
-        for (let i = 0; i < lines.length; i++) {
-            DrawText(lines[i], hintX, hintY - 15 + i * 30, "Yellow", "Black");
-        }
-    }
-}
-function handleAspectLockButtonClick() {
-    if (!MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) return false;
-    const target = getEditTarget();
-    if (!target) return true;
-    const newLocked = !(target.ScaleLocked !== false);
-    target.ScaleLocked = newLocked;
-    if (newLocked && target.ScaleX !== target.ScaleY) {
-        target.ScaleY = target.ScaleX;
-        state._fieldsDirty = true;
-    }
-    return true;
-}
-function drawMirrorRow() {
-    DrawText(t$2("editPanel.mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
-    const target = getEditTarget();
-    const mirrorH = target?.MirrorH === true;
-    const mirrorV = target?.MirrorV === true;
-    DrawButton(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
-        t$2("editPanel.h_flip"), mirrorH ? "#4CAF50" : "White", null,
-        t$2("editPanel.flip_the_image_horizontally"), false);
-    DrawButton(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
-        t$2("editPanel.v_flip"), mirrorV ? "#4CAF50" : "White", null,
-        t$2("editPanel.flip_the_image_vertically"), false);
-}
-function handleMirrorRowClick() {
-    const target = getEditTarget();
-    if (!target) return false;
-    if (MouseIn(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
-        target.MirrorH = !(target.MirrorH === true);
-        state._fieldsDirty = true;
-        return true;
-    }
-    if (MouseIn(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
-        target.MirrorV = !(target.MirrorV === true);
-        state._fieldsDirty = true;
-        return true;
-    }
-    return false;
-}
-function drawMoveButton() {
-    DrawButton(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H,
-        t$2("editPanel.move"), state.isDragMode ? "#4CAF50" : "White", null, null, false);
-    if (MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) {
-        const hintX = 1770;
-        const hintY = MOVE_BTN_Y + MOVE_BTN_H / 2;
-        const lines = [t$2("editPanel.help_line_6"), t$2("editPanel.help_line_7"), t$2("editPanel.help_line_8"), t$2("editPanel.help_line_9")];
-        for (let i = 0; i < lines.length; i++) {
-            DrawText(lines[i], hintX, hintY - 22 + i * 30, "Yellow", "Black");
-        }
-    }
-}
-function handleMoveButtonClick() {
-    if (!MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) return false;
-    state.freeTransform = false;
-    hideTransformOverlay();
-    state.isDragMode = !state.isDragMode;
-    if (state.isDragMode) state.isScaleDragMode = false;
-    state.scaleDrag = null;
-    state.dragActive = false;
-    state.dragMove = null;
-    return true;
-}
-function drawScaleDragButton() {
-    DrawButton(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
-        t$2("editPanel.drag"), state.isScaleDragMode ? "#4CAF50" : "White", null, null, false);
-    if (MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) {
-        const lines = [t$2("editPanel.help_line_1"), t$2("editPanel.help_line_2"), t$2("editPanel.help_line_3")];
-        lines.forEach((line, i) => DrawText(line, 1820, SCALE_DRAG_BTN_Y - 2 + i * 30, "Yellow", "Black"));
-    }
-}
-function handleScaleDragButtonClick() {
-    if (!MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) return false;
-    state.freeTransform = false;
-    hideTransformOverlay();
-    state.isScaleDragMode = !state.isScaleDragMode;
-    state.scaleDrag = null;
-    if (state.isScaleDragMode) {
-        state.isDragMode = false;
-        state.dragActive = false;
-        state.dragMove = null;
-    }
-    return true;
-}
-function canDragPreview(target, item) {
-    return state._pointerDown && target && item && state.poseSwitchMode !== "select" &&
-        MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000 &&
-        (!item.Property?.LockedBy || DialogCanUnlock(CharacterGetCurrent(), item));
-}
-function updateScaleDrag() {
-    const target = getEditTarget(), item = DialogFocusItem;
-    if (!state.isScaleDragMode || !canDragPreview(target, item)) {
-        state.scaleDrag = null;
-        return;
-    }
-    const drag = state.scaleDrag;
-    if (!drag) {
-        state.scaleDrag = { target, item, x: MouseX, y: MouseY,
-            sx: Number.isFinite(Number(target.ScaleX)) ? Number(target.ScaleX) : 100,
-            sy: Number.isFinite(Number(target.ScaleY)) ? Number(target.ScaleY) : 100 };
-        return;
-    }
-    if (drag.target !== target || drag.item !== item) { state.scaleDrag = null; return; }
-    const dx = (MouseX - drag.x) * SCALE_DRAG_SENSITIVITY;
-    const dy = (MouseY - drag.y) * SCALE_DRAG_SENSITIVITY;
-    const x = Math.max(0, Math.min(2000, Math.round(drag.sx + dx)));
-    const y = target.ScaleLocked !== false ? x : Math.max(0, Math.min(2000, Math.round(drag.sy + dy)));
-    if (target.ScaleX !== x || target.ScaleY !== y) {
-        target.ScaleX = x; target.ScaleY = y;
-        state._fieldsDirty = true;
-    }
-}
-function updateDragMove() {
-    const target = getEditTarget(), item = DialogFocusItem;
-    if (!state.isDragMode || !canDragPreview(target, item)) {
-        state.dragActive = false;
-        state.dragMove = null;
-        return;
-    }
-    const drag = state.dragMove;
-    if (!drag) {
-        state.dragMove = { target, item, x: MouseX, y: MouseY, offsetX: Number(target.OffsetX) || 0, offsetY: Number(target.OffsetY) || 0 };
-        state.dragActive = true;
-        return;
-    }
-    if (drag.target !== target || drag.item !== item) {
-        state.dragMove = null;
-        state.scaleDrag = null;
-        state.dragActive = false;
-        return;
-    }
-    const x = Math.max(-1e4, Math.min(10000, Math.round(drag.offsetX + MouseX - drag.x)));
-    const y = Math.max(-1e4, Math.min(10000, Math.round(drag.offsetY + MouseY - drag.y)));
-    if (target.OffsetX !== x || target.OffsetY !== y) {
-        target.OffsetX = x;
-        target.OffsetY = y;
-        state._fieldsDirty = true;
-    }
-}
-function updateSteppers() {
-    if (!state._pointerDown) {
-        stepperPress.fieldId = null;
-        return;
-    }
-    let activeField = null;
-    let activeDirection = 0;
-    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
-        if (MouseIn(STEPPER_MINUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
-            activeField = field;
-            activeDirection = -1;
-            break;
-        }
-        if (MouseIn(STEPPER_PLUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
-            activeField = field;
-            activeDirection = 1;
-            break;
-        }
-    }
-    if (!activeField) {
-        stepperPress.fieldId = null;
-        return;
-    }
-    const now = Date.now();
-    if (stepperPress.fieldId !== activeField.id || stepperPress.direction !== activeDirection) {
-        stepperPress.fieldId = activeField.id;
-        stepperPress.direction = activeDirection;
-        stepperPress.startTime = now;
-        stepperPress.lastUpdate = now;
-        applyStepperChange(activeField, activeDirection);
-        return;
-    }
-    const elapsed = now - stepperPress.startTime;
-    const interval = Math.max(40, 150 - elapsed * 0.035);
-    const stepMultiplier = Math.min(50, 1 + Math.floor(elapsed / 300));
-    if (now - stepperPress.lastUpdate >= interval) {
-        applyStepperChange(activeField, activeDirection * stepMultiplier);
-        stepperPress.lastUpdate = now;
-    }
-}
-function drawStepperButton(x, y, icon) {
-    DrawButton(x, y, STEPPER_BTN_W, STEPPER_BTN_H, "", "White", null, null);
-    DrawImageResize(icon, x + 2, y + 2, STEPPER_BTN_W - 4, STEPPER_BTN_H - 4);
-}
-const POSE_HOOK_NAME = "SCA_PosePreview";
-function registerPoseHook() {
-    const C = CharacterGetCurrent();
-    if (!C) return;
-    state.previewPoseMapping = null;
-    C.RegisterHook("BeforeSortLayers", POSE_HOOK_NAME, () => {
-        if (state.previewPoseMapping) {
-            C.DrawPoseMapping = { ...state.previewPoseMapping };
-        }
-    });
-}
-function unregisterPoseHook() {
-    const C = CharacterGetCurrent();
-    if (!C) return;
-    C.UnregisterHook("BeforeSortLayers", POSE_HOOK_NAME);
-    state.previewPoseMapping = null;
-    CharacterLoadCanvas(C);
-}
-function setPreviewPose(poseName) {
-    const C = CharacterGetCurrent();
-    if (!C) return;
-    const newPose = PoseRecord[poseName];
-    if (!newPose) return;
-    if (newPose.Category === "BodyFull") {
-        state.previewPoseMapping = { [newPose.Category]: newPose.Name };
-    } else {
-        const current = state.previewPoseMapping || C.ActivePoseMapping || {};
-        const baseMapping = { ...current };
-        for (const [category, name] of Object.entries(baseMapping)) {
-            const pose = PoseRecord[name];
-            if (!pose || !pose.AllowMenu || pose.Category === "BodyFull") {
-                delete baseMapping[category];
-            }
-        }
-        if (!baseMapping.BodyUpper) baseMapping.BodyUpper = "BaseUpper";
-        if (!baseMapping.BodyLower) baseMapping.BodyLower = "BaseLower";
-        baseMapping[newPose.Category] = newPose.Name;
-        state.previewPoseMapping = baseMapping;
-    }
-    CharacterLoadCanvas(C);
-}
-function createEditInputs(texture) {
-    state._fieldsDirty = false;
-    state.poseEditing = null;
-    state.poseViewMode = true;
-    state.lastPoseKey = null;
-    state.poseSwitchMode = false;
-    state.poseSelectedList = [];
-    state.poseComboList = [];
-    state.poseComboIndex = 0;
-    registerPoseHook();
-    const item = DialogFocusItem;
-    const layerName = LAYER_NAMES[state.currentEditTexture];
-    const op = item?.Property?.OverridePriority;
-    let priorityValue = 50;
-    if (typeof op === "number") {
-        priorityValue = op;
-    } else if (op && typeof op[layerName] === "number") {
-        priorityValue = op[layerName];
-    }
-    state.tempPriority = priorityValue;
-    state.originalOverridePriority = op !== undefined ? JSON.parse(JSON.stringify(op)) : undefined;
-}
-function drawTextureEditPanel(item, textureIndex, data) {
-    if (state.poseSwitchMode === "select") {
-        drawPoseSwitchPage();
-        return;
-    }
-    setupStepperListeners();
-    updateSteppers();
-    updateDragMove();
-    updateScaleDrag();
-    updateBarDrag();
-    if (!state.poseSwitchMode) {
-        const C = CharacterGetCurrent();
-        const currentPoseKey = getPoseKey(C?.DrawPose);
-        if (state.lastPoseKey !== currentPoseKey) {
-            state.lastPoseKey = currentPoseKey;
-            switchPose(currentPoseKey);
-        }
-    }
-    if (state.tempTextureData) {
-        if (state._fieldsDirty) {
-            state._fieldsDirty = false;
-            if (!item.Property) item.Property = { Textures: [] };
-            if (!item.Property.Textures) item.Property.Textures = [];
-            const previousUrl = item.Property.Textures[textureIndex]?.TextureURL || "";
-            const newUrl = state.tempTextureData.TextureURL || "";
-            const urlChanged = previousUrl !== newUrl;
-            const renderData = JSON.parse(JSON.stringify(state.tempTextureData));
-            if (!state.poseViewMode && renderData.PoseSettings) {
-                for (const key of Object.keys(renderData.PoseSettings)) {
-                    renderData.PoseSettings[key].enabled = false;
-                }
-            }
-            item.Property.Textures[textureIndex] = renderData;
-            const layerName = LAYER_NAMES[textureIndex];
-            if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
-                item.Property.OverridePriority = {};
-            }
-            item.Property.OverridePriority[layerName] = state.tempPriority;
-            state._pendingTextureRefresh = true;
-            if (urlChanged && isUrlAllowed(newUrl)) {
-                const entry = getCorsImage(newUrl, undefined, true);
-                if (!entry.img.complete) {
-                    const C = CharacterGetCurrent();
-                    entry.img.addEventListener("load", () => {
-                        Logger.info(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
-                        if (C) CharacterRefresh(C, false, false);
-                    }, { once: true });
-                }
-            }
-            if (state.poseSwitchMode === "special" && state.poseComboList.length > 1 && state.poseEditing) {
-                const srcConfig = state.tempTextureData?.PoseSettings?.[state.poseEditing];
-                if (srcConfig) {
-                    for (const comboKey of state.poseComboList) {
-                        if (comboKey !== state.poseEditing && state.tempTextureData.PoseSettings?.[comboKey]) {
-                            const destEnabled = state.tempTextureData.PoseSettings[comboKey].enabled;
-                            Object.assign(state.tempTextureData.PoseSettings[comboKey], srcConfig);
-                            state.tempTextureData.PoseSettings[comboKey].enabled = destEnabled;
-                        }
-                    }
-                }
-            }
-        }
-        if (state._pendingTextureRefresh) {
-            const now = Date.now();
-            const isDragging = state.transformDragging || state.dragActive || !!state.scaleDrag || !!barDrag.fieldId;
-            const interval = isDragging ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
-            if (now - state._lastTextureRefresh >= interval) {
-                const C = CharacterGetCurrent();
-                if (C) CharacterRefresh(C, false, false);
-                state._lastTextureRefresh = now;
-                state._pendingTextureRefresh = false;
-            }
-        }
-    }
-    if (state.poseSwitchMode === "special") {
-        drawComboSelector();
-    } else {
-        drawPoseBar();
-    }
-    if (state.poseSwitchMode === "special") {
-        DrawText(t$2("editPanel.batch_edit"), 1500, 360, "White", "Gray");
-    } else {
-        DrawText(t$2("editPanel.edit_layer", [textureIndex + 1]), 1500, 360, "White", "Gray");
-        DrawText(t$2("editPanel.auto_previews_on_change_press_to_return"), 1505, 405, "Yellow", "Black");
-    }
-    DrawText(t$2("editPanel.image"), 1100, 455, "White", "Gray");
-    const currentUrl = getEditTarget()?.TextureURL || "";
-    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
-        const domain = extractDomain(currentUrl);
-        if (domain) {
-            DrawButton(1730, 435, 100, 40, t$2("editPanel.trust"), "#6F1F1F", null,
-                t$2("editPanel.add_this_image_s_domain_to_the_trusted_whitelist"), false);
-        }
-    }
-    drawMoveButton();
-    drawScaleDragButton();
-    DrawButton(1555, 510, 150, 40, t$2("editPanel.free_transform"), state.freeTransform ? "#4CAF50" : "White", null, null, false);
-    updateTransformOverlay(getEditTarget());
-    for (const field of STEPPER_FIELDS) {
-        DrawText(L$1(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
-        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
-        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
-    }
-    drawAspectLockButton();
-    for (const field of BAR_FIELDS) {
-        DrawText(L$1(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
-        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
-        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
-        drawBarField(field);
-    }
-    drawMirrorRow();
-    if (!state.poseSwitchMode) {
-        DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
-            t$2("editPanel.save_this_layer_back_to_list"));
-        DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
-            t$2("editPanel.delete_this_layer"), false);
-    }
-}
-function handleTextureEditClick(item, textureIndex, data) {
-    if (state.poseSwitchMode === "select") {
-        handlePoseSwitchClick();
-        return;
-    }
-    if (state.poseSwitchMode === "special") {
-        if (handlePoseSpecialConfigClick()) {
-            return;
-        }
-    }
-    if (!state.poseSwitchMode) {
-        if (handlePoseBarClick()) {
-            return;
-        }
-    }
-    const currentUrl = getEditTarget()?.TextureURL || "";
-    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
-        const domain = extractDomain(currentUrl);
-        if (domain && MouseIn(1730, 435, 100, 40)) {
-            state.pendingDomainToAdd = domain;
-            state.currentView = "addDomainConfirm";
-            state.currentEditTexture = -1;
-            state.tempTextureData = null;
-            state.originalOverridePriority = undefined;
-            state._pendingTextureRefresh = false;
-            state.poseEditing = null;
-            state.poseSwitchMode = false;
-            state.poseSelectedList = [];
-            state.poseComboList = [];
-            state.poseComboIndex = 0;
-            unregisterPoseHook();
-            resetDragState();
-            return;
-        }
-    }
-    if (MouseIn(1555, 510, 150, 40)) {
-        if (item.Property?.LockedBy && !DialogCanUnlock(CharacterGetCurrent(), item)) return;
-        const enable = !state.freeTransform;
-        resetDragState();
-        state.freeTransform = enable;
-        state._pendingTextureRefresh = true;
-        if (!enable) hideTransformOverlay();
-        return;
-    }
-    if (handleScaleDragButtonClick()) return;
-    if (handleMoveButtonClick()) {
-        return;
-    }
-    if (handleAspectLockButtonClick()) {
-        return;
-    }
-    for (const field of BAR_FIELDS) {
-        if (handleBarFieldClick(field)) {
-            return;
-        }
-    }
-    if (handleMirrorRowClick()) {
-        return;
-    }
-    if (!state.poseSwitchMode && MouseIn(1885, 245, 90, 90)) {
-        item.Property.Textures[textureIndex] = null;
-        trimTrailingNulls(item.Property.Textures);
-        state.currentEditTexture = -1;
-        state.tempTextureData = null;
-        state.originalOverridePriority = undefined;
-        state._pendingTextureRefresh = false;
-        state.currentListPage = 0;
-        state.poseEditing = null;
-        state.poseSwitchMode = false;
-        state.poseSelectedList = [];
-        state.poseComboList = [];
-        state.poseComboIndex = 0;
-        unregisterPoseHook();
-        resetDragState();
-        syncItemToServer(item);
-        const C = CharacterGetCurrent();
-        if (C) CharacterRefresh(C, false, false);
-        return;
-    }
-    if (!state.poseSwitchMode && MouseIn(1885, 135, 90, 90)) {
-        const toIntOr = (val, fallback) => {
-            const n = parseInt(val, 10);
-            return Number.isFinite(n) ? n : fallback;
-        };
-        const finalTexture = JSON.parse(JSON.stringify(state.tempTextureData));
-        finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
-        finalTexture.OffsetX = toIntOr(state.tempTextureData?.OffsetX, 0);
-        finalTexture.OffsetY = toIntOr(state.tempTextureData?.OffsetY, 0);
-        finalTexture.ScaleX = toIntOr(state.tempTextureData?.ScaleX, 100);
-        finalTexture.ScaleY = toIntOr(state.tempTextureData?.ScaleY, 100);
-        finalTexture.ScaleLocked = state.tempTextureData?.ScaleLocked !== false;
-        finalTexture.Rotation = Math.max(-360, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
-        finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
-        finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
-        finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
-        const existing = item.Property.Textures[textureIndex];
-        finalTexture.Visible = (existing && existing.Visible !== undefined) ? existing.Visible : true;
-        const mn = typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0;
-        if (finalTexture.TextureURL !== (state.originalEditTexture?.TextureURL || "")) {
-            finalTexture.TextureURLSource = mn;
-        } else if (existing) {
-            finalTexture.TextureURLSource = existing.TextureURLSource || 0;
-        }
-        finalTexture.CurrentConfigurator = mn;
-        if (!item.Property) item.Property = { Textures: [] };
-        if (!item.Property.Textures) item.Property.Textures = [];
-        item.Property.Textures[textureIndex] = finalTexture;
-        const layerName = LAYER_NAMES[textureIndex];
-        if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
-            item.Property.OverridePriority = {};
-        }
-        item.Property.OverridePriority[layerName] = state.tempPriority;
-        syncItemToServer(item);
-        state.currentEditTexture = -1;
-        state.tempTextureData = null;
-        state.originalOverridePriority = undefined;
-        state._pendingTextureRefresh = false;
-        state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
-        state.poseEditing = null;
-        state.poseSwitchMode = false;
-        state.poseSelectedList = [];
-        state.poseComboList = [];
-        state.poseComboIndex = 0;
-        unregisterPoseHook();
-        resetDragState();
-        const C = CharacterGetCurrent();
-        if (C) CharacterRefresh(C, false, false);
-        return;
-    }
+const _resolvedAssetUrls = new Map();
+function resolveFixedAssetUrl(filename) {
+    if (_resolvedAssetUrls.has(filename)) {
+        return _resolvedAssetUrls.get(filename);
+    }
+    const primaryUrl = `${ASSETS_CDN_PRIMARY}/${filename}`;
+    const fallbackUrl = `${ASSETS_CDN_FALLBACK}/${filename}`;
+    const entry = getCorsImage(primaryUrl);
+    if (entry.failed) {
+        _resolvedAssetUrls.set(filename, fallbackUrl);
+        return fallbackUrl;
+    }
+    if (entry.loaded) {
+        _resolvedAssetUrls.set(filename, primaryUrl);
+    }
+    return primaryUrl;
 }
 
 var lib$1 = {};
@@ -10956,12 +9729,31 @@ var UPNG = /*@__PURE__*/getDefaultExportFromCjs(UPNGExports);
 const _gifCache = new Map();
 registerPrunableCache(_gifCache, t$2("gifPlayer.animated_image"));
 const MAX_CACHE_PIXELS = 64 * 1024 * 1024;
+const STREAM_FRAME_CACHE = 4;
+const STREAM_PREFETCH = 3;
+const STREAM_DECODED_BUDGET = STREAM_FRAME_CACHE + 1;
+const STREAM_RETRY_MS = 16;
+function planAnimationStorage(width, height, frameCount, reserved = 0) {
+    const full = width * height * frameCount;
+    const stream = width * height * Math.min(STREAM_DECODED_BUDGET, frameCount);
+    if (reserved + full <= MAX_CACHE_PIXELS) return { mode: "full", pixels: full };
+    if (reserved + stream <= MAX_CACHE_PIXELS) return { mode: "stream", pixels: stream };
+    return { mode: "fail", pixels: full };
+}
+function cacheLimitError() {
+    const error = new Error("Animation cache limit exceeded");
+    error.code = "ANIMATION_CACHE_LIMIT";
+    return error;
+}
+function reservedPixels(entry) {
+    let reserved = 0;
+    for (const value of _gifCache.values()) if (value !== entry) reserved += value.pixelBudget || 0;
+    return reserved;
+}
 function reserveFrames(entry, width, height, count) {
     checkImageBudget(width, height, count);
     const pixels = width * height * count;
-    let reserved = 0;
-    for (const value of _gifCache.values()) if (value !== entry) reserved += value.pixelBudget || 0;
-    if (reserved + pixels > MAX_CACHE_PIXELS) throw new Error("Animation cache limit exceeded");
+    if (reservedPixels(entry) + pixels > MAX_CACHE_PIXELS) throw cacheLimitError();
     entry.pixelBudget = pixels;
 }
 function notifyReady(entry) {
@@ -11027,12 +9819,114 @@ async function decodeApng(buffer, entry) {
         }
     }
 }
+function videoFrameDelayMs(duration) {
+    const delay = duration ? duration / 1000 : 0;
+    return delay > 10 ? delay : 100;
+}
+function createFrameCanvas(entry, image) {
+    const canvas = document.createElement("canvas");
+    canvas.width = entry.width || 1;
+    canvas.height = entry.height || 1;
+    canvas.getContext("2d").drawImage(image, 0, 0);
+    return canvas;
+}
+function readWebpFrameDelays(buffer, frameCount) {
+    if (buffer.byteLength < 12) throw new Error("Invalid WebP");
+    const view = new DataView(buffer);
+    const bytes = new Uint8Array(buffer);
+    const delays = [];
+    for (let offset = 12; offset + 8 <= buffer.byteLength;) {
+        const size = view.getUint32(offset + 4, true);
+        const next = offset + 8 + size + (size & 1);
+        if (next > buffer.byteLength) throw new Error("Invalid WebP chunk bounds");
+        if (bytes[offset] === 0x41 && bytes[offset + 1] === 0x4e && bytes[offset + 2] === 0x4d && bytes[offset + 3] === 0x46) {
+            if (size < 16) throw new Error("Invalid WebP animation frame");
+            const delay = view.getUint32(offset + 20, true) & 0xffffff;
+            delays.push(delay > 10 ? delay : 100);
+        }
+        offset = next;
+    }
+    if (delays.length !== frameCount) throw new Error("WebP animation frame table mismatch");
+    return delays;
+}
+function storeStreamFrame(entry, index, canvas) {
+    const slot = entry?.frames?.[index];
+    if (!slot) return;
+    slot.canvas = canvas;
+    const order = entry._frameOrder;
+    const existing = order.indexOf(index);
+    if (existing >= 0) order.splice(existing, 1);
+    order.push(index);
+    while (order.length > STREAM_FRAME_CACHE) {
+        const victim = order.find((i) => i !== 0);
+        if (victim === undefined) break;
+        order.splice(order.indexOf(victim), 1);
+        entry.frames[victim].canvas = null;
+    }
+}
+function decodeStreamFrame(entry, index) {
+    const decoder = entry._decoder;
+    if (!decoder || entry._destroyed || entry.frames[index]?.canvas) return Promise.resolve();
+    return decoder.decode({ frameIndex: index }).then(({ image }) => {
+        try {
+            if (entry._destroyed) return;
+            storeStreamFrame(entry, index, createFrameCanvas(entry, image));
+        } finally { image.close(); }
+    });
+}
+function requestStreamFrame(entry, index) {
+    if (!entry?.streaming || entry._destroyed || entry._streamFailed || !entry._decoder) return;
+    if (index < 0 || index >= entry.frames.length) return;
+    if (entry.frames[index]?.canvas || entry._inflight.has(index)) return;
+    entry._inflight.add(index);
+    entry._decodeChain = entry._decodeChain
+        .then(() => decodeStreamFrame(entry, index))
+        .catch((err) => {
+            if (entry._destroyed) return;
+            entry._streamFailed = true;
+            Logger.warn("[ShuangAssets] 串流动图帧解码失败，改用第 0 帧", err);
+        })
+        .finally(() => { entry._inflight.delete(index); });
+}
+function resolveAnimatedFrame(entry, index) {
+    const frames = entry?.frames || [];
+    if (!entry?.streaming) return { canvas: frames[index]?.canvas || null, index, pending: false };
+    if (entry._destroyed || entry._streamFailed) {
+        const fallback = entry._fallbackCanvas || frames[0]?.canvas || null;
+        return { canvas: fallback, index: fallback ? (entry._fallbackIndex ?? 0) : -1, pending: false };
+    }
+    const cached = frames[index]?.canvas;
+    const first = cached ? index + 1 : index;
+    for (let step = 0; step < STREAM_PREFETCH; step++) {
+        requestStreamFrame(entry, (first + step) % frames.length);
+    }
+    if (cached) {
+        entry._fallbackCanvas = cached;
+        entry._fallbackIndex = index;
+        return { canvas: cached, index, pending: false };
+    }
+    const fallback = entry._fallbackCanvas || frames[0]?.canvas || null;
+    return { canvas: fallback, index: fallback ? (entry._fallbackIndex ?? 0) : -1, pending: true };
+}
+function disposeStreamingEntry(entry) {
+    entry._destroyed = true;
+    try { entry._decoder?.close(); } catch {  }
+    entry._decoder = null;
+    entry._decodeChain = Promise.resolve();
+    entry._inflight?.clear();
+    entry._fallbackCanvas = null;
+    entry._fallbackIndex = 0;
+    for (const frame of entry.frames || []) frame.canvas = null;
+    entry.frames = [];
+    entry.pixelBudget = 0;
+}
 async function decodeAnimatedWebp(buffer, entry) {
     if (typeof ImageDecoder === "undefined") {
         entry.failed = true;
         return;
     }
     const decoder = new ImageDecoder({ data: buffer, type: "image/webp" });
+    let keepDecoder = false;
     try {
         await decoder.tracks.ready;
         const track = decoder.tracks.selectedTrack;
@@ -11042,28 +9936,56 @@ async function decodeAnimatedWebp(buffer, entry) {
         }
         const frameCount = track.frameCount;
         checkImageBudget(1, 1, frameCount);
-        for (let i = 0; i < frameCount; i++) {
+        const { image: first } = await decoder.decode({ frameIndex: 0 });
+        let firstCanvas, firstDelay;
+        try {
+            entry.width = first.displayWidth;
+            entry.height = first.displayHeight;
+            firstDelay = videoFrameDelayMs(first.duration);
+            firstCanvas = createFrameCanvas(entry, first);
+        } finally { first.close(); }
+        checkImageBudget(entry.width, entry.height, frameCount);
+        const plan = planAnimationStorage(entry.width, entry.height, frameCount, reservedPixels(entry));
+        if (plan.mode === "fail") throw cacheLimitError();
+        if (plan.mode === "stream") {
+            const delays = readWebpFrameDelays(buffer, frameCount);
+            delays[0] = firstDelay;
+            entry.frames = delays.map((delay) => ({ canvas: null, delay }));
+            entry.frames[0].canvas = firstCanvas;
+            entry.totalDuration = delays.reduce((sum, delay) => sum + delay, 0);
+            entry.isAnimated = true;
+            entry.streaming = true;
+            entry.pixelBudget = plan.pixels;
+            entry._decoder = decoder;
+            entry._frameOrder = [0];
+            entry._inflight = new Set();
+            entry._decodeChain = Promise.resolve();
+            entry._destroyed = false;
+            entry._streamFailed = false;
+            entry._fallbackCanvas = firstCanvas;
+            entry._fallbackIndex = 0;
+            entry.dispose = () => disposeStreamingEntry(entry);
+            keepDecoder = true;
+            return;
+        }
+        entry.pixelBudget = plan.pixels;
+        entry.frames.push({ canvas: firstCanvas, delay: firstDelay });
+        entry.totalDuration = firstDelay;
+        for (let i = 1; i < frameCount; i++) {
             const { image } = await decoder.decode({ frameIndex: i });
-            if (i === 0) {
-                entry.width = image.displayWidth;
-                entry.height = image.displayHeight;
-                try { reserveFrames(entry, entry.width, entry.height, frameCount); } catch (error) { image.close(); throw error; }
-            }
-            const frameCanvas = document.createElement("canvas");
-            frameCanvas.width = entry.width || 1;
-            frameCanvas.height = entry.height || 1;
-            frameCanvas.getContext("2d").drawImage(image, 0, 0);
-            const rawDelayMs = image.duration ? image.duration / 1000 : 0;
-            const delay = rawDelayMs > 10 ? rawDelayMs : 100;
+            const delay = videoFrameDelayMs(image.duration);
+            const canvas = createFrameCanvas(entry, image);
             image.close();
-            entry.frames.push({ canvas: frameCanvas, delay });
+            entry.frames.push({ canvas, delay });
             entry.totalDuration += delay;
             if ((i + 1) % COMPOSE_CHUNK_SIZE === 0 && i + 1 < frameCount) {
                 await _yieldToMainThread();
             }
         }
         entry.isAnimated = true;
-    } finally { decoder.close(); }
+    } finally {
+        if (!keepDecoder) decoder.close();
+    }
 }
 function getAnimatedImage(url, onReady, animated = true) {
     if (!animated) return { loaded: true, failed: true, isAnimated: false, frames: [] };
@@ -11206,24 +10128,6 @@ function getGifFrameState(entry, elapsedMs) {
     return { index: entry.frames.length - 1, remainingMs: lastFrame.delay };
 }
 
-const _resolvedAssetUrls = new Map();
-function resolveFixedAssetUrl(filename) {
-    if (_resolvedAssetUrls.has(filename)) {
-        return _resolvedAssetUrls.get(filename);
-    }
-    const primaryUrl = `${ASSETS_CDN_PRIMARY}/${filename}`;
-    const fallbackUrl = `${ASSETS_CDN_FALLBACK}/${filename}`;
-    const entry = getCorsImage(primaryUrl);
-    if (entry.failed) {
-        _resolvedAssetUrls.set(filename, fallbackUrl);
-        return fallbackUrl;
-    }
-    if (entry.loaded) {
-        _resolvedAssetUrls.set(filename, primaryUrl);
-    }
-    return primaryUrl;
-}
-
 function resolvePoseParams(texture, drawPose) {
     const base = sanitizeRenderParams(texture);
     const poseKey = getPoseKey(drawPose);
@@ -11232,164 +10136,1483 @@ function resolvePoseParams(texture, drawPose) {
     if (!ps || ps.enabled !== true) return base;
     return { ...base, ...sanitizeRenderParams(ps, true) };
 }
-function renderTexture(data, originalFunction, drawData) {
-    const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
-    const item = CA;
-    const layerIndex = LAYER_NAMES.indexOf(L);
-    clearTextureGeometry(C, item, layerIndex);
-    if (layerIndex === 0 && item?.Property) {
-        updateHideArray(item);
-        if (data.PersistentData && !data.PersistentData._cacheMigrated) {
-            for (const key in data.PersistentData) {
-                if (!key.startsWith("_")) {
-                    delete data.PersistentData[key];
-                }
-            }
-            data.PersistentData._cacheMigrated = true;
-        }
+function getBlockedPlayers() {
+    try {
+        const s = Player?.ExtensionSettings?.ShuangCustomAssets;
+        return Array.isArray(s?.blockedPlayers) ? s.blockedPlayers : [];
+    } catch (_) {
+        return [];
     }
-    if (layerIndex === -1) return;
-    if (!getImageLoadingEnabled()) return;
-    const textures = item?.Property?.Textures;
-    if (!textures || layerIndex >= textures.length) return;
-    const texture = textures[layerIndex];
-    if (!texture) return;
-    const params = resolvePoseParams(texture, C.DrawPose);
-    if (!params.TextureURL) return;
-    if (params.Visible === false) return;
-    const blockedPlayers = (() => {
-        try {
-            const s = Player?.ExtensionSettings?.ShuangCustomAssets;
-            return Array.isArray(s?.blockedPlayers) ? s.blockedPlayers : [];
-        } catch (_) { return []; }
-    })();
-    if (blockedPlayers.length > 0) {
-        const texSource = texture.TextureURLSource || 0;
-        const texConfig = texture.CurrentConfigurator || 0;
-        if (blockedPlayers.includes(C.MemberNumber) || (texSource > 0 && blockedPlayers.indexOf(texSource) !== -1) ||
-            (texConfig > 0 && blockedPlayers.indexOf(texConfig) !== -1)) {
-            return;
-        }
-    }
-    const warnEnabled = getDomainWarningEnabled();
-    let imageUrl, offsetX, offsetY, scaleX, scaleY, rotation, displayOpacity, mirrorH, mirrorV;
-    if (isUrlAllowed(params.TextureURL)) {
-        imageUrl = params.TextureURL;
-        offsetX = params.OffsetX || 0;
-        offsetY = params.OffsetY || 0;
-        scaleX = (params.ScaleX ?? 100) / 100;
-        scaleY = (params.ScaleY ?? 100) / 100;
-        rotation = params.Rotation || 0;
-        displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
-        mirrorH = params.MirrorH === true;
-        mirrorV = params.MirrorV === true;
-    } else if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
-        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
-        offsetX = 167;
-        offsetY = -256;
-        scaleX = scaleY = 50 / 100;
-        rotation = 0;
-        displayOpacity = 1.0;
-        mirrorH = false;
-        mirrorV = false;
-    } else {
-        return;
-    }
+}
+function isTextureBlocked(texture, character, blockedPlayers = getBlockedPlayers()) {
+    if (!blockedPlayers.length) return false;
+    const texSource = texture?.TextureURLSource || 0;
+    const texConfig = texture?.CurrentConfigurator || 0;
+    return blockedPlayers.includes(character?.MemberNumber) ||
+        (texSource > 0 && blockedPlayers.includes(texSource)) ||
+        (texConfig > 0 && blockedPlayers.includes(texConfig));
+}
+function getTextureStatus(texture, drawPose) {
+    const params = resolvePoseParams(texture, drawPose);
+    if (!params.TextureURL || params.Visible === false) return "none";
+    if (!isUrlAllowed(params.TextureURL)) return "failed";
+    let imageUrl = params.TextureURL;
     if (imageUrl.startsWith(ASSETS_CDN_PRIMARY + "/")) {
         imageUrl = resolveFixedAssetUrl(imageUrl.substring((ASSETS_CDN_PRIMARY + "/").length));
     }
-    const gifEntry = getAnimatedImage(imageUrl, undefined, getAnimatedImageEnabled());
-    if (gifEntry.error) return;
-    let img, sourceWidth, sourceHeight, gifFrameIndex = -1;
-    if (!gifEntry.loaded) {
-        getAnimatedImage(imageUrl, () => queueOneShotRefresh(C), getAnimatedImageEnabled());
-        return;
-    } else if (!gifEntry.failed && gifEntry.isAnimated) {
-        if (getAnimatedImageEnabled()) {
-            const layerGifStartKey = `_gifStart_${layerIndex}`;
-            if (!data.PersistentData) data.PersistentData = {};
-            if (data.PersistentData[layerGifStartKey] == null) {
-                data.PersistentData[layerGifStartKey] = Date.now();
-            }
-            const elapsed = Date.now() - data.PersistentData[layerGifStartKey];
-            const gifFrameState = getGifFrameState(gifEntry, elapsed);
-            gifFrameIndex = gifFrameState.index;
-            if (gifFrameIndex < 0) return;
-            notifyGifFrame(C, layerIndex, gifFrameIndex, Date.now() + gifFrameState.remainingMs);
-        } else {
-            gifFrameIndex = 0;
-        }
-        img = gifEntry.frames[gifFrameIndex].canvas;
-        sourceWidth = gifEntry.width;
-        sourceHeight = gifEntry.height;
-    } else if (!gifEntry.failed && !gifEntry.isAnimated) {
-        const onlyFrame = gifEntry.frames[0];
-        if (!onlyFrame) return;
-        img = onlyFrame.canvas;
-        sourceWidth = gifEntry.width;
-        sourceHeight = gifEntry.height;
+    const animation = getAnimatedImage(imageUrl, undefined, getAnimatedImageEnabled());
+    if (animation.error) return "failed";
+    if (!animation.loaded) return "loading";
+    if (!animation.failed) {
+        if (animation.isAnimated) return animation.frames.length > 0 ? "ready" : "failed";
+        return animation.frames[0] ? "ready" : "failed";
+    }
+    const image = getCorsImage(imageUrl, undefined, true);
+    if (image.failed) return "failed";
+    if (!image.loaded || !image.img.complete || image.img.naturalWidth <= 0) return "loading";
+    return "ready";
+}
+function allTexturesReadyForHide(item, character) {
+    if (!character) return true;
+    const textures = item?.Property?.Textures;
+    if (!Array.isArray(textures)) return true;
+    const blockedPlayers = getBlockedPlayers();
+    for (const texture of textures) {
+        if (!texture) continue;
+        if (isTextureBlocked(texture, character, blockedPlayers)) return false;
+        if (getTextureStatus(texture, character.DrawPose) !== "ready") return false;
+    }
+    return true;
+}
+
+const HIDEABLE_GROUP_SET = new Set(ALL_HIDEABLE_GROUPS);
+function sanitizeHideOverrides(raw) {
+    const result = {};
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return result;
+    for (const group of HIDEABLE_GROUP_SET) {
+        if (Object.hasOwn(raw, group) && typeof raw[group] === "boolean") result[group] = raw[group];
+    }
+    return result;
+}
+function isGroupHiddenByCategory(item, group, currentGroup = item?.Asset?.Group?.Name) {
+    for (const cat of HIDE_CATEGORIES) {
+        if (item?.Property?.[cat.key] !== true) continue;
+        if (!cat.groups.includes(group)) continue;
+        if (cat.key === "HideItems" && group === currentGroup) continue;
+        return true;
+    }
+    return false;
+}
+function hasCategoryOverrides(item, category) {
+    const overrides = item?.Property?.HideOverrides;
+    if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) return false;
+    const currentGroup = item.Asset?.Group?.Name;
+    return category.groups.some(group =>
+        !(category.key === "HideItems" && group === currentGroup) &&
+        typeof overrides[group] === "boolean");
+}
+function isGroupHidden(item, group, currentGroup = item?.Asset?.Group?.Name) {
+    const override = item?.Property?.HideOverrides?.[group];
+    if (override === true) return true;
+    if (override === false) return false;
+    return isGroupHiddenByCategory(item, group, currentGroup);
+}
+function toggleGroupHidden(item, group) {
+    if (!item?.Property || !HIDEABLE_GROUP_SET.has(group)) return false;
+    const currentGroup = item.Asset?.Group?.Name;
+    if (group === currentGroup) return false;
+    const baseHidden = isGroupHiddenByCategory(item, group, currentGroup);
+    const overrides = sanitizeHideOverrides(item.Property.HideOverrides);
+    const hidden = isGroupHidden(item, group, currentGroup);
+    if (hidden) {
+        if (baseHidden) overrides[group] = false;
+        else delete overrides[group];
+    } else if (baseHidden) {
+        delete overrides[group];
     } else {
-        const imgEntry = getCorsImage(imageUrl, undefined, true);
-        if (imgEntry.failed) return;
-        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) {
-            getCorsImage(imageUrl, () => queueOneShotRefresh(C));
+        overrides[group] = true;
+    }
+    item.Property.HideOverrides = overrides;
+    return !hidden;
+}
+function updateHideArray(item, character) {
+    if (!item || !item.Property) return false;
+    const hide = [];
+    const currentGroup = item.Asset?.Group?.Name;
+    const allowHiding = item.Property.HideOnlyWhenReady !== true ||
+        !character || allTexturesReadyForHide(item, character);
+    if (allowHiding) {
+        for (const cat of HIDE_CATEGORIES) {
+            if (item.Property[cat.key] === true) {
+                for (const g of cat.groups) {
+                    if (cat.key === "HideItems" && g === currentGroup) continue;
+                    hide.push(g);
+                }
+            }
+        }
+        const overrides = item.Property.HideOverrides;
+        if (overrides && typeof overrides === "object" && !Array.isArray(overrides)) {
+            for (const [group, hidden] of Object.entries(overrides)) {
+                if (!HIDEABLE_GROUP_SET.has(group) || group === currentGroup) continue;
+                if (hidden === true) {
+                    if (!hide.includes(group)) hide.push(group);
+                } else if (hidden === false) {
+                    const index = hide.indexOf(group);
+                    if (index !== -1) hide.splice(index, 1);
+                }
+            }
+        }
+    }
+    const oldHide = item.Property.Hide || [];
+    const newHideStr = [...hide].sort().join(",");
+    const oldHideStr = [...oldHide].sort().join(",");
+    const needsRefresh = newHideStr !== oldHideStr;
+    if (hide.length > 0) {
+        item.Property.Hide = hide;
+    } else {
+        delete item.Property.Hide;
+    }
+    return needsRefresh;
+}
+
+const BEACON_CONTENT = "SCA-itemedit";
+const MISSING_TAG = `MISSING TEXT IN "Interface.csv": ${BEACON_CONTENT}`;
+function nameOf(mn, carried) {
+    try {
+        const chars = (typeof ChatRoomCharacter !== "undefined" && Array.isArray(ChatRoomCharacter))
+            ? ChatRoomCharacter : [];
+        const C = chars.find(c => c?.MemberNumber === mn)
+            || (Player?.MemberNumber === mn ? Player : null);
+        if (C) {
+            const nn = typeof CharacterNickname === "function" ? CharacterNickname(C) : "";
+            return nn || C.Nickname || C.Name || carried || `#${mn}`;
+        }
+    } catch (_) {}
+    return `#${mn}`;
+}
+function buildText(srcName, tgtName, isSelf) {
+    if (isSelf) {
+        return t$2("itemEditBeacon.edited_their_own_custom_texture", [srcName]);
+    }
+    return t$2("itemEditBeacon.edited_s_custom_texture", [srcName, tgtName]);
+}
+function sendItemEditBeacon(targetChar) {
+    try {
+        if (typeof ServerSend !== "function") return;
+        if (typeof ServerPlayerIsInChatRoom === "function" && !ServerPlayerIsInChatRoom()) return;
+        const srcMN = Player?.MemberNumber;
+        const tgtMN = targetChar?.MemberNumber;
+        if (typeof srcMN !== "number" || typeof tgtMN !== "number") return;
+        const srcName = nameOf(srcMN);
+        const tgtName = nameOf(tgtMN);
+        const fallback = buildText(srcName, tgtName, srcMN === tgtMN);
+        ServerSend("ChatRoomChat", {
+            Type: "Action",
+            Content: BEACON_CONTENT,
+            Dictionary: [
+                { Tag: MISSING_TAG, Text: fallback },
+                { Type: BEACON_CONTENT, Source: srcMN, Target: tgtMN },
+            ],
+        });
+    } catch (e) {
+        Logger.error("[ShuangAssets] 发送编辑动作信标失败", e);
+    }
+}
+function setupItemEditBeacon(HookManager) {
+    if (!HookManager || typeof HookManager.hookFunction !== "function") return;
+    if (typeof ChatRoomMessage !== "function") return;
+    HookManager.hookFunction("ChatRoomMessage", 0, (args, next) => {
+        try {
+            const data = args[0];
+            if (data?.Type === "Action" && data?.Content === BEACON_CONTENT && Array.isArray(data.Dictionary)) {
+                const payload = data.Dictionary.find(d => d?.Type === BEACON_CONTENT);
+                const missing = data.Dictionary.find(d => d?.Tag === MISSING_TAG);
+                if (payload && missing) {
+                    const srcName = nameOf(payload.Source);
+                    const tgtName = nameOf(payload.Target);
+                    missing.Text = buildText(srcName, tgtName, payload.Source === payload.Target);
+                }
+            }
+        } catch (e) { Logger.error("[ShuangAssets] 本地化编辑动作信标失败", e); }
+        return next(args);
+    });
+}
+
+const snapshotStore = new Map();
+const lastBroadcast = new Map();
+const BEACON_DEBOUNCE_MS = 3000;
+function itemKeyOf(item) {
+    const g = item?.Asset?.Group?.Name || "";
+    const n = item?.Asset?.Name || "";
+    return `${g}:${n}`;
+}
+function recordItemBaseline(item) {
+    if (!item) return;
+    snapshotStore.set(itemKeyOf(item), JSON.stringify(item.Property ?? {}));
+}
+function syncItemToServer(item) {
+    if (CurrentScreen === "Crafting") return;
+    const C = CharacterGetCurrent();
+    if (!C || typeof ChatRoomCharacterItemUpdate !== "function") return;
+    const key = itemKeyOf(item);
+    const snap = JSON.stringify(item.Property ?? {});
+    const prev = snapshotStore.get(key);
+    if (prev !== undefined && prev !== snap) {
+        const now = Date.now();
+        const last = lastBroadcast.get(key) || 0;
+        if (now - last >= BEACON_DEBOUNCE_MS) {
+            sendItemEditBeacon(C);
+            lastBroadcast.set(key, now);
+        }
+    }
+    snapshotStore.set(key, snap);
+    ChatRoomCharacterItemUpdate(C, item.Asset.Group.Name);
+    if (C.IsPlayer()) {
+        backupAppearance(true);
+        if (typeof ChatRoomCharacterUpdate === "function") {
+            ChatRoomCharacterUpdate(C);
+        }
+        if (typeof ServerPlayerAppearanceSync === "function") {
+            ServerPlayerAppearanceSync();
+        }
+    }
+    Logger.info(`[ShuangAssets] 已同步道具到服务器`);
+}
+
+const HANDLES = [[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]];
+const MIN_HANDLE_EXTENT = 32;
+const VIEW_MAX_AGE_MS = 250;
+let svg, target, drag, scopedCharacter, textureDraw;
+function active() {
+    return state.freeTransform && state.currentEditTexture >= 0 && !state.poseSwitchMode &&
+        (!state.poseEditing || (state.poseViewMode && state.tempTextureData?.PoseSettings?.[state.poseEditing]?.enabled)) &&
+        typeof CharacterGetCurrent === "function" && CharacterGetCurrent() && DialogFocusItem &&
+        (!DialogFocusItem.Property?.LockedBy || DialogCanUnlock(CharacterGetCurrent(), DialogFocusItem));
+}
+function selected(C, item, layer) {
+    return active() && C === CharacterGetCurrent() && item === DialogFocusItem && layer === state.currentEditTexture;
+}
+function hasCurrentView() {
+    return active() && state.transformView && Date.now()-state.transformView.time <= VIEW_MAX_AGE_MS;
+}
+function clearTextureGeometry(C, item, layer) {
+    if (selected(C, item, layer)) state.transformGeometry = null;
+}
+function captureTextureGeometry(C, item, layer, geometry) {
+    if (selected(C, item, layer)) state.transformGeometry = { ...geometry, item, layer, C };
+}
+function drawCapturedTexture(C, item, layer, geometry, canvas, drawX, drawY, draw) {
+    captureTextureGeometry(C, item, layer, geometry);
+    const previous = textureDraw;
+    textureDraw = selected(C, item, layer) ? { canvas, drawX, drawY, geometry:state.transformGeometry } : null;
+    try { return draw(); } finally { textureDraw = previous; }
+}
+function imageMatrix(source, x, y, options = {}, m = { a:1,b:0,c:0,d:1,e:0,f:0 }) {
+    const [u,v,w,h] = options.SourcePos || [0,0,source.width,source.height];
+    const width = options.Width ?? w, height = options.Height ?? h, zoom = options.Zoom ?? 1;
+    const sx = zoom * (options.Mirror ? -1 : 1) * width / w;
+    const sy = zoom * (options.Invert ? -1 : 1) * height / h;
+    const tx = x + (options.Mirror ? width : 0) - u * sx;
+    const ty = y + (options.Invert ? height : 0) - v * sy;
+    return { a:m.a*sx, b:m.b*sx, c:m.c*sy, d:m.d*sy,
+        e:m.a*tx+m.c*ty+m.e, f:m.b*tx+m.d*ty+m.f };
+}
+function mapPoint(m, x, y) { return { x:m.a*x+m.c*y+m.e, y:m.b*x+m.d*y+m.f }; }
+function unmapPoint(m, x, y) {
+    const det = m.a*m.d-m.b*m.c;
+    if (!Number.isFinite(det) || Math.abs(det) < 1e-10) return null;
+    return { x:(m.d*(x-m.e)-m.c*(y-m.f))/det, y:(m.a*(y-m.f)-m.b*(x-m.e))/det };
+}
+function geometryPoint(g, hx, hy) {
+    const rad = g.rotation*Math.PI/180, dx = hx*g.width/2, dy = hy*g.height/2;
+    return { x:g.centerX+dx*Math.cos(rad)-dy*Math.sin(rad), y:g.centerY+dx*Math.sin(rad)+dy*Math.cos(rad) };
+}
+function setupTransformCapture(hooks) {
+    hooks.hookFunction("GLDraw2DCanvas", 0, (args, next) => {
+        if (textureDraw && args[1] === textureDraw.canvas) {
+            const dx = args[2] - textureDraw.drawX + (args[4] || 0);
+            const dy = args[3] - textureDraw.drawY;
+            const g = textureDraw.geometry;
+            state.transformGeometry = { ...g, anchorX:g.anchorX+dx, anchorY:g.anchorY+dy,
+                centerX:g.centerX+dx, centerY:g.centerY+dy };
+        }
+        return next(args);
+    });
+    hooks.hookFunction("DrawCharacter", 0, (args, next) => {
+        const previous = scopedCharacter;
+        scopedCharacter = active() && args[0] === CharacterGetCurrent() && args[1] < 1000 ? args[0] : null;
+        try { return next(args); } finally { scopedCharacter = previous; }
+    });
+    hooks.hookFunction("DrawImageEx", 0, (args, next) => {
+        const [source, canvas, x, y, options] = args;
+        if (scopedCharacter && canvas === MainCanvas && (source === scopedCharacter.Canvas || source === scopedCharacter.CanvasBlink)) {
+            state.transformView = { matrix:imageMatrix(source,x,y,options,canvas.getTransform()), time:Date.now() };
+        }
+        return next(args);
+    });
+    hooks.hookFunction("DrawProcess", 0, (args, next) => {
+        const result = next(args);
+        if (!hasCurrentView()) hideTransformOverlay();
+        return result;
+    });
+}
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+function transformValues(g, initial, start, point, handle) {
+    const dx = point.x-start.x, dy = point.y-start.y;
+    if (handle === 'move') return { OffsetX:clamp(Math.round(initial.OffsetX+dx),-1e4,10000), OffsetY:clamp(Math.round(initial.OffsetY+dy),-1e4,10000) };
+    if (handle === 'rotate') {
+        const a = Math.atan2(start.y-g.centerY,start.x-g.centerX), b = Math.atan2(point.y-g.centerY,point.x-g.centerX);
+        const delta = Math.atan2(Math.sin(b-a),Math.cos(b-a));
+        return { Rotation:Math.round(((initial.Rotation+delta*180/Math.PI+180)%360+360)%360-180) };
+    }
+    const [hx,hy] = HANDLES[Number(handle)], rad = g.rotation*Math.PI/180;
+    const lx = dx*Math.cos(rad)+dy*Math.sin(rad), ly = -dx*Math.sin(rad)+dy*Math.cos(rad);
+    let w = g.width+(hx ? 2*hx*lx : 0), h = g.height+(hy ? 2*hy*ly : 0);
+    if (initial.ScaleLocked !== false) {
+        const factor = hx && hy ? 1+2*(hx*lx*g.width+hy*ly*g.height)/(g.width*g.width+g.height*g.height)
+            : hx ? w/g.width : h/g.height;
+        const minFactor = Math.max((g.minimumWidth || MIN_HANDLE_EXTENT)/g.width, (g.minimumHeight || MIN_HANDLE_EXTENT)/g.height);
+        const maxFactor = Math.min(8192/g.width,8192/g.height,20*g.sourceWidth/g.width,20*g.sourceHeight/g.height);
+        const bounded = clamp(factor, Math.min(minFactor,maxFactor), maxFactor);
+        w = g.width*bounded; h = g.height*bounded;
+    }
+    const minX = Math.max(1,Math.ceil((g.minimumWidth || MIN_HANDLE_EXTENT)/g.sourceWidth*100));
+    const minY = Math.max(1,Math.ceil((g.minimumHeight || MIN_HANDLE_EXTENT)/g.sourceHeight*100));
+    const sx = Math.round(clamp(w/g.sourceWidth*100,Math.min(minX,2000),Math.min(2000,819200/g.sourceWidth)));
+    const sy = Math.round(clamp(h/g.sourceHeight*100,Math.min(minY,2000),Math.min(2000,819200/g.sourceHeight)));
+    return { ScaleX:sx, ScaleY:sy,
+        OffsetX:clamp(g.centerX-g.anchorX-Math.round(g.sourceWidth*sx/100)/2,-1e4,10000),
+        OffsetY:clamp(g.centerY-g.anchorY-Math.round(g.sourceHeight*sy/100)/2,-1e4,10000) };
+}
+function eventPoint(event, matrix) {
+    const canvas = MainCanvas.canvas, rect = canvas.getBoundingClientRect();
+    return unmapPoint(matrix,(event.clientX-rect.left)*canvas.width/rect.width,(event.clientY-rect.top)*canvas.height/rect.height);
+}
+function minimumGeometry(g, matrix) {
+    const rect = MainCanvas.canvas.getBoundingClientRect(), rad = g.rotation*Math.PI/180;
+    const cssLength = (x,y) => Math.hypot((matrix.a*x+matrix.c*y)*rect.width/MainCanvas.canvas.width,
+        (matrix.b*x+matrix.d*y)*rect.height/MainCanvas.canvas.height);
+    return { ...g, minimumWidth:Math.min(8192,20*g.sourceWidth,MIN_HANDLE_EXTENT/cssLength(Math.cos(rad),Math.sin(rad))),
+        minimumHeight:Math.min(8192,20*g.sourceHeight,MIN_HANDLE_EXTENT/cssLength(-Math.sin(rad),Math.cos(rad))) };
+}
+function startDrag(event) {
+    const handle = event.target.getAttribute('data-handle');
+    if (handle === null || event.button !== 0 || !active() || !target || !state.transformGeometry || !state.transformView) return;
+    const g = state.transformGeometry, matrix = state.transformView.matrix, start = eventPoint(event,matrix);
+    if (!start) return;
+    event.preventDefault(); event.stopPropagation();
+    const sized = minimumGeometry(g,matrix);
+    drag = { g:sized, matrix, start, handle, target, pointer:event.pointerId, pose:state.poseEditing,
+        initial:{ ...g.params, ScaleLocked:target.ScaleLocked } };
+    state.transformDragging = true;
+    svg.setPointerCapture(event.pointerId);
+}
+function moveDrag(event) {
+    if (!drag || drag.pointer !== event.pointerId) return;
+    if (!active() || target !== drag.target || drag.g.item !== DialogFocusItem || drag.pose !== state.poseEditing) { finishDrag(); return; }
+    const point = eventPoint(event,drag.matrix);
+    if (!point) return;
+    Object.assign(target,transformValues(drag.g,drag.initial,drag.start,point,drag.handle));
+    state._fieldsDirty = true;
+    event.preventDefault(); event.stopPropagation();
+}
+function finishDrag() {
+    const pointer = drag?.pointer;
+    drag = null;
+    state.transformDragging = false;
+    state._lastTextureRefresh = 0;
+    if (pointer !== undefined && svg?.hasPointerCapture(pointer)) svg.releasePointerCapture(pointer);
+}
+function hideTransformOverlay() {
+    finishDrag();
+    if (svg) svg.style.display = 'none';
+}
+function createOverlay() {
+    svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.id = 'sca-free-transform';
+    svg.style.cssText = 'position:fixed;z-index:999;pointer-events:none;touch-action:none;user-select:none;overflow:hidden';
+    svg.innerHTML = '<defs><clipPath id="sca-transform-clip"><rect /></clipPath></defs><g clip-path="url(#sca-transform-clip)">' +
+        '<polygon data-handle="move" fill="rgba(150,60,255,.03)" stroke="#b360ff" stroke-width="2" style="pointer-events:auto;cursor:move"/>' +
+        '<line stroke="#b360ff" stroke-width="2"/>' +
+        '<circle data-handle="rotate" r="9" fill="#b360ff" stroke="white" style="pointer-events:auto;cursor:grab"/>' +
+        HANDLES.map((_,i)=>`<rect data-handle="${i}" width="12" height="12" fill="#b360ff" stroke="white" style="pointer-events:auto;cursor:crosshair"/>`).join('')+'</g>';
+    svg.addEventListener('pointerdown',startDrag);
+    svg.addEventListener('pointermove',moveDrag);
+    svg.addEventListener('pointerup',event=>{ moveDrag(event); finishDrag(); event.stopPropagation(); });
+    for (const name of ['pointercancel','lostpointercapture']) svg.addEventListener(name,finishDrag);
+    for (const name of ['mousedown','mouseup','click','touchstart','touchend']) svg.addEventListener(name,event=>event.stopPropagation());
+    window.addEventListener('blur',hideTransformOverlay);
+    document.body.appendChild(svg);
+}
+function attributes(node, values) { for (const [key,value] of Object.entries(values)) node.setAttribute(key,String(value)); }
+function updateTransformOverlay(editTarget) {
+    target = editTarget;
+    const g = state.transformGeometry, view = state.transformView;
+    if (!hasCurrentView() || !g || g.item !== DialogFocusItem || g.layer !== state.currentEditTexture) { hideTransformOverlay(); return; }
+    const sized = minimumGeometry(g,view.matrix);
+    if (g.width < sized.minimumWidth-1 || g.height < sized.minimumHeight-1) {
+        const recover = { ...sized, width:Math.max(g.width,1), height:Math.max(g.height,1) };
+        Object.assign(target,transformValues(recover,{...g.params,ScaleLocked:target.ScaleLocked},{x:0,y:0},{x:0,y:0},'4'));
+        state._fieldsDirty = true;
+        hideTransformOverlay();
+        return;
+    }
+    if (!svg) createOverlay();
+    const canvas = MainCanvas.canvas, rect = canvas.getBoundingClientRect(), m = view.matrix;
+    Object.assign(svg.style,{display:'block',left:rect.left+'px',top:rect.top+'px',width:rect.width+'px',height:rect.height+'px'});
+    attributes(svg,{preserveAspectRatio:"none",viewBox:`0 0 ${canvas.width} ${canvas.height}`});
+    attributes(svg.querySelector('clipPath rect'),{width:canvas.width/2,height:canvas.height});
+    const points = HANDLES.map(([hx,hy])=>{ const p=geometryPoint(g,hx,hy); return mapPoint(m,p.x,p.y); });
+    const center = mapPoint(m,g.centerX,g.centerY), top = points[1];
+    const distance = Math.hypot(top.x-center.x,top.y-center.y) || 1;
+    const rotate = {x:top.x+32*(top.x-center.x)/distance,y:top.y+32*(top.y-center.y)/distance};
+    attributes(svg.querySelector('polygon'),{points:[0,2,4,6].map(i=>`${points[i].x},${points[i].y}`).join(' ')});
+    attributes(svg.querySelector('line'),{x1:top.x,y1:top.y,x2:rotate.x,y2:rotate.y});
+    attributes(svg.querySelector('circle'),{cx:rotate.x,cy:rotate.y});
+    svg.querySelectorAll('rect[data-handle]').forEach((node,i)=>attributes(node,{x:points[i].x-6,y:points[i].y-6}));
+}
+
+function getEditTarget() {
+    if (state.poseEditing && state.tempTextureData?.PoseSettings?.[state.poseEditing]) {
+        return state.tempTextureData.PoseSettings[state.poseEditing];
+    }
+    return state.tempTextureData;
+}
+function refreshEditInputs() {
+    if (!getEditTarget()) return;
+    state._fieldsDirty = true;
+}
+function inheritGlobalFields() {
+    const g = state.tempTextureData;
+    return {
+        enabled: false,
+        TextureURL: g?.TextureURL || "",
+        OffsetX: g?.OffsetX ?? 1,
+        OffsetY: g?.OffsetY ?? 1,
+        ScaleX: g?.ScaleX ?? 100,
+        ScaleY: g?.ScaleY ?? 100,
+        ScaleLocked: g?.ScaleLocked !== false,
+        Rotation: g?.Rotation ?? 0,
+        Opacity: g?.Opacity ?? 100,
+        MirrorH: g?.MirrorH === true,
+        MirrorV: g?.MirrorV === true
+    };
+}
+function clearPreviewPose() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    state.previewPoseMapping = null;
+    CharacterLoadCanvas(C);
+}
+function derivePoseEditing(poseKey) {
+    if (!state.poseViewMode) {
+        state.poseEditing = null;
+        return;
+    }
+    const ps = state.tempTextureData?.PoseSettings?.[poseKey];
+    state.poseEditing = (ps && ps.enabled === true) ? poseKey : null;
+}
+function switchPose(newPoseKey) {
+    if (!newPoseKey) {
+        state.poseEditing = null;
+        refreshEditInputs();
+        return;
+    }
+    if (state.poseViewMode) {
+        const parts = newPoseKey.split("+");
+        const poseName = parts[0] || newPoseKey;
+        setPreviewPose(poseName);
+    }
+    derivePoseEditing(newPoseKey);
+    refreshEditInputs();
+}
+function drawPoseBar() {
+    const C = CharacterGetCurrent();
+    const poseKey = getPoseKey(C?.DrawPose);
+    if (poseKey) {
+        DrawText(t$2("editPanel.view"), POSE_EDIT_TOGGLE_X + POSE_EDIT_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
+        DrawButton(POSE_EDIT_TOGGLE_X, POSE_BUTTON_Y,
+            POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H,
+            state.poseViewMode ? t$2("editPanel.pose_view") : t$2("editPanel.global_view"),
+            state.poseViewMode ? "#4CAF50" : "White", null,
+            t$2("editPanel.switch_view_global_or_current_pose"), false);
+        DrawText(t$2("editPanel.active"), POSE_ACTIVE_TOGGLE_X + POSE_ACTIVE_TOGGLE_W / 2, POSE_BAR_Y - 28, "White", "Black");
+        const ps = state.tempTextureData?.PoseSettings?.[poseKey];
+        const isActive = ps?.enabled === true;
+        DrawButton(POSE_ACTIVE_TOGGLE_X, POSE_BUTTON_Y,
+            POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H,
+            isActive ? t$2("editPanel.unique") : t$2("editPanel.global"),
+            isActive ? "#4CAF50" : "White", null,
+            t$2("editPanel.switch_config_source_for_current_pose"), false);
+    }
+    DrawButton(POSE_SWITCH_X, POSE_BUTTON_Y,
+        POSE_SWITCH_W, POSE_TOGGLE_H,
+        t$2("editPanel.batch"), "White", null,
+        t$2("editPanel.open_pose_selection_page_for_batch_configuration"), false);
+}
+function handlePoseBarClick() {
+    const C = CharacterGetCurrent();
+    const poseKey = getPoseKey(C?.DrawPose);
+    if (MouseIn(POSE_SWITCH_X, POSE_BUTTON_Y,
+            POSE_SWITCH_W, POSE_TOGGLE_H)) {
+        state.poseSwitchMode = "select";
+        return true;
+    }
+    if (poseKey) {
+        if (MouseIn(POSE_EDIT_TOGGLE_X, POSE_BUTTON_Y,
+                POSE_EDIT_TOGGLE_W, POSE_TOGGLE_H)) {
+            state.poseViewMode = !state.poseViewMode;
+            if (state.poseViewMode) {
+                const parts = poseKey.split("+");
+                setPreviewPose(parts[0] || poseKey);
+                derivePoseEditing(poseKey);
+            } else {
+                clearPreviewPose();
+                state.poseEditing = null;
+            }
+            refreshEditInputs();
+            return true;
+        }
+        if (MouseIn(POSE_ACTIVE_TOGGLE_X, POSE_BUTTON_Y,
+                POSE_ACTIVE_TOGGLE_W, POSE_TOGGLE_H)) {
+            if (!state.tempTextureData) return true;
+            if (!state.tempTextureData.PoseSettings) {
+                state.tempTextureData.PoseSettings = {};
+            }
+            let ps = state.tempTextureData.PoseSettings[poseKey];
+            if (!ps) {
+                ps = inheritGlobalFields();
+                ps.enabled = true;
+                state.tempTextureData.PoseSettings[poseKey] = ps;
+            } else {
+                ps.enabled = !(ps.enabled === true);
+            }
+            if (state.poseViewMode) {
+                derivePoseEditing(poseKey);
+            }
+            state._fieldsDirty = true;
+            return true;
+        }
+    }
+    return false;
+}
+function drawPoseSwitchPage() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    DrawText(t$2("editPanel.switch_pose"), 1500, 360, "White", "Gray");
+    DrawText(t$2("editPanel.select_poses_for_batch_configuration"),
+        1505, 405, "Yellow", "Black");
+    let rowY = POSE_PAGE_START_Y;
+    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+        const categoryFirstRowY = rowY;
+        DrawText(L$1(cat.label, cat.labelEn), POSE_PAGE_LABEL_X,
+            categoryFirstRowY + POSE_PAGE_LABEL_Y_OFFSET, "White", "Gray");
+        for (let i = 0; i < cat.poses.length; i++) {
+            const poseName = cat.poses[i];
+            const col = i % POSE_PAGE_COLS;
+            const row = Math.floor(i / POSE_PAGE_COLS);
+            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
+            const isSelected = state.poseSelectedList.includes(poseName);
+            const label = POSE_LABELS[poseName];
+            const btnText = label ? L$1(label.cn, label.en) : poseName;
+            const bgColor = isSelected ? "#FF9800" : "White";
+            DrawButton(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H,
+                btnText, bgColor, null, null, false);
+        }
+        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
+        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
+    }
+    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+    const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
+    const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
+    const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
+    const canEnter = (hasUpper && hasLower) || hasFull;
+    DrawButton(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H,
+        t$2("editPanel.edit_selected"), canEnter ? "White" : "Gray", null,
+        t$2("editPanel.set_unified_config_for_selected_pose_combinations_requires_both_u"), false);
+    DrawButton(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H,
+        t$2("editPanel.confirm"), "White", null,
+        t$2("editPanel.back_to_edit_panel"), false);
+}
+function handlePoseSwitchClick() {
+    const C = CharacterGetCurrent();
+    if (!C) return false;
+    if (MouseIn(POSE_SPECIAL_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_SPECIAL_BTN_W, POSE_PAGE_BTN_H)) {
+        const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+        const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+        const hasUpper = state.poseSelectedList.some(p => upperPoses.includes(p));
+        const hasLower = state.poseSelectedList.some(p => lowerPoses.includes(p));
+        const hasFull = state.poseSelectedList.some(p => POSE_CATEGORIES.BodyFull.poses.includes(p));
+        if ((hasUpper && hasLower) || hasFull) {
+            enterSpecialConfig();
+        } else {
+            showStatus(
+                t$2("editPanel.need_to_select_both_upper_and_lower_poses"),
+                "#FF6B6B", 3000
+            );
+        }
+        return true;
+    }
+    if (MouseIn(POSE_CONFIRM_BTN_X, POSE_PAGE_BOTTOM_Y, POSE_CONFIRM_BTN_W, POSE_PAGE_BTN_H)) {
+        state.poseSwitchMode = false;
+        state.poseSelectedList = [];
+        return true;
+    }
+    let rowY = POSE_PAGE_START_Y;
+    for (const [catKey, cat] of Object.entries(POSE_CATEGORIES)) {
+        const categoryFirstRowY = rowY;
+        for (let i = 0; i < cat.poses.length; i++) {
+            const poseName = cat.poses[i];
+            const col = i % POSE_PAGE_COLS;
+            const row = Math.floor(i / POSE_PAGE_COLS);
+            const btnX = POSE_PAGE_START_X + col * (POSE_PAGE_BTN_W + POSE_PAGE_BTN_GAP);
+            const btnY = categoryFirstRowY + row * POSE_PAGE_ROW_STEP;
+            if (MouseIn(btnX, btnY, POSE_PAGE_BTN_W, POSE_PAGE_BTN_H)) {
+                const idx = state.poseSelectedList.indexOf(poseName);
+                if (idx >= 0) {
+                    state.poseSelectedList.splice(idx, 1);
+                } else {
+                    state.poseSelectedList.push(poseName);
+                }
+                return true;
+            }
+        }
+        const rowCount = Math.ceil(cat.poses.length / POSE_PAGE_COLS);
+        rowY = categoryFirstRowY + rowCount * POSE_PAGE_ROW_STEP + POSE_PAGE_CATEGORY_GAP;
+    }
+    return false;
+}
+function enterSpecialConfig() {
+    const upperPoses = POSE_CATEGORIES.BodyUpper.poses;
+    const lowerPoses = POSE_CATEGORIES.BodyLower.poses;
+    const fullPoses = POSE_CATEGORIES.BodyFull.poses;
+    const selectedUpper = state.poseSelectedList.filter(p => upperPoses.includes(p));
+    const selectedLower = state.poseSelectedList.filter(p => lowerPoses.includes(p));
+    const selectedFull = state.poseSelectedList.filter(p => fullPoses.includes(p));
+    const combos = [];
+    for (const up of selectedUpper) {
+        for (const lo of selectedLower) {
+            combos.push(`${up}+${lo}`);
+        }
+    }
+    for (const fp of selectedFull) {
+        combos.push(fp);
+    }
+    state.poseComboList = combos;
+    state.poseComboIndex = 0;
+    state.poseSwitchMode = "special";
+    if (!state.tempTextureData.PoseSettings) {
+        state.tempTextureData.PoseSettings = {};
+    }
+    for (const comboKey of combos) {
+        if (!state.tempTextureData.PoseSettings[comboKey]) {
+            const cfg = inheritGlobalFields();
+            cfg.enabled = true;
+            state.tempTextureData.PoseSettings[comboKey] = cfg;
+        } else {
+            state.tempTextureData.PoseSettings[comboKey].enabled = true;
+        }
+    }
+    state.poseEditing = combos[0];
+    setPreviewPoseCombo(combos[0]);
+    createComboDropdown();
+    refreshEditInputs();
+}
+function setPreviewPoseCombo(poseKey) {
+    const poseNames = poseKey.split("+");
+    for (const name of poseNames) {
+        setPreviewPose(name);
+    }
+}
+function createComboDropdown() {
+    let sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+    if (!sel) {
+        sel = document.createElement("select");
+        sel.id = POSE_COMBO_DROPDOWN_ID;
+        sel.style.position = "fixed";
+        sel.style.zIndex = "100";
+        sel.style.fontSize = "14px";
+        sel.addEventListener("change", () => {
+            const idx = parseInt(sel.value, 10);
+            if (Number.isFinite(idx) && idx >= 0 && idx < state.poseComboList.length) {
+                state.poseComboIndex = idx;
+                state.poseEditing = state.poseComboList[idx];
+                setPreviewPoseCombo(state.poseEditing);
+                refreshEditInputs();
+            }
+        });
+        document.body.appendChild(sel);
+    }
+    sel.innerHTML = "";
+    for (let i = 0; i < state.poseComboList.length; i++) {
+        const comboKey = state.poseComboList[i];
+        const labels = comboKey.split("+").map(p => {
+            const label = POSE_LABELS[p];
+            return label ? L$1(label.cn, label.en) : p;
+        });
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `(${i + 1}/${state.poseComboList.length}) ${labels.join(" + ")}`;
+        sel.appendChild(opt);
+    }
+    sel.value = String(state.poseComboIndex);
+    positionComboDropdown();
+}
+function positionComboDropdown() {
+    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+    if (!sel) return;
+    sel.value = String(state.poseComboIndex);
+    const canvas = MainCanvas?.canvas;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / (MainCanvas?.width || 2000);
+    const scaleY = rect.height / (MainCanvas?.height || 1000);
+    sel.style.left = `${rect.left + POSE_COMBO_DROPDOWN_X * scaleX}px`;
+    sel.style.top = `${rect.top + POSE_COMBO_DROPDOWN_Y * scaleY}px`;
+    sel.style.width = `${POSE_COMBO_DROPDOWN_W * scaleX}px`;
+    sel.style.height = `${POSE_COMBO_DROPDOWN_H * scaleY}px`;
+    sel.style.display = state.poseSwitchMode === "special" ? "block" : "none";
+}
+function removeComboDropdown() {
+    const sel = document.getElementById(POSE_COMBO_DROPDOWN_ID);
+    if (sel) sel.remove();
+}
+function drawComboSelector() {
+    DrawButton(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
+        "\u25C0", "White", null, t$2("editPanel.previous_combo"), false);
+    DrawButton(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+        POSE_COMBO_BTN_W, POSE_TOGGLE_H,
+        "\u25B6", "White", null, t$2("editPanel.next_combo"), false);
+    positionComboDropdown();
+    DrawButton(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
+        POSE_CONFIRM_BTN_W, POSE_TOGGLE_H,
+        t$2("editPanel.save_back"), "White", null,
+        t$2("editPanel.save_config_and_return_to_pose_selection"), false);
+}
+function handlePoseSpecialConfigClick(item, textureIndex, data) {
+    if (MouseIn(POSE_COMBO_LEFT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
+        state.poseComboIndex = (state.poseComboIndex - 1 + state.poseComboList.length) % state.poseComboList.length;
+        state.poseEditing = state.poseComboList[state.poseComboIndex];
+        setPreviewPoseCombo(state.poseEditing);
+        refreshEditInputs();
+        return true;
+    }
+    if (MouseIn(POSE_COMBO_RIGHT_X, POSE_COMBO_NAME_Y - POSE_TOGGLE_H / 2,
+            POSE_COMBO_BTN_W, POSE_TOGGLE_H)) {
+        state.poseComboIndex = (state.poseComboIndex + 1) % state.poseComboList.length;
+        state.poseEditing = state.poseComboList[state.poseComboIndex];
+        setPreviewPoseCombo(state.poseEditing);
+        refreshEditInputs();
+        return true;
+    }
+    if (MouseIn(POSE_COMBO_SAVE_X, POSE_COMBO_SAVE_Y - POSE_TOGGLE_H / 2,
+            POSE_CONFIRM_BTN_W, POSE_TOGGLE_H)) {
+        for (const comboKey of state.poseComboList) {
+            if (state.tempTextureData?.PoseSettings?.[comboKey]) {
+                state.tempTextureData.PoseSettings[comboKey].enabled = true;
+            }
+        }
+        removeComboDropdown();
+        state.poseSwitchMode = "select";
+        state.poseEditing = null;
+        refreshEditInputs();
+        return true;
+    }
+    return false;
+}
+function setupStepperListeners() {
+    if (state._stepperListenerReady) return;
+    state._stepperListenerReady = true;
+    const begin = () => {
+        state._pointerDown = true;
+        updateDragMove();
+        updateScaleDrag();
+        tryStartBarDrag();
+    };
+    const finish = event => {
+        if (event.type !== "blur") {
+            updateDragMove();
+            updateScaleDrag();
+        }
+        state._pointerDown = false;
+        state.dragMove = null;
+        state.scaleDrag = null;
+        state.dragActive = false;
+        stepperPress.fieldId = null;
+        state._lastTextureRefresh = 0;
+        if (event.type === "blur") barDrag.fieldId = null;
+    };
+    document.addEventListener("mousedown", begin);
+    document.addEventListener("touchstart", begin, { passive: true });
+    for (const type of ["mouseup", "touchend", "touchcancel"]) document.addEventListener(type, finish);
+    window.addEventListener("blur", finish);
+}
+function tryStartBarDrag() {
+    if (state.currentEditTexture < 0 || state.poseSwitchMode === "select") return;
+    for (const field of BAR_FIELDS) {
+        const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+        if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
+            setFieldValue(field, barValueFromMouseX(field, MouseX));
+            barDrag.fieldId = field.id;
             return;
         }
-        img = imgEntry.img;
-        sourceWidth = img.naturalWidth;
-        sourceHeight = img.naturalHeight;
     }
-    const width = Math.round(sourceWidth * scaleX);
-    const height = Math.round(sourceHeight * scaleY);
-    const geometry = isUrlAllowed(params.TextureURL) ? {
-        anchorX: X, anchorY: Y, sourceWidth, sourceHeight, width, height,
-        centerX: X + offsetX + width / 2, centerY: Y + offsetY + height / 2,
-        rotation, params
-    } : null;
-    if (width <= 0 || height <= 0) {
-        if (geometry) captureTextureGeometry(C, item, layerIndex, geometry);
+}
+function getFieldValue(field) {
+    if (field.prop === null) return state.tempPriority;
+    const target = getEditTarget();
+    const v = target ? target[field.prop] : undefined;
+    return typeof v === "number" && !isNaN(v) ? v : field.def;
+}
+function setFieldValue(field, value) {
+    if (isNaN(value)) value = field.def;
+    if (field.min !== null) value = Math.max(field.min, value);
+    if (field.max !== null) value = Math.min(field.max, value);
+    if (field.prop === null) {
+        if (state.tempPriority !== value) {
+            state.tempPriority = value;
+            state._fieldsDirty = true;
+        }
+    } else {
+        const target = getEditTarget();
+        if (target) {
+            if (target[field.prop] !== value) {
+                target[field.prop] = value;
+                state._fieldsDirty = true;
+            }
+            if (target.ScaleLocked !== false) {
+                if (field.prop === "ScaleX" && target.ScaleY !== value) {
+                    target.ScaleY = value;
+                    state._fieldsDirty = true;
+                } else if (field.prop === "ScaleY" && target.ScaleX !== value) {
+                    target.ScaleX = value;
+                    state._fieldsDirty = true;
+                }
+            }
+        }
+    }
+}
+function applyStepperChange(field, delta) {
+    setFieldValue(field, getFieldValue(field) + delta);
+}
+function createEditPanelDomInputs() {
+    if (state._editInputsReady) return;
+    state._editInputsReady = true;
+    const urlInput = ElementCreateInput(FIELD_URL, "text", "", "https://");
+    urlInput.addEventListener("input", () => {
+        const target = getEditTarget();
+        if (!target) return;
+        target.TextureURL = urlInput.value.trim();
+        state._fieldsDirty = true;
+    });
+    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
+        const input = ElementCreateInput(field.id, "number", String(field.def), "");
+        if (field.min !== null) input.min = String(field.min);
+        if (field.max !== null) input.max = String(field.max);
+        input.step = "1";
+        hideNumberInputSpinner(input);
+        input.addEventListener("input", () => {
+            const parsed = parseInt(input.value, 10);
+            if (!Number.isFinite(parsed)) return;
+            setFieldValue(field, parsed);
+        });
+        input.addEventListener("change", () => {
+            input.value = String(getFieldValue(field));
+        });
+    }
+}
+function positionEditPanelInputs() {
+    const showing = state.currentEditTexture >= 0 && state.poseSwitchMode !== "select";
+    const urlInput = document.getElementById(FIELD_URL);
+    if (urlInput) {
+        if (showing) {
+            ElementPosition(FIELD_URL, URL_BOX_X + URL_BOX_W / 2, URL_BOX_Y + URL_BOX_H / 2, URL_BOX_W, URL_BOX_H);
+            if (document.activeElement !== urlInput) {
+                const val = getEditTarget()?.TextureURL || "";
+                if (urlInput.value !== val) urlInput.value = val;
+            }
+        } else {
+            ElementPosition(FIELD_URL, -999, -999, 0, 0);
+        }
+    }
+    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
+        const input = document.getElementById(field.id);
+        if (!input) continue;
+        if (showing) {
+            ElementPosition(field.id, STEPPER_INPUT_X + STEPPER_INPUT_W / 2, field.y + STEPPER_INPUT_H / 2,
+                STEPPER_INPUT_W, STEPPER_INPUT_H);
+            if (document.activeElement !== input) {
+                const val = String(getFieldValue(field));
+                if (input.value !== val) input.value = val;
+            }
+        } else {
+            ElementPosition(field.id, -999, -999, 0, 0);
+        }
+    }
+    positionComboDropdown();
+}
+function removeEditPanelInputs() {
+    if (!state._editInputsReady) return;
+    state._editInputsReady = false;
+    const ids = [FIELD_URL, ...STEPPER_FIELDS.map(f => f.id), ...BAR_FIELDS.map(f => f.id)];
+    for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+    removeComboDropdown();
+}
+function drawBarField(field) {
+    const value = getFieldValue(field);
+    const ratio = (value - field.min) / (field.max - field.min);
+    const trackY = field.y + STEPPER_INPUT_H / 2 - BAR_TRACK_H / 2;
+    MainCanvas.fillStyle = "#999999";
+    MainCanvas.fillRect(BAR_TRACK_X, trackY, BAR_TRACK_W, BAR_TRACK_H);
+    if (field.min < 0 && field.max > 0) {
+        const zeroRatio = (0 - field.min) / (field.max - field.min);
+        const zeroX = BAR_TRACK_X + zeroRatio * BAR_TRACK_W;
+        MainCanvas.fillStyle = "#000000";
+        MainCanvas.fillRect(zeroX - 1, trackY - 4, 2, BAR_TRACK_H + 8);
+    }
+    const handleX = BAR_TRACK_X + ratio * BAR_TRACK_W - BAR_HANDLE_SIZE / 2;
+    const handleY = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+    DrawImageResize(new URL("../SCA_slider.png", import.meta.url).href, handleX, handleY, BAR_HANDLE_SIZE, BAR_HANDLE_SIZE);
+}
+function barValueFromMouseX(field, mouseX) {
+    const ratio = Math.max(0, Math.min(1, (mouseX - BAR_TRACK_X) / BAR_TRACK_W));
+    return Math.round(field.min + ratio * (field.max - field.min));
+}
+function handleBarFieldClick(field) {
+    const barTop = field.y + STEPPER_INPUT_H / 2 - BAR_HANDLE_SIZE / 2;
+    if (MouseIn(BAR_TRACK_X - BAR_HANDLE_SIZE / 2, barTop, BAR_TRACK_W + BAR_HANDLE_SIZE, BAR_HANDLE_SIZE)) {
+        setFieldValue(field, barValueFromMouseX(field, MouseX));
+        barDrag.fieldId = field.id;
+        return true;
+    }
+    return false;
+}
+function updateBarDrag() {
+    if (!barDrag.fieldId) return;
+    if (!state._pointerDown) {
+        barDrag.fieldId = null;
         return;
     }
-    if (width > 8192 || height > 8192) return;
-    const rad = rotation * Math.PI / 180;
-    const cos = Math.abs(Math.cos(rad));
-    const sin = Math.abs(Math.sin(rad));
-    const bboxWidth = Math.round(width * cos + height * sin);
-    const bboxHeight = Math.round(width * sin + height * cos);
-    if (bboxWidth * bboxHeight > 16777216) return;
-    const layerCanvasKey = `_canvas_${layerIndex}`;
-    const layerParamsKey = `_params_${layerIndex}`;
-    const currentParams = `${imageUrl}_${gifFrameIndex}_${width}_${height}_${rotation}_${displayOpacity}_${mirrorH ? 1 : 0}_${mirrorV ? 1 : 0}`;
-    let tempCanvas = data.PersistentData?.[layerCanvasKey];
-    const paramsChanged = data.PersistentData?.[layerParamsKey] !== currentParams;
-    if (!tempCanvas || (gifEntry.isAnimated && paramsChanged)) {
-        tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
-        if (!data.PersistentData) data.PersistentData = {};
-        data.PersistentData[layerCanvasKey] = tempCanvas;
-        data.PersistentData[layerParamsKey] = null;
+    const field = BAR_FIELDS.find(f => f.id === barDrag.fieldId);
+    if (!field) {
+        barDrag.fieldId = null;
+        return;
     }
-    if (data.PersistentData[layerParamsKey] !== currentParams) {
-        if (tempCanvas.width !== bboxWidth || tempCanvas.height !== bboxHeight) {
-            tempCanvas.width = bboxWidth;
-            tempCanvas.height = bboxHeight;
+    setFieldValue(field, barValueFromMouseX(field, MouseX));
+}
+function drawAspectLockButton() {
+    const target = getEditTarget();
+    const locked = target?.ScaleLocked !== false;
+    DrawButton(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H,
+        t$2("editPanel.lock"), locked ? "#4CAF50" : "White", null, null, false);
+    if (MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) {
+        const hintX = 1820;
+        const hintY = ASPECT_LOCK_BTN_Y + ASPECT_LOCK_BTN_H / 2;
+        const lines = [t$2("editPanel.help_line_4"), t$2("editPanel.help_line_5")];
+        for (let i = 0; i < lines.length; i++) {
+            DrawText(lines[i], hintX, hintY - 15 + i * 30, "Yellow", "Black");
         }
-        const ctx = tempCanvas.getContext("2d");
-        ctx.clearRect(0, 0, bboxWidth, bboxHeight);
-        ctx.save();
-        ctx.globalAlpha = displayOpacity;
-        ctx.translate(bboxWidth / 2, bboxHeight / 2);
-        ctx.rotate(rad);
-        ctx.scale(mirrorH ? -1 : 1, mirrorV ? -1 : 1);
-        ctx.drawImage(img, -width / 2, -height / 2, width, height);
-        ctx.restore();
-        data.PersistentData[layerParamsKey] = currentParams;
     }
-    const drawX = X + offsetX - (bboxWidth - width) / 2;
-    const drawY = Y + offsetY - (bboxHeight - height) / 2;
-    if (geometry) drawCapturedTexture(C, item, layerIndex, geometry,
-        tempCanvas, drawX, drawY, () => drawCanvas(tempCanvas, drawX, drawY));
-    else drawCanvas(tempCanvas, drawX, drawY);
-    drawCanvasBlink(tempCanvas, drawX, drawY);
+}
+function handleAspectLockButtonClick() {
+    if (!MouseIn(ASPECT_LOCK_BTN_X, ASPECT_LOCK_BTN_Y, ASPECT_LOCK_BTN_W, ASPECT_LOCK_BTN_H)) return false;
+    const target = getEditTarget();
+    if (!target) return true;
+    const newLocked = !(target.ScaleLocked !== false);
+    target.ScaleLocked = newLocked;
+    if (newLocked && target.ScaleX !== target.ScaleY) {
+        target.ScaleY = target.ScaleX;
+        state._fieldsDirty = true;
+    }
+    return true;
+}
+function drawMirrorRow() {
+    DrawText(t$2("editPanel.mirror"), 1100, MIRROR_ROW_LABEL_Y, "White", "Gray");
+    const target = getEditTarget();
+    const mirrorH = target?.MirrorH === true;
+    const mirrorV = target?.MirrorV === true;
+    DrawButton(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
+        t$2("editPanel.h_flip"), mirrorH ? "#4CAF50" : "White", null,
+        t$2("editPanel.flip_the_image_horizontally"), false);
+    DrawButton(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H,
+        t$2("editPanel.v_flip"), mirrorV ? "#4CAF50" : "White", null,
+        t$2("editPanel.flip_the_image_vertically"), false);
+}
+function handleMirrorRowClick() {
+    const target = getEditTarget();
+    if (!target) return false;
+    if (MouseIn(MIRROR_H_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
+        target.MirrorH = !(target.MirrorH === true);
+        state._fieldsDirty = true;
+        return true;
+    }
+    if (MouseIn(MIRROR_V_BTN_X, MIRROR_ROW_Y, MIRROR_BTN_W, MIRROR_BTN_H)) {
+        target.MirrorV = !(target.MirrorV === true);
+        state._fieldsDirty = true;
+        return true;
+    }
+    return false;
+}
+function drawMoveButton() {
+    DrawButton(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H,
+        t$2("editPanel.move"), state.isDragMode ? "#4CAF50" : "White", null, null, false);
+    if (MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) {
+        const hintX = 1770;
+        const hintY = MOVE_BTN_Y + MOVE_BTN_H / 2;
+        const lines = [t$2("editPanel.help_line_6"), t$2("editPanel.help_line_7"), t$2("editPanel.help_line_8"), t$2("editPanel.help_line_9")];
+        for (let i = 0; i < lines.length; i++) {
+            DrawText(lines[i], hintX, hintY - 22 + i * 30, "Yellow", "Black");
+        }
+    }
+}
+function handleMoveButtonClick() {
+    if (!MouseIn(MOVE_BTN_X, MOVE_BTN_Y, MOVE_BTN_W, MOVE_BTN_H)) return false;
+    state.freeTransform = false;
+    hideTransformOverlay();
+    state.isDragMode = !state.isDragMode;
+    if (state.isDragMode) state.isScaleDragMode = false;
+    state.scaleDrag = null;
+    state.dragActive = false;
+    state.dragMove = null;
+    return true;
+}
+function drawScaleDragButton() {
+    DrawButton(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H,
+        t$2("editPanel.drag"), state.isScaleDragMode ? "#4CAF50" : "White", null, null, false);
+    if (MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) {
+        const lines = [t$2("editPanel.help_line_1"), t$2("editPanel.help_line_2"), t$2("editPanel.help_line_3")];
+        lines.forEach((line, i) => DrawText(line, 1820, SCALE_DRAG_BTN_Y - 2 + i * 30, "Yellow", "Black"));
+    }
+}
+function handleScaleDragButtonClick() {
+    if (!MouseIn(SCALE_DRAG_BTN_X, SCALE_DRAG_BTN_Y, SCALE_DRAG_BTN_W, SCALE_DRAG_BTN_H)) return false;
+    state.freeTransform = false;
+    hideTransformOverlay();
+    state.isScaleDragMode = !state.isScaleDragMode;
+    state.scaleDrag = null;
+    if (state.isScaleDragMode) {
+        state.isDragMode = false;
+        state.dragActive = false;
+        state.dragMove = null;
+    }
+    return true;
+}
+function canDragPreview(target, item) {
+    return state._pointerDown && target && item && state.poseSwitchMode !== "select" &&
+        MouseX >= 0 && MouseX <= 1000 && MouseY >= 0 && MouseY <= 1000 &&
+        (!item.Property?.LockedBy || DialogCanUnlock(CharacterGetCurrent(), item));
+}
+function updateScaleDrag() {
+    const target = getEditTarget(), item = DialogFocusItem;
+    if (!state.isScaleDragMode || !canDragPreview(target, item)) {
+        state.scaleDrag = null;
+        return;
+    }
+    const drag = state.scaleDrag;
+    if (!drag) {
+        state.scaleDrag = { target, item, x: MouseX, y: MouseY,
+            sx: Number.isFinite(Number(target.ScaleX)) ? Number(target.ScaleX) : 100,
+            sy: Number.isFinite(Number(target.ScaleY)) ? Number(target.ScaleY) : 100 };
+        return;
+    }
+    if (drag.target !== target || drag.item !== item) { state.scaleDrag = null; return; }
+    const dx = (MouseX - drag.x) * SCALE_DRAG_SENSITIVITY;
+    const dy = (MouseY - drag.y) * SCALE_DRAG_SENSITIVITY;
+    const x = Math.max(0, Math.min(2000, Math.round(drag.sx + dx)));
+    const y = target.ScaleLocked !== false ? x : Math.max(0, Math.min(2000, Math.round(drag.sy + dy)));
+    if (target.ScaleX !== x || target.ScaleY !== y) {
+        target.ScaleX = x; target.ScaleY = y;
+        state._fieldsDirty = true;
+    }
+}
+function updateDragMove() {
+    const target = getEditTarget(), item = DialogFocusItem;
+    if (!state.isDragMode || !canDragPreview(target, item)) {
+        state.dragActive = false;
+        state.dragMove = null;
+        return;
+    }
+    const drag = state.dragMove;
+    if (!drag) {
+        state.dragMove = { target, item, x: MouseX, y: MouseY, offsetX: Number(target.OffsetX) || 0, offsetY: Number(target.OffsetY) || 0 };
+        state.dragActive = true;
+        return;
+    }
+    if (drag.target !== target || drag.item !== item) {
+        state.dragMove = null;
+        state.scaleDrag = null;
+        state.dragActive = false;
+        return;
+    }
+    const x = Math.max(-1e4, Math.min(10000, Math.round(drag.offsetX + MouseX - drag.x)));
+    const y = Math.max(-1e4, Math.min(10000, Math.round(drag.offsetY + MouseY - drag.y)));
+    if (target.OffsetX !== x || target.OffsetY !== y) {
+        target.OffsetX = x;
+        target.OffsetY = y;
+        state._fieldsDirty = true;
+    }
+}
+function updateSteppers() {
+    if (!state._pointerDown) {
+        stepperPress.fieldId = null;
+        return;
+    }
+    let activeField = null;
+    let activeDirection = 0;
+    for (const field of [...STEPPER_FIELDS, ...BAR_FIELDS]) {
+        if (MouseIn(STEPPER_MINUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
+            activeField = field;
+            activeDirection = -1;
+            break;
+        }
+        if (MouseIn(STEPPER_PLUS_X, field.y, STEPPER_BTN_W, STEPPER_BTN_H)) {
+            activeField = field;
+            activeDirection = 1;
+            break;
+        }
+    }
+    if (!activeField) {
+        stepperPress.fieldId = null;
+        return;
+    }
+    const now = Date.now();
+    if (stepperPress.fieldId !== activeField.id || stepperPress.direction !== activeDirection) {
+        stepperPress.fieldId = activeField.id;
+        stepperPress.direction = activeDirection;
+        stepperPress.startTime = now;
+        stepperPress.lastUpdate = now;
+        applyStepperChange(activeField, activeDirection);
+        return;
+    }
+    const elapsed = now - stepperPress.startTime;
+    const interval = Math.max(40, 150 - elapsed * 0.035);
+    const stepMultiplier = Math.min(50, 1 + Math.floor(elapsed / 300));
+    if (now - stepperPress.lastUpdate >= interval) {
+        applyStepperChange(activeField, activeDirection * stepMultiplier);
+        stepperPress.lastUpdate = now;
+    }
+}
+function drawStepperButton(x, y, icon) {
+    DrawButton(x, y, STEPPER_BTN_W, STEPPER_BTN_H, "", "White", null, null);
+    DrawImageResize(icon, x + 2, y + 2, STEPPER_BTN_W - 4, STEPPER_BTN_H - 4);
+}
+const POSE_HOOK_NAME = "SCA_PosePreview";
+function registerPoseHook() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    state.previewPoseMapping = null;
+    C.RegisterHook("BeforeSortLayers", POSE_HOOK_NAME, () => {
+        if (state.previewPoseMapping) {
+            C.DrawPoseMapping = { ...state.previewPoseMapping };
+        }
+    });
+}
+function unregisterPoseHook() {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    C.UnregisterHook("BeforeSortLayers", POSE_HOOK_NAME);
+    state.previewPoseMapping = null;
+    CharacterLoadCanvas(C);
+}
+function setPreviewPose(poseName) {
+    const C = CharacterGetCurrent();
+    if (!C) return;
+    const newPose = PoseRecord[poseName];
+    if (!newPose) return;
+    if (newPose.Category === "BodyFull") {
+        state.previewPoseMapping = { [newPose.Category]: newPose.Name };
+    } else {
+        const current = state.previewPoseMapping || C.ActivePoseMapping || {};
+        const baseMapping = { ...current };
+        for (const [category, name] of Object.entries(baseMapping)) {
+            const pose = PoseRecord[name];
+            if (!pose || !pose.AllowMenu || pose.Category === "BodyFull") {
+                delete baseMapping[category];
+            }
+        }
+        if (!baseMapping.BodyUpper) baseMapping.BodyUpper = "BaseUpper";
+        if (!baseMapping.BodyLower) baseMapping.BodyLower = "BaseLower";
+        baseMapping[newPose.Category] = newPose.Name;
+        state.previewPoseMapping = baseMapping;
+    }
+    CharacterLoadCanvas(C);
+}
+function createEditInputs(texture) {
+    state._fieldsDirty = false;
+    state.poseEditing = null;
+    state.poseViewMode = true;
+    state.lastPoseKey = null;
+    state.poseSwitchMode = false;
+    state.poseSelectedList = [];
+    state.poseComboList = [];
+    state.poseComboIndex = 0;
+    registerPoseHook();
+    const item = DialogFocusItem;
+    const layerName = LAYER_NAMES[state.currentEditTexture];
+    const op = item?.Property?.OverridePriority;
+    let priorityValue = 50;
+    if (typeof op === "number") {
+        priorityValue = op;
+    } else if (op && typeof op[layerName] === "number") {
+        priorityValue = op[layerName];
+    }
+    state.tempPriority = priorityValue;
+    state.originalOverridePriority = op !== undefined ? JSON.parse(JSON.stringify(op)) : undefined;
+}
+function drawTextureEditPanel(item, textureIndex, data) {
+    if (state.poseSwitchMode === "select") {
+        drawPoseSwitchPage();
+        return;
+    }
+    setupStepperListeners();
+    updateSteppers();
+    updateDragMove();
+    updateScaleDrag();
+    updateBarDrag();
+    if (!state.poseSwitchMode) {
+        const C = CharacterGetCurrent();
+        const currentPoseKey = getPoseKey(C?.DrawPose);
+        if (state.lastPoseKey !== currentPoseKey) {
+            state.lastPoseKey = currentPoseKey;
+            switchPose(currentPoseKey);
+        }
+    }
+    if (state.tempTextureData) {
+        if (state._fieldsDirty) {
+            state._fieldsDirty = false;
+            if (!item.Property) item.Property = { Textures: [] };
+            if (!item.Property.Textures) item.Property.Textures = [];
+            const previousUrl = item.Property.Textures[textureIndex]?.TextureURL || "";
+            const newUrl = state.tempTextureData.TextureURL || "";
+            const urlChanged = previousUrl !== newUrl;
+            const renderData = JSON.parse(JSON.stringify(state.tempTextureData));
+            if (!state.poseViewMode && renderData.PoseSettings) {
+                for (const key of Object.keys(renderData.PoseSettings)) {
+                    renderData.PoseSettings[key].enabled = false;
+                }
+            }
+            item.Property.Textures[textureIndex] = renderData;
+            const layerName = LAYER_NAMES[textureIndex];
+            if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
+                item.Property.OverridePriority = {};
+            }
+            item.Property.OverridePriority[layerName] = state.tempPriority;
+            state._pendingTextureRefresh = true;
+            if (urlChanged && isUrlAllowed(newUrl)) {
+                const entry = getCorsImage(newUrl, undefined, true);
+                if (!entry.img.complete) {
+                    const C = CharacterGetCurrent();
+                    entry.img.addEventListener("load", () => {
+                        Logger.info(`[ShuangAssets] 图片加载完成: ${newUrl.substring(0, 50)}...`);
+                        if (C) CharacterRefresh(C, false, false);
+                    }, { once: true });
+                }
+            }
+            if (state.poseSwitchMode === "special" && state.poseComboList.length > 1 && state.poseEditing) {
+                const srcConfig = state.tempTextureData?.PoseSettings?.[state.poseEditing];
+                if (srcConfig) {
+                    for (const comboKey of state.poseComboList) {
+                        if (comboKey !== state.poseEditing && state.tempTextureData.PoseSettings?.[comboKey]) {
+                            const destEnabled = state.tempTextureData.PoseSettings[comboKey].enabled;
+                            Object.assign(state.tempTextureData.PoseSettings[comboKey], srcConfig);
+                            state.tempTextureData.PoseSettings[comboKey].enabled = destEnabled;
+                        }
+                    }
+                }
+            }
+        }
+        if (state._pendingTextureRefresh) {
+            const now = Date.now();
+            const isDragging = state.transformDragging || state.dragActive || !!state.scaleDrag || !!barDrag.fieldId;
+            const interval = isDragging ? TEXTURE_DRAG_REFRESH_INTERVAL : TEXTURE_REFRESH_INTERVAL;
+            if (now - state._lastTextureRefresh >= interval) {
+                const C = CharacterGetCurrent();
+                if (C) CharacterRefresh(C, false, false);
+                state._lastTextureRefresh = now;
+                state._pendingTextureRefresh = false;
+            }
+        }
+    }
+    if (state.poseSwitchMode === "special") {
+        drawComboSelector();
+    } else {
+        drawPoseBar();
+    }
+    if (state.poseSwitchMode === "special") {
+        DrawText(t$2("editPanel.batch_edit"), 1500, 360, "White", "Gray");
+    } else {
+        DrawText(t$2("editPanel.edit_layer", [textureIndex + 1]), 1500, 360, "White", "Gray");
+        DrawText(t$2("editPanel.auto_previews_on_change_press_to_return"), 1505, 405, "Yellow", "Black");
+    }
+    DrawText(t$2("editPanel.image"), 1100, 455, "White", "Gray");
+    const currentUrl = getEditTarget()?.TextureURL || "";
+    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
+        const domain = extractDomain(currentUrl);
+        if (domain) {
+            DrawButton(1730, 435, 100, 40, t$2("editPanel.trust"), "#6F1F1F", null,
+                t$2("editPanel.add_this_image_s_domain_to_the_trusted_whitelist"), false);
+        }
+    }
+    drawMoveButton();
+    drawScaleDragButton();
+    DrawButton(1555, 510, 150, 40, t$2("editPanel.free_transform"), state.freeTransform ? "#4CAF50" : "White", null, null, false);
+    updateTransformOverlay(getEditTarget());
+    for (const field of STEPPER_FIELDS) {
+        DrawText(L$1(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
+        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
+        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
+    }
+    drawAspectLockButton();
+    for (const field of BAR_FIELDS) {
+        DrawText(L$1(field.labelCn, field.labelEn), 1100, field.labelY, "White", "Gray");
+        drawStepperButton(STEPPER_MINUS_X, field.y, "Icons/Minus.png");
+        drawStepperButton(STEPPER_PLUS_X, field.y, "Icons/Plus.png");
+        drawBarField(field);
+    }
+    drawMirrorRow();
+    if (!state.poseSwitchMode) {
+        DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
+            t$2("editPanel.save_this_layer_back_to_list"));
+        DrawButton(1885, 245, 90, 90, "", "White", "Icons/Trash.png",
+            t$2("editPanel.delete_this_layer"), false);
+    }
+}
+function handleTextureEditClick(item, textureIndex, data) {
+    if (state.poseSwitchMode === "select") {
+        handlePoseSwitchClick();
+        return;
+    }
+    if (state.poseSwitchMode === "special") {
+        if (handlePoseSpecialConfigClick()) {
+            return;
+        }
+    }
+    if (!state.poseSwitchMode) {
+        if (handlePoseBarClick()) {
+            return;
+        }
+    }
+    const currentUrl = getEditTarget()?.TextureURL || "";
+    if (currentUrl && !isDomainInWhitelist(currentUrl)) {
+        const domain = extractDomain(currentUrl);
+        if (domain && MouseIn(1730, 435, 100, 40)) {
+            state.pendingDomainToAdd = domain;
+            state.currentView = "addDomainConfirm";
+            state.currentEditTexture = -1;
+            state.tempTextureData = null;
+            state.originalOverridePriority = undefined;
+            state._pendingTextureRefresh = false;
+            state.poseEditing = null;
+            state.poseSwitchMode = false;
+            state.poseSelectedList = [];
+            state.poseComboList = [];
+            state.poseComboIndex = 0;
+            unregisterPoseHook();
+            resetDragState();
+            return;
+        }
+    }
+    if (MouseIn(1555, 510, 150, 40)) {
+        if (item.Property?.LockedBy && !DialogCanUnlock(CharacterGetCurrent(), item)) return;
+        const enable = !state.freeTransform;
+        resetDragState();
+        state.freeTransform = enable;
+        state._pendingTextureRefresh = true;
+        if (!enable) hideTransformOverlay();
+        return;
+    }
+    if (handleScaleDragButtonClick()) return;
+    if (handleMoveButtonClick()) {
+        return;
+    }
+    if (handleAspectLockButtonClick()) {
+        return;
+    }
+    for (const field of BAR_FIELDS) {
+        if (handleBarFieldClick(field)) {
+            return;
+        }
+    }
+    if (handleMirrorRowClick()) {
+        return;
+    }
+    if (!state.poseSwitchMode && MouseIn(1885, 245, 90, 90)) {
+        item.Property.Textures[textureIndex] = null;
+        trimTrailingNulls(item.Property.Textures);
+        state.currentEditTexture = -1;
+        state.tempTextureData = null;
+        state.originalOverridePriority = undefined;
+        state._pendingTextureRefresh = false;
+        state.currentListPage = 0;
+        state.poseEditing = null;
+        state.poseSwitchMode = false;
+        state.poseSelectedList = [];
+        state.poseComboList = [];
+        state.poseComboIndex = 0;
+        unregisterPoseHook();
+        resetDragState();
+        syncItemToServer(item);
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false, false);
+        return;
+    }
+    if (!state.poseSwitchMode && MouseIn(1885, 135, 90, 90)) {
+        const toIntOr = (val, fallback) => {
+            const n = parseInt(val, 10);
+            return Number.isFinite(n) ? n : fallback;
+        };
+        const finalTexture = JSON.parse(JSON.stringify(state.tempTextureData));
+        finalTexture.TextureURL = String(state.tempTextureData?.TextureURL?.trim() || "");
+        finalTexture.OffsetX = toIntOr(state.tempTextureData?.OffsetX, 0);
+        finalTexture.OffsetY = toIntOr(state.tempTextureData?.OffsetY, 0);
+        finalTexture.ScaleX = toIntOr(state.tempTextureData?.ScaleX, 100);
+        finalTexture.ScaleY = toIntOr(state.tempTextureData?.ScaleY, 100);
+        finalTexture.ScaleLocked = state.tempTextureData?.ScaleLocked !== false;
+        finalTexture.Rotation = Math.max(-360, Math.min(360, toIntOr(state.tempTextureData?.Rotation, 0)));
+        finalTexture.Opacity = Math.max(0, Math.min(100, toIntOr(state.tempTextureData?.Opacity, 100)));
+        finalTexture.MirrorH = state.tempTextureData?.MirrorH === true;
+        finalTexture.MirrorV = state.tempTextureData?.MirrorV === true;
+        const existing = item.Property.Textures[textureIndex];
+        finalTexture.Visible = (existing && existing.Visible !== undefined) ? existing.Visible : true;
+        const mn = typeof Player?.MemberNumber === "number" ? Player.MemberNumber : 0;
+        if (finalTexture.TextureURL !== (state.originalEditTexture?.TextureURL || "")) {
+            finalTexture.TextureURLSource = mn;
+        } else if (existing) {
+            finalTexture.TextureURLSource = existing.TextureURLSource || 0;
+        }
+        finalTexture.CurrentConfigurator = mn;
+        if (!item.Property) item.Property = { Textures: [] };
+        if (!item.Property.Textures) item.Property.Textures = [];
+        item.Property.Textures[textureIndex] = finalTexture;
+        const layerName = LAYER_NAMES[textureIndex];
+        if (typeof item.Property.OverridePriority !== "object" || item.Property.OverridePriority === null) {
+            item.Property.OverridePriority = {};
+        }
+        item.Property.OverridePriority[layerName] = state.tempPriority;
+        syncItemToServer(item);
+        state.currentEditTexture = -1;
+        state.tempTextureData = null;
+        state.originalOverridePriority = undefined;
+        state._pendingTextureRefresh = false;
+        state.currentListPage = Math.floor(textureIndex / TEXTURES_PER_PAGE);
+        state.poseEditing = null;
+        state.poseSwitchMode = false;
+        state.poseSelectedList = [];
+        state.poseComboList = [];
+        state.poseComboIndex = 0;
+        unregisterPoseHook();
+        resetDragState();
+        const C = CharacterGetCurrent();
+        if (C) CharacterRefresh(C, false, false);
+        return;
+    }
 }
 
 function slotActions(texture, deleting) {
@@ -11397,16 +11620,12 @@ function slotActions(texture, deleting) {
     if (!texture) return ["add"];
     return ["visible", "edit", texture.TextureURL && !isDomainInWhitelist(texture.TextureURL) ? "trust" : "preview"];
 }
-function blocked(texture) {
-    const players = Player?.ExtensionSettings?.ShuangCustomAssets?.blockedPlayers;
-    return Array.isArray(players) && [texture.TextureURLSource, texture.CurrentConfigurator].some(id => id > 0 && players.includes(id));
-}
 function textureStatus(texture, character) {
     if (!texture) return { state: "empty" };
     const url = resolvePoseParams(texture, character?.DrawPose).TextureURL;
     if (!url) return { state: "empty" };
     if (!getImageLoadingEnabled()) return { state: "disabled", url };
-    if (isPlayerBlocked(character?.MemberNumber) || blocked(texture) || !isUrlAllowed(url)) return { state: "blocked", url };
+    if (isTextureBlocked(texture, character) || !isUrlAllowed(url)) return { state: "blocked", url };
     const animation = getAnimatedImage(url, undefined, getAnimatedImageEnabled());
     if (!animation.loaded) return { state: "loading", url };
     if (animation.error) return { state: "failed", url };
@@ -11509,6 +11728,78 @@ function clickTextureSlots(item, onAction) {
     return false;
 }
 
+const FONT_SIZE = 30;
+const LINE_HEIGHT$1 = 32;
+const PADDING = 12;
+const CJK_RE = /[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uff00-\uffef]/;
+function currentFont() {
+    try {
+        if (typeof CommonGetFont === "function") return CommonGetFont(FONT_SIZE);
+    } catch (_) {}
+    return `${FONT_SIZE}px Arial`;
+}
+function charWidth(ch, font) {
+    try {
+        if (typeof MainCanvas !== "undefined" && MainCanvas?.measureText) {
+            MainCanvas.font = font;
+            return MainCanvas.measureText(ch).width;
+        }
+    } catch (_) {}
+    return CJK_RE.test(ch) ? FONT_SIZE : FONT_SIZE / 2;
+}
+function wrapText(text, maxWidth, font) {
+    const lines = [];
+    let line = "";
+    let lineWidth = 0;
+    for (const ch of String(text)) {
+        if (ch === "\n") {
+            lines.push(line);
+            line = "";
+            lineWidth = 0;
+            continue;
+        }
+        const width = charWidth(ch, font);
+        if (line && lineWidth + width > maxWidth) {
+            const space = line.lastIndexOf(" ");
+            if (space > 0) {
+                lines.push(line.slice(0, space));
+                line = line.slice(space + 1) + ch;
+                lineWidth = measure(line, font);
+            } else {
+                lines.push(line);
+                line = ch;
+                lineWidth = width;
+            }
+        } else {
+            line += ch;
+            lineWidth += width;
+        }
+    }
+    if (line) lines.push(line);
+    return lines.length > 0 ? lines : [""];
+}
+function measure(text, font) {
+    let width = 0;
+    for (const ch of String(text)) width += charWidth(ch, font);
+    return width;
+}
+function drawHoverTooltip(text, width = 760) {
+    if (!text) return;
+    const boxWidth = Math.max(240, Math.min(width, 900));
+    const font = currentFont();
+    const lines = wrapText(text, boxWidth - PADDING * 2, font);
+    const boxHeight = lines.length * LINE_HEIGHT$1 + PADDING * 2;
+    const mouseX = typeof MouseX === "number" ? MouseX : 1000;
+    const mouseY = typeof MouseY === "number" ? MouseY : 500;
+    const left = Math.max(20, Math.min(mouseX + 18, 1980 - boxWidth));
+    const top = Math.max(20, Math.min(mouseY + 18, 980 - boxHeight));
+    DrawRect(left - 3, top - 3, boxWidth + 6, boxHeight + 6, "#fff942");
+    DrawRect(left, top, boxWidth, boxHeight, "#1b1b1b");
+    for (let i = 0; i < lines.length; i++) {
+        DrawText(lines[i], left + boxWidth / 2, top + PADDING + FONT_SIZE + i * LINE_HEIGHT$1, "White");
+    }
+}
+
 function exportConfig(item) {
     const textures = item.Property?.Textures || [];
     const usedCount = textures.filter(t => t != null).length;
@@ -11524,6 +11815,8 @@ function exportConfig(item) {
     for (const cat of HIDE_CATEGORIES) {
         config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] = item.Property?.[cat.key] === true;
     }
+    config.hideOnlyWhenReady = item.Property?.HideOnlyWhenReady === true;
+    config.hideOverrides = sanitizeHideOverrides(item.Property?.HideOverrides);
     const json = JSON.stringify(config, null, 2);
     Promise.resolve().then(() => navigator.clipboard.writeText(json)).then(() => {
         Logger.info("配置已复制到剪贴板");
@@ -11626,6 +11919,8 @@ function importConfig(item, mode) {
                 for (const cat of HIDE_CATEGORIES) {
                     item.Property[cat.key] = config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] === true;
                 }
+                item.Property.HideOnlyWhenReady = config.hideOnlyWhenReady === true;
+                item.Property.HideOverrides = sanitizeHideOverrides(config.hideOverrides);
                 if (config.hideBody === true) {
                     item.Property.HideHead = true;
                     item.Property.HideBodyUpper = true;
@@ -11638,7 +11933,7 @@ function importConfig(item, mode) {
                     delete item.Property.OverridePriority;
                 }
             }
-            updateHideArray(item);
+            updateHideArray(item, CharacterGetCurrent());
             const count = item.Property.Textures.filter(t => t != null).length;
             const modeText = mode === "append" ? "追加" : "覆盖";
             const localizedMode = t$2(mode === "append" ? "importExport.mode_append" : "importExport.mode_replace");
@@ -11657,6 +11952,10 @@ function importConfig(item, mode) {
     });
 }
 
+const HIDE_GUARD_Y = 450;
+const HIDE_ROWS_START_Y = 505;
+const HIDE_ROW_HEIGHT = 55;
+const HIDE_DETAIL_BTN = { x: 1730, w: 140, h: 40 };
 function drawAddDomainConfirm() {
     DrawText(t$2("listView.confirm_trusted_domain"), 1500, 370, "Red", "Gray");
     let y = 440;
@@ -11694,37 +11993,62 @@ function handleAddDomainConfirmClick(item, data) {
 function drawHideSettings(item) {
     DrawText(t$2("listView.hide_settings"), 1500, 360, "White", "Gray");
     DrawText(t$2("listView.choose_which_part_categories_to_hide"), 1505, 410, "#fff942", "Gray");
-    const startY = 450;
-    const rowHeight = 55;
+    const guardOn = item.Property?.HideOnlyWhenReady === true;
+    DrawText(t$2("listView.hide_guard"), 1100, HIDE_GUARD_Y + 20, "White");
+    DrawButton(1620, HIDE_GUARD_Y, 100, 40, guardOn ? t$2("settings.on") : t$2("settings.off"),
+        guardOn ? "#4CAF50" : "#666666", null, "", false);
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];
-        const y = startY + i * rowHeight;
+        const y = HIDE_ROWS_START_Y + i * HIDE_ROW_HEIGHT;
         const isHidden = item.Property?.[cat.key] === true;
+        const hasOverrides = hasCategoryOverrides(item, cat);
         const catLabel = L$1(cat.label, cat.labelEn);
         DrawText(catLabel, 1100, y + 20, "White");
         DrawButton(1200, y, 400, 40, t$2("listView.parts", [cat.groups.length]), "White", null,
             t$2("listView.this_category_covers_groups", [cat.groups.length]), false);
-        DrawButton(1620, y, 100, 40, isHidden ? t$2("listView.hidden") : t$2("listView.shown"),
-            isHidden ? "#666666" : "#4CAF50",
+        const toggleLabel = hasOverrides ? t$2("listView.partial") : isHidden ? t$2("listView.hidden") : t$2("listView.shown");
+        const toggleColor = hasOverrides ? "#FFB74D" : isHidden ? "#666666" : "#4CAF50";
+        DrawButton(1620, y, 100, 40, toggleLabel, toggleColor,
             null, t$2("listView.toggle_hiding", [catLabel]), false);
+        DrawButton(HIDE_DETAIL_BTN.x, y, HIDE_DETAIL_BTN.w, HIDE_DETAIL_BTN.h,
+            t$2("listView.detailed_adjustment"), "White", null,
+            t$2("listView.detailed_adjustment_help"), false);
     }
     DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
         t$2("listView.confirm_back_to_list"));
+    if (MouseIn(1000, HIDE_GUARD_Y, 870, 40)) {
+        drawHoverTooltip(t$2("listView.hide_guard_help"), 900);
+    }
 }
 function handleHideSettingsClick(item) {
-    const startY = 450;
-    const rowHeight = 55;
+    if (MouseIn(1620, HIDE_GUARD_Y, 100, 40)) {
+        if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+        item.Property.HideOnlyWhenReady = !(item.Property.HideOnlyWhenReady === true);
+        const C = CharacterGetCurrent();
+        updateHideArray(item, C);
+        Logger.info(`贴图异常保护切换为: ${item.Property.HideOnlyWhenReady}`);
+        syncItemToServer(item);
+        if (C) CharacterRefresh(C, false, false);
+        return;
+    }
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];
-        const y = startY + i * rowHeight;
+        const y = HIDE_ROWS_START_Y + i * HIDE_ROW_HEIGHT;
         if (MouseIn(1620, y, 100, 40)) {
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             item.Property[cat.key] = !(item.Property[cat.key] === true);
-            updateHideArray(item);
+            const C = CharacterGetCurrent();
+            updateHideArray(item, C);
             Logger.info(`${cat.label} 切换为: ${item.Property[cat.key]}`);
             syncItemToServer(item);
-            const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false, false);
+            return;
+        }
+        if (MouseIn(HIDE_DETAIL_BTN.x, y, HIDE_DETAIL_BTN.w, HIDE_DETAIL_BTN.h)) {
+            state.currentView = "hideDetail";
+            state.hideDetailCategory = i;
+            state.hideDetailPage = 0;
+            state.originalHideOverrides = JSON.parse(JSON.stringify(item.Property?.HideOverrides || {}));
             return;
         }
     }
@@ -11804,7 +12128,7 @@ function handleTextureListClick(item, data) {
         if (item) {
             if (!item.Property) item.Property = { Textures: [] };
             if (!item.Property.Textures) item.Property.Textures = [];
-            updateHideArray(item);
+            updateHideArray(item, C);
             Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
             Logger.info(`隐藏分类 - ${HIDE_CATEGORIES.map(c => `${c.label}: ${item.Property[c.key]}`).join(', ')}`);
             syncItemToServer(item);
@@ -11841,6 +12165,16 @@ function handlePlayerBlockClick() {
     return true;
 }
 function returnToListFromSubview() {
+    if (state.currentView === "hideDetail" && state.originalHideOverrides !== null) {
+        const item = DialogFocusItem;
+        if (item?.Property) {
+            item.Property.HideOverrides = JSON.parse(JSON.stringify(state.originalHideOverrides));
+            const C = CharacterGetCurrent();
+            updateHideArray(item, C);
+            if (C) CharacterRefresh(C, false, false);
+        }
+        state.originalHideOverrides = null;
+    }
     if (state.currentEditTexture >= 0) {
         const item = DialogFocusItem;
         if (item) {
@@ -11984,7 +12318,7 @@ const TUTORIAL_PAGES = [
             { key: "tutorial.head_body_upper_body_lower" },
             { key: "tutorial.clothing_clothes_shoes_etc" },
             { key: "tutorial.restraints_all_restraint_items" },
-            {},
+            { key: "tutorial.hide_guard_keeps_outfit_when_textures_fail" },
             { key: "tutorial.click_the_hide_icon_on_the_list_page", color: "Gray" },
         ]
     },
@@ -12025,8 +12359,8 @@ const SUBTITLE_Y = 410;
 const CONTENT_START_Y = 470;
 const LINE_HEIGHT = 38;
 const CLOSE_BTN = { x: 1885, y: 25, w: 90, h: 90 };
-const PREV_BTN = { x: 1250, y: 900, w: 150, h: 50 };
-const NEXT_BTN = { x: 1600, y: 900, w: 150, h: 50 };
+const PREV_BTN$1 = { x: 1250, y: 900, w: 150, h: 50 };
+const NEXT_BTN$1 = { x: 1600, y: 900, w: 150, h: 50 };
 function drawTutorial() {
     const totalPages = TUTORIAL_PAGES.length;
     if (state.tutorialPage >= totalPages) state.tutorialPage = totalPages - 1;
@@ -12049,10 +12383,10 @@ function drawTutorial() {
     const hasPrev = state.tutorialPage > 0;
     const isLastPage = state.tutorialPage >= totalPages - 1;
     if (hasPrev) {
-        DrawButton(PREV_BTN.x, PREV_BTN.y, PREV_BTN.w, PREV_BTN.h,
+        DrawButton(PREV_BTN$1.x, PREV_BTN$1.y, PREV_BTN$1.w, PREV_BTN$1.h,
             t$2("tutorial.prev"), "#555555", null, "", false);
     }
-    DrawButton(NEXT_BTN.x, NEXT_BTN.y, NEXT_BTN.w, NEXT_BTN.h,
+    DrawButton(NEXT_BTN$1.x, NEXT_BTN$1.y, NEXT_BTN$1.w, NEXT_BTN$1.h,
         isLastPage ? t$2("tutorial.got_it") : t$2("tutorial.next"),
         "#555555", null, "", false);
 }
@@ -12063,11 +12397,11 @@ function handleTutorialClick() {
         return;
     }
     const totalPages = TUTORIAL_PAGES.length;
-    if (state.tutorialPage > 0 && MouseIn(PREV_BTN.x, PREV_BTN.y, PREV_BTN.w, PREV_BTN.h)) {
+    if (state.tutorialPage > 0 && MouseIn(PREV_BTN$1.x, PREV_BTN$1.y, PREV_BTN$1.w, PREV_BTN$1.h)) {
         state.tutorialPage--;
         return;
     }
-    if (MouseIn(NEXT_BTN.x, NEXT_BTN.y, NEXT_BTN.w, NEXT_BTN.h)) {
+    if (MouseIn(NEXT_BTN$1.x, NEXT_BTN$1.y, NEXT_BTN$1.w, NEXT_BTN$1.h)) {
         if (state.tutorialPage < totalPages - 1) {
             state.tutorialPage++;
         } else {
@@ -12076,6 +12410,408 @@ function handleTutorialClick() {
         }
         return;
     }
+}
+
+const PAGE_SIZE = 16;
+const TAB = { x: 1000, y: 430, w: 220, h: 40, stepX: 230, stepY: 46, cols: 4 };
+const LIST_Y = 545;
+const ROW_H = 45;
+const COLUMNS = [
+    { labelX: 1075, labelW: 250, toggleX: 1210 },
+    { labelX: 1575, labelW: 250, toggleX: 1710 }
+];
+const TOGGLE_W = 100;
+const TOGGLE_H = 40;
+const RESET_BTN = { x: 1000, y: 915, w: 180, h: 45 };
+const PREV_BTN = { x: 1200, y: 915, w: 150, h: 45 };
+const NEXT_BTN = { x: 1650, y: 915, w: 150, h: 45 };
+const CONFIRM_BTN = { x: 1665, y: 135, w: 200, h: 90 };
+const BACK_BTN = { x: 1885, y: 25, w: 90, h: 90 };
+function getCategoryGroups(item) {
+    const index = Math.min(Math.max(state.hideDetailCategory, 0), HIDE_CATEGORIES.length - 1);
+    const category = HIDE_CATEGORIES[index];
+    const currentGroup = item?.Asset?.Group?.Name;
+    const groups = category.groups.filter(group =>
+        !(category.key === "HideItems" && group === currentGroup));
+    return { category, groups };
+}
+function getPageCount(groups) {
+    return Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
+}
+let _dictLanguage = null;
+let _dict = null;
+function activeDictionary() {
+    const raw = typeof TranslationLanguage === "string" ? TranslationLanguage : "";
+    const mapped = getLanguage();
+    const languages = [...new Set([raw, mapped].filter(Boolean))];
+    if (!languages.length) return null;
+    const cacheKey = languages.join("|");
+    if (_dictLanguage === cacheKey && _dict) return _dict;
+    try {
+        if (typeof TranslationCache !== "object" || !TranslationCache) return null;
+        let dict = null;
+        for (const language of languages) {
+            const exact = `Assets/Female3DCG_${language}.txt`;
+            if (Array.isArray(TranslationCache[exact])) {
+                dict = TranslationCache[exact];
+                break;
+            }
+            const key = Object.keys(TranslationCache).find(name =>
+                name.includes(`Female3DCG_${language}`) && Array.isArray(TranslationCache[name]));
+            if (key) {
+                dict = TranslationCache[key];
+                break;
+            }
+        }
+        if (dict) {
+            _dictLanguage = cacheKey;
+            _dict = dict;
+        }
+        return dict;
+    } catch (_) {
+        return null;
+    }
+}
+function translateText(text) {
+    if (!text) return text;
+    const dict = activeDictionary();
+    if (!dict || typeof TranslationString !== "function") return text;
+    try {
+        return TranslationString(text, dict) || text;
+    } catch (_) {
+        return text;
+    }
+}
+function localizeGroupLabel(group, description) {
+    const fallback = description && !String(description).startsWith("MISSING") ? description : "";
+    const byDescription = fallback ? translateText(fallback) : "";
+    if (byDescription && byDescription !== fallback) return byDescription;
+    const byName = translateText(group);
+    if (byName && byName !== group) return byName;
+    return fallback || group;
+}
+function groupLabel(group) {
+    try {
+        const info = typeof AssetGroupGet === "function" ? AssetGroupGet("Female3DCG", group) : null;
+        return localizeGroupLabel(group, info?.Description);
+    } catch (_) {
+        return localizeGroupLabel(group, "");
+    }
+}
+function categoryLabel(category) {
+    return L$1(category.label, category.labelEn);
+}
+function localizeItemLabel(item) {
+    if (item?.Craft?.Name) return item.Craft.Name;
+    const asset = item?.Asset;
+    const description = asset?.Description;
+    if (description && !String(description).startsWith("MISSING")) {
+        const translated = translateText(description);
+        if (translated && translated !== description) return translated;
+        return description;
+    }
+    return translateText(asset?.Name || "");
+}
+function getWornItemName(character, group) {
+    const names = [];
+    for (const item of character?.Appearance || []) {
+        if (item?.Asset?.Group?.Name !== group) continue;
+        const name = localizeItemLabel(item);
+        if (name && !names.includes(name)) names.push(name);
+    }
+    return names.join(" / ");
+}
+function preview(item) {
+    const C = CharacterGetCurrent();
+    updateHideArray(item, C);
+    if (C) CharacterRefresh(C, false, false);
+}
+function confirmAndSync(item) {
+    const C = CharacterGetCurrent();
+    updateHideArray(item, C);
+    syncItemToServer(item);
+    state.originalHideOverrides = null;
+    state.currentView = "hide";
+    if (C) CharacterRefresh(C, false, false);
+}
+function cancelAndReturn(item) {
+    if (state.originalHideOverrides !== null) {
+        item.Property.HideOverrides = JSON.parse(JSON.stringify(state.originalHideOverrides));
+    }
+    state.originalHideOverrides = null;
+    state.currentView = "hide";
+    const C = CharacterGetCurrent();
+    updateHideArray(item, C);
+    if (C) CharacterRefresh(C, false, false);
+}
+function drawHideDetail(item) {
+    const { groups } = getCategoryGroups(item);
+    const totalPages = getPageCount(groups);
+    if (state.hideDetailPage >= totalPages) state.hideDetailPage = totalPages - 1;
+    if (state.hideDetailPage < 0) state.hideDetailPage = 0;
+    DrawText(t$2("listView.detailed_hide"), 1500, 360, "White", "Gray");
+    DrawText(t$2("listView.detailed_hide_hint"), 1505, 410, "#fff942", "Gray");
+    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
+        const cat = HIDE_CATEGORIES[i];
+        const row = Math.floor(i / TAB.cols);
+        const col = i % TAB.cols;
+        const x = TAB.x + col * TAB.stepX;
+        const y = TAB.y + row * TAB.stepY;
+        const active = i === state.hideDetailCategory;
+        DrawButton(x, y, TAB.w, TAB.h, categoryLabel(cat),
+            active ? "#4CAF50" : "#666666", null, categoryLabel(cat), false);
+    }
+    const character = CharacterGetCurrent();
+    const pageStart = state.hideDetailPage * PAGE_SIZE;
+    const visible = groups.slice(pageStart, pageStart + PAGE_SIZE);
+    let hoverText = "";
+    for (let i = 0; i < visible.length; i++) {
+        const group = visible[i];
+        const col = i % COLUMNS.length;
+        const row = Math.floor(i / COLUMNS.length);
+        const layout = COLUMNS[col];
+        const y = LIST_Y + row * ROW_H;
+        const hidden = isGroupHidden(item, group);
+        const label = groupLabel(group);
+        const worn = getWornItemName(character, group);
+        const empty = !worn;
+        const labelText = empty ? `${label} · ${t$2("listView.none")}` : label;
+        DrawTextFit(labelText, layout.labelX, y + 24, layout.labelW, empty ? "#8a8a8a" : "White", "Gray");
+        DrawButton(layout.toggleX, y, TOGGLE_W, TOGGLE_H,
+            hidden ? t$2("listView.hidden") : t$2("listView.shown"),
+            hidden ? "#666666" : "#4CAF50", null, "", false);
+        const rowX = layout.labelX - layout.labelW / 2;
+        const rowW = layout.toggleX + TOGGLE_W - rowX;
+        if (MouseIn(rowX, y, rowW, ROW_H)) {
+            hoverText = empty ? t$2("listView.none") : t$2("listView.equipped_item", [worn]);
+        }
+    }
+    DrawButton(RESET_BTN.x, RESET_BTN.y, RESET_BTN.w, RESET_BTN.h,
+        t$2("listView.clear_category_overrides"), "#9E9E9E", null,
+        t$2("listView.clear_category_overrides"), false);
+    DrawButton(PREV_BTN.x, PREV_BTN.y, PREV_BTN.w, PREV_BTN.h,
+        t$2("tutorial.prev"), "#555555", null, "", state.hideDetailPage <= 0);
+    DrawButton(NEXT_BTN.x, NEXT_BTN.y, NEXT_BTN.w, NEXT_BTN.h,
+        t$2("tutorial.next"), "#555555", null, "", state.hideDetailPage >= totalPages - 1);
+    DrawText(t$2("tutorial.page", [state.hideDetailPage + 1, totalPages]), 1500, 942, "White", "Black");
+    DrawButton(CONFIRM_BTN.x, CONFIRM_BTN.y, CONFIRM_BTN.w, CONFIRM_BTN.h,
+        t$2("listView.confirm_and_sync"), "#4CAF50", null,
+        t$2("listView.confirm_and_sync"), false);
+    DrawButton(BACK_BTN.x, BACK_BTN.y, BACK_BTN.w, BACK_BTN.h, "", "White",
+        "Icons/Exit.png", t$2("listView.back_and_discard"));
+    if (hoverText) drawHoverTooltip(hoverText, 650);
+}
+function handleHideDetailClick(item) {
+    if (!item) return;
+    if (MouseIn(BACK_BTN.x, BACK_BTN.y, BACK_BTN.w, BACK_BTN.h)) {
+        cancelAndReturn(item);
+        return;
+    }
+    if (MouseIn(CONFIRM_BTN.x, CONFIRM_BTN.y, CONFIRM_BTN.w, CONFIRM_BTN.h)) {
+        confirmAndSync(item);
+        return;
+    }
+    for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
+        const row = Math.floor(i / TAB.cols);
+        const col = i % TAB.cols;
+        const x = TAB.x + col * TAB.stepX;
+        const y = TAB.y + row * TAB.stepY;
+        if (MouseIn(x, y, TAB.w, TAB.h)) {
+            state.hideDetailCategory = i;
+            state.hideDetailPage = 0;
+            return;
+        }
+    }
+    const { category, groups } = getCategoryGroups(item);
+    const totalPages = getPageCount(groups);
+    if (state.hideDetailPage >= totalPages) state.hideDetailPage = totalPages - 1;
+    if (state.hideDetailPage < 0) state.hideDetailPage = 0;
+    if (MouseIn(PREV_BTN.x, PREV_BTN.y, PREV_BTN.w, PREV_BTN.h) && state.hideDetailPage > 0) {
+        state.hideDetailPage--;
+        return;
+    }
+    if (MouseIn(NEXT_BTN.x, NEXT_BTN.y, NEXT_BTN.w, NEXT_BTN.h) && state.hideDetailPage < totalPages - 1) {
+        state.hideDetailPage++;
+        return;
+    }
+    if (MouseIn(RESET_BTN.x, RESET_BTN.y, RESET_BTN.w, RESET_BTN.h)) {
+        const overrides = item.Property.HideOverrides;
+        if (overrides && typeof overrides === "object" && !Array.isArray(overrides)) {
+            const next = { ...overrides };
+            for (const group of category.groups) delete next[group];
+            item.Property.HideOverrides = next;
+            preview(item);
+        }
+        return;
+    }
+    const visible = groups.slice(state.hideDetailPage * PAGE_SIZE,
+        state.hideDetailPage * PAGE_SIZE + PAGE_SIZE);
+    for (let i = 0; i < visible.length; i++) {
+        const col = i % COLUMNS.length;
+        const row = Math.floor(i / COLUMNS.length);
+        const layout = COLUMNS[col];
+        const y = LIST_Y + row * ROW_H;
+        if (MouseIn(layout.toggleX, y, TOGGLE_W, TOGGLE_H)) {
+            const group = visible[i];
+            const hidden = toggleGroupHidden(item, group);
+            Logger.info(`详细调整 - ${group}: ${hidden}`);
+            preview(item);
+            return;
+        }
+    }
+}
+
+function renderTexture(data, originalFunction, drawData) {
+    const { X, Y, drawCanvas, drawCanvasBlink, C, A, CA, L } = drawData;
+    const item = CA;
+    const layerIndex = LAYER_NAMES.indexOf(L);
+    clearTextureGeometry(C, item, layerIndex);
+    if (layerIndex === 0 && item?.Property) {
+        if (updateHideArray(item, C)) queueLayerRefresh(C);
+        if (data.PersistentData && !data.PersistentData._cacheMigrated) {
+            for (const key in data.PersistentData) {
+                if (!key.startsWith("_")) {
+                    delete data.PersistentData[key];
+                }
+            }
+            data.PersistentData._cacheMigrated = true;
+        }
+    }
+    if (layerIndex === -1) return;
+    if (!getImageLoadingEnabled()) return;
+    const textures = item?.Property?.Textures;
+    if (!textures || layerIndex >= textures.length) return;
+    const texture = textures[layerIndex];
+    if (!texture) return;
+    const params = resolvePoseParams(texture, C.DrawPose);
+    if (!params.TextureURL) return;
+    if (params.Visible === false) return;
+    if (isTextureBlocked(texture, C, getBlockedPlayers())) return;
+    const warnEnabled = getDomainWarningEnabled();
+    let imageUrl, offsetX, offsetY, scaleX, scaleY, rotation, displayOpacity, mirrorH, mirrorV;
+    if (isUrlAllowed(params.TextureURL)) {
+        imageUrl = params.TextureURL;
+        offsetX = params.OffsetX || 0;
+        offsetY = params.OffsetY || 0;
+        scaleX = (params.ScaleX ?? 100) / 100;
+        scaleY = (params.ScaleY ?? 100) / 100;
+        rotation = params.Rotation || 0;
+        displayOpacity = Math.max(0, Math.min(100, params.Opacity ?? 100)) / 100;
+        mirrorH = params.MirrorH === true;
+        mirrorV = params.MirrorV === true;
+    } else if (warnEnabled && !isDomainInWhitelist(params.TextureURL)) {
+        imageUrl = 'https://shuang-custom-assets.pages.dev/SCA_untrusted_domain.png';
+        offsetX = 167;
+        offsetY = -256;
+        scaleX = scaleY = 50 / 100;
+        rotation = 0;
+        displayOpacity = 1.0;
+        mirrorH = false;
+        mirrorV = false;
+    } else {
+        return;
+    }
+    if (imageUrl.startsWith(ASSETS_CDN_PRIMARY + "/")) {
+        imageUrl = resolveFixedAssetUrl(imageUrl.substring((ASSETS_CDN_PRIMARY + "/").length));
+    }
+    const gifEntry = getAnimatedImage(imageUrl, undefined, getAnimatedImageEnabled());
+    if (gifEntry.error) return;
+    let img, sourceWidth, sourceHeight, gifFrameIndex = -1;
+    if (!gifEntry.loaded) {
+        getAnimatedImage(imageUrl, () => queueOneShotRefresh(C), getAnimatedImageEnabled());
+        return;
+    } else if (!gifEntry.failed && gifEntry.isAnimated) {
+        if (getAnimatedImageEnabled()) {
+            const layerGifStartKey = `_gifStart_${layerIndex}`;
+            if (!data.PersistentData) data.PersistentData = {};
+            if (data.PersistentData[layerGifStartKey] == null) {
+                data.PersistentData[layerGifStartKey] = Date.now();
+            }
+            const elapsed = Date.now() - data.PersistentData[layerGifStartKey];
+            const gifFrameState = getGifFrameState(gifEntry, elapsed);
+            if (gifFrameState.index < 0) return;
+            const frame = resolveAnimatedFrame(gifEntry, gifFrameState.index);
+            if (!frame.canvas) return;
+            gifFrameIndex = frame.index;
+            img = frame.canvas;
+            if (frame.pending) queueDelayedRefresh(C, STREAM_RETRY_MS);
+            notifyGifFrame(C, layerIndex, gifFrameIndex, Date.now() + gifFrameState.remainingMs);
+        } else {
+            const frame = resolveAnimatedFrame(gifEntry, 0);
+            if (!frame.canvas) return;
+            gifFrameIndex = 0;
+            img = frame.canvas;
+        }
+        sourceWidth = gifEntry.width;
+        sourceHeight = gifEntry.height;
+    } else if (!gifEntry.failed && !gifEntry.isAnimated) {
+        const onlyFrame = gifEntry.frames[0];
+        if (!onlyFrame) return;
+        img = onlyFrame.canvas;
+        sourceWidth = gifEntry.width;
+        sourceHeight = gifEntry.height;
+    } else {
+        const imgEntry = getCorsImage(imageUrl, undefined, true);
+        if (imgEntry.failed) return;
+        if (!imgEntry.img.complete || imgEntry.img.naturalWidth <= 0) {
+            getCorsImage(imageUrl, () => queueOneShotRefresh(C));
+            return;
+        }
+        img = imgEntry.img;
+        sourceWidth = img.naturalWidth;
+        sourceHeight = img.naturalHeight;
+    }
+    const width = Math.round(sourceWidth * scaleX);
+    const height = Math.round(sourceHeight * scaleY);
+    const geometry = isUrlAllowed(params.TextureURL) ? {
+        anchorX: X, anchorY: Y, sourceWidth, sourceHeight, width, height,
+        centerX: X + offsetX + width / 2, centerY: Y + offsetY + height / 2,
+        rotation, params
+    } : null;
+    if (width <= 0 || height <= 0) {
+        if (geometry) captureTextureGeometry(C, item, layerIndex, geometry);
+        return;
+    }
+    if (width > 8192 || height > 8192) return;
+    const rad = rotation * Math.PI / 180;
+    const cos = Math.abs(Math.cos(rad));
+    const sin = Math.abs(Math.sin(rad));
+    const bboxWidth = Math.round(width * cos + height * sin);
+    const bboxHeight = Math.round(width * sin + height * cos);
+    if (bboxWidth * bboxHeight > 16777216) return;
+    const layerCanvasKey = `_canvas_${layerIndex}`;
+    const layerParamsKey = `_params_${layerIndex}`;
+    const currentParams = `${imageUrl}_${gifFrameIndex}_${width}_${height}_${rotation}_${displayOpacity}_${mirrorH ? 1 : 0}_${mirrorV ? 1 : 0}`;
+    let tempCanvas = data.PersistentData?.[layerCanvasKey];
+    const paramsChanged = data.PersistentData?.[layerParamsKey] !== currentParams;
+    if (!tempCanvas || (gifEntry.isAnimated && paramsChanged)) {
+        tempCanvas = AnimationGenerateTempCanvas(C, A, bboxWidth, bboxHeight);
+        if (!data.PersistentData) data.PersistentData = {};
+        data.PersistentData[layerCanvasKey] = tempCanvas;
+        data.PersistentData[layerParamsKey] = null;
+    }
+    if (data.PersistentData[layerParamsKey] !== currentParams) {
+        if (tempCanvas.width !== bboxWidth || tempCanvas.height !== bboxHeight) {
+            tempCanvas.width = bboxWidth;
+            tempCanvas.height = bboxHeight;
+        }
+        const ctx = tempCanvas.getContext("2d");
+        ctx.clearRect(0, 0, bboxWidth, bboxHeight);
+        ctx.save();
+        ctx.globalAlpha = displayOpacity;
+        ctx.translate(bboxWidth / 2, bboxHeight / 2);
+        ctx.rotate(rad);
+        ctx.scale(mirrorH ? -1 : 1, mirrorV ? -1 : 1);
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        ctx.restore();
+        data.PersistentData[layerParamsKey] = currentParams;
+    }
+    const drawX = X + offsetX - (bboxWidth - width) / 2;
+    const drawY = Y + offsetY - (bboxHeight - height) / 2;
+    if (geometry) drawCapturedTexture(C, item, layerIndex, geometry,
+        tempCanvas, drawX, drawY, () => drawCanvas(tempCanvas, drawX, drawY));
+    else drawCanvas(tempCanvas, drawX, drawY);
+    drawCanvasBlink(tempCanvas, drawX, drawY);
 }
 
 function setupLoginBadge(HookManager) {
@@ -12098,6 +12834,8 @@ function setupLoginBadge(HookManager) {
                     for (const cat of HIDE_CATEGORIES) {
                         item.Property[cat.key] = false;
                     }
+                    item.Property.HideOnlyWhenReady = false;
+                    item.Property.HideOverrides = {};
                     item.Property.Hide = [];
                 }
                 CharacterRefresh(LoginCharacter);
@@ -12220,6 +12958,8 @@ const extended = {
         HideBodyLower: false,
         HideClothing: false,
         HideItems: false,
+        HideOnlyWhenReady: false,
+        HideOverrides: {},
         HideBody: false
     },
     ScriptHooks: {
@@ -12238,6 +12978,8 @@ const extended = {
             for (const cat of HIDE_CATEGORIES) {
                 if (item.Property[cat.key] === undefined) item.Property[cat.key] = false;
             }
+            if (typeof item.Property.HideOnlyWhenReady !== "boolean") item.Property.HideOnlyWhenReady = false;
+            item.Property.HideOverrides = sanitizeHideOverrides(item.Property.HideOverrides);
             updateHideArray(item);
             item.Property.Textures = item.Property.Textures.map(texture => {
                 try { return texture == null ? null : sanitizeTexture(texture); } catch { return null; }
@@ -12249,6 +12991,9 @@ const extended = {
             state.originalOverridePriority = undefined;
             state.currentListPage = 0;
             state.currentView = "list";
+            state.hideDetailCategory = 0;
+            state.hideDetailPage = 0;
+            state.originalHideOverrides = null;
             state._pendingTextureRefresh = false;
             resetDragState();
             recordItemBaseline(item);
@@ -12267,6 +13012,8 @@ const extended = {
                 drawTextureEditPanel(item, state.currentEditTexture);
             } else if (state.currentView === "hide") {
                 drawHideSettings(item);
+            } else if (state.currentView === "hideDetail") {
+                drawHideDetail(item);
             } else {
                 drawTextureListMain(item, data, isItemLockedForPlayer(item));
             }
@@ -12305,6 +13052,8 @@ const extended = {
                 handleTextureEditClick(item, state.currentEditTexture);
             } else if (state.currentView === "hide") {
                 handleHideSettingsClick(item);
+            } else if (state.currentView === "hideDetail") {
+                handleHideDetailClick(item);
             } else {
                 handleTextureListClick(item, data);
             }
@@ -12318,6 +13067,9 @@ const extended = {
             state.originalOverridePriority = undefined;
             state.currentListPage = 0;
             state.currentView = "list";
+            state.hideDetailCategory = 0;
+            state.hideDetailPage = 0;
+            state.originalHideOverrides = null;
             state.tutorialPage = 0;
             state.poseSwitchMode = false;
             state.poseSelectedList = [];
