@@ -10,7 +10,10 @@ export const state = {
     currentEditTexture: -1,
     tempTextureData: null,
     currentListPage: 0,
-    currentView: "list", // "list" | "hide" | "addDomainConfirm" | "tutorial"
+    currentView: "list", // "list" | "hide" | "hideDetail" | "addDomainConfirm" | "tutorial"
+    hideDetailCategory: 0, // 详细调整：当前分类索引
+    hideDetailPage: 0,     // 详细调整：当前页码
+    originalHideOverrides: null, // 进入详细调整前的逐组覆盖快照（取消/退出时还原）
     pendingDomainToAdd: null, // 待确认添加的域名
     tutorialPage: 0, // 教程当前页码（0-indexed）
     // 进入编辑前的原始贴图数据（用于「退出=取消编辑并返回列表」时还原）

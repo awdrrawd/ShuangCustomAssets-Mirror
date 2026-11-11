@@ -1,39 +1,21 @@
 import { drawCapturedTexture, captureTextureGeometry, clearTextureGeometry } from "./freeTransform.js";
-import { sanitizeRenderParams } from "./textureValidation.js";
 /**
  * 自定义贴图道具 - AfterDraw 渲染逻辑
  * 提取自 extended.AfterDraw hook，每图层渲染自定义贴图
  */
 
-import { LAYER_NAMES, ASSETS_CDN_PRIMARY, POSE_CATEGORIES, getPoseKey } from "./constants.js";
+import { LAYER_NAMES, ASSETS_CDN_PRIMARY } from "./constants.js";
 import { resolveFixedAssetUrl } from "./cdnFallback.js";
 import { updateHideArray } from "./hideArray.js";
+import { resolvePoseParams, getBlockedPlayers, isTextureBlocked } from "./textureReadiness.js";
 import { getCorsImage } from "@lib/utils.js";
-import { getAnimatedImage, getGifFrameState } from "@lib/gifPlayer.js";
+import { getAnimatedImage, getGifFrameState, resolveAnimatedFrame, STREAM_RETRY_MS } from "@lib/gifPlayer.js";
 import { notifyGifFrame } from "@lib/gifAnimationLoop.js";
-import { queueOneShotRefresh } from "@lib/refreshScheduler.js";
+import { queueOneShotRefresh, queueLayerRefresh, queueDelayedRefresh } from "@lib/refreshScheduler.js";
 import { isUrlAllowed, isDomainInWhitelist, getDomainWarningEnabled, getAnimatedImageEnabled, getImageLoadingEnabled } from "./settings.js";
 
-/**
- * 解析当前姿势下的有效渲染参数
- * 通过 getPoseKey 生成姿势组合键，在 PoseSettings 中查找对应的独立配置
- * - 找到且 enabled=true：用独立配置覆盖全局（未设置的字段回退到全局）
- * - 未找到或未启用：使用全局配置
- * @param {object} texture - 贴图配置（含 PoseSettings）
- * @param {string[]} drawPose - C.DrawPose 数组
- * @returns {object} 合并后的渲染参数
- */
-export function resolvePoseParams(texture, drawPose) {
-    const base = sanitizeRenderParams(texture);
-
-    const poseKey = getPoseKey(drawPose);
-    if (!poseKey) return base;
-
-    const ps = texture.PoseSettings?.[poseKey];
-    if (!ps || ps.enabled !== true) return base;
-
-    return { ...base, ...sanitizeRenderParams(ps, true) };
-}
+// 列表预览等既有调用方仍从 render 取用；实际实现已移到 textureReadiness，避免重复逻辑
+export { resolvePoseParams } from "./textureReadiness.js";
 
 /**
  * 渲染单个图层的自定义贴图（由 extended.AfterDraw hook 调用）
@@ -49,10 +31,11 @@ export function renderTexture(data, originalFunction, drawData) {
     clearTextureGeometry(C, item, layerIndex);
 
     // 在第一层渲染时检查并更新 Hide 数组（确保其他玩家也能正确应用隐藏效果）
-    // 注意：不在此处调用 CharacterRefresh，避免 AfterDraw -> CharacterRefresh -> AfterDraw 无限循环
-    // BC 在接收 ChatRoomCharacterItemUpdate 时会自动刷新角色，Hide 数组会在下次渲染时生效
+    // 若本次计算真正改变了 Hide（例如贴图异步加载完成、失败或域名不可信），
+    // 排到下一轮事件循环做一次完整 CharacterRefresh：当前 AppearanceLayers 已用旧 Hide
+    // 建好，必须重算图层，隐藏/恢复才会立刻生效。只在内容有变化时排入，避免无限循环。
     if (layerIndex === 0 && item?.Property) {
-        updateHideArray(item);
+        if (updateHideArray(item, C)) queueLayerRefresh(C);
         // 一次性清理旧的按值缓存条目（url_width_height_rotation_opacity_layer 格式）
         // 新策略改为每图层一个 canvas，旧缓存不再需要，不清理会持续占用内存
         if (data.PersistentData && !data.PersistentData._cacheMigrated) {
@@ -80,20 +63,7 @@ export function renderTexture(data, originalFunction, drawData) {
     if (params.Visible === false) return;
 
     // 屏蔽玩家检查：贴图来源方或配置者在屏蔽列表中时，跳过渲染
-    const blockedPlayers = (() => {
-        try {
-            const s = Player?.ExtensionSettings?.ShuangCustomAssets;
-            return Array.isArray(s?.blockedPlayers) ? s.blockedPlayers : [];
-        } catch (_) { return []; }
-    })();
-    if (blockedPlayers.length > 0) {
-        const texSource = texture.TextureURLSource || 0;
-        const texConfig = texture.CurrentConfigurator || 0;
-        if (blockedPlayers.includes(C.MemberNumber) || (texSource > 0 && blockedPlayers.indexOf(texSource) !== -1) ||
-            (texConfig > 0 && blockedPlayers.indexOf(texConfig) !== -1)) {
-            return;
-        }
-    }
+    if (isTextureBlocked(texture, C, getBlockedPlayers())) return;
 
     // 域名警告处理（检查解析后的 URL，支持姿势级切换不同图片源）
     const warnEnabled = getDomainWarningEnabled();
@@ -149,8 +119,10 @@ export function renderTexture(data, originalFunction, drawData) {
         return;
     } else if (!gifEntry.failed && gifEntry.isAnimated) {
         if (getAnimatedImageEnabled()) {
-            // 内容确实是多帧 GIF：从预先解码好的帧数组中，依「实际经过的时间 + 该 GIF 自带的每帧延迟」
-            // 选出目前该显示的帧，不会重复下载或重复解码
+            // 内容确实是多帧 GIF：从帧数组里，依「实际经过的时间 + 该 GIF 自带的每帧延迟」
+            // 选出目前该显示的帧，不会重复下载或重复解码。
+            // 超出预算的 WebP 处于串流模式：这一帧可能还没解码好，此时先用已缓存的帧顶上，
+            // 并把下一次重绘提前到 STREAM_RETRY_MS 之后；解码完成后帧索引变化会自然触发重绘。
             const layerGifStartKey = `_gifStart_${layerIndex}`;
             if (!data.PersistentData) data.PersistentData = {};
             if (data.PersistentData[layerGifStartKey] == null) {
@@ -158,22 +130,28 @@ export function renderTexture(data, originalFunction, drawData) {
             }
             const elapsed = Date.now() - data.PersistentData[layerGifStartKey];
             const gifFrameState = getGifFrameState(gifEntry, elapsed);
-            gifFrameIndex = gifFrameState.index;
-            if (gifFrameIndex < 0) return;
+            if (gifFrameState.index < 0) return;
+            const frame = resolveAnimatedFrame(gifEntry, gifFrameState.index);
+            if (!frame.canvas) return;
+            gifFrameIndex = frame.index;
+            img = frame.canvas;
             // AfterDraw 只会在 BC 重新生成角色外观画布（CharacterRefresh）时才被调用，
             // 不会随动画帧自动触发；这里登记「这一层预期下一次该换第几帧、什么时候换」，
             // gifAnimationLoop 会依这个到期时间排程，只在真的到期时才主动叫一次
             // CharacterRefresh，让新的一帧真正被重绘、上传成贴图，而不是每个轮询间隔
             // 都不分青红皂白地刷一次。所有正在播放动图的角色共用同一个计时器
             // （见 gifAnimationLoop.js），不会为每张动图各自开一个独立计时器。
+            if (frame.pending) queueDelayedRefresh(C, STREAM_RETRY_MS);
             notifyGifFrame(C, layerIndex, gifFrameIndex, Date.now() + gifFrameState.remainingMs);
         } else {
             // 偏好设置关闭了「启用动态图片」：固定显示第一帧，当成静态图处理，
             // 不推进时间轴、也不呼叫 notifyGifFrame——不会把这个角色登记进共用刷新
             // 计时器，画面不会再因为这个图层持续被 CharacterRefresh
+            const frame = resolveAnimatedFrame(gifEntry, 0);
+            if (!frame.canvas) return;
             gifFrameIndex = 0;
+            img = frame.canvas;
         }
-        img = gifEntry.frames[gifFrameIndex].canvas;
         sourceWidth = gifEntry.width;
         sourceHeight = gifEntry.height;
     } else if (!gifEntry.failed && !gifEntry.isAnimated) {

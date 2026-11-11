@@ -11,11 +11,18 @@ import {
 } from "./constants.js";
 import { state, resetDragState, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
-import { updateHideArray } from "./hideArray.js";
+import { updateHideArray, hasCategoryOverrides } from "./hideArray.js";
+import { drawHoverTooltip } from "./hoverTooltip.js";
 import { createEditInputs, unregisterPoseHook } from "./editPanel.js";
 import { exportConfig, importConfig } from "./importExport.js";
 import { Logger } from "@lib/utils.js";
 import { extractDomain, addDomainToWhitelist, isPlayerBlocked, togglePlayerBlocked } from "./settings.js";
+
+// 隐藏设置页布局：异常保护行 + 8 个分类行；说明改为悬浮提示，不再占用纵向空间
+const HIDE_GUARD_Y = 450;
+const HIDE_ROWS_START_Y = 505;
+const HIDE_ROW_HEIGHT = 55;
+const HIDE_DETAIL_BTN = { x: 1730, w: 140, h: 40 };
 
 /**
  * 绘制添加可信域名确认页面
@@ -73,49 +80,76 @@ export function drawHideSettings(item) {
     DrawText(t("listView.hide_settings"), 1500, 360, "White", "Gray");
     DrawText(t("listView.choose_which_part_categories_to_hide"), 1505, 410, "#fff942", "Gray");
 
-    const startY = 450;
-    // 身体拆为 头部/上半身/下半身 后分类数 6→8，行高收紧避免溢出画布底部
-    const rowHeight = 55;
+    // 异常保护总开关：开启后，贴图未就绪/失败/域名不可信时不隐藏任何已选部位
+    const guardOn = item.Property?.HideOnlyWhenReady === true;
+    DrawText(t("listView.hide_guard"), 1100, HIDE_GUARD_Y + 20, "White");
+    DrawButton(1620, HIDE_GUARD_Y, 100, 40, guardOn ? t("settings.on") : t("settings.off"),
+        guardOn ? "#4CAF50" : "#666666", null, "", false);
 
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];
-        const y = startY + i * rowHeight;
+        const y = HIDE_ROWS_START_Y + i * HIDE_ROW_HEIGHT;
         const isHidden = item.Property?.[cat.key] === true;
+        const hasOverrides = hasCategoryOverrides(item, cat);
         const catLabel = L(cat.label, cat.labelEn);
 
         DrawText(catLabel, 1100, y + 20, "White");
         DrawButton(1200, y, 400, 40, t("listView.parts", [cat.groups.length]), "White", null,
             t("listView.this_category_covers_groups", [cat.groups.length]), false);
-        // 与列表页贴图可见开关保持一致的显示/隐藏配色
-        DrawButton(1620, y, 100, 40, isHidden ? t("listView.hidden") : t("listView.shown"),
-            isHidden ? "#666666" : "#4CAF50",
+        // 「部分」表示该分类存在逐组覆盖，点击仍然切换整个分类
+        const toggleLabel = hasOverrides ? t("listView.partial") : isHidden ? t("listView.hidden") : t("listView.shown");
+        const toggleColor = hasOverrides ? "#FFB74D" : isHidden ? "#666666" : "#4CAF50";
+        DrawButton(1620, y, 100, 40, toggleLabel, toggleColor,
             null, t("listView.toggle_hiding", [catLabel]), false);
+        DrawButton(HIDE_DETAIL_BTN.x, y, HIDE_DETAIL_BTN.w, HIDE_DETAIL_BTN.h,
+            t("listView.detailed_adjustment"), "White", null,
+            t("listView.detailed_adjustment_help"), false);
     }
 
     // 确认（返回列表）
     DrawButton(1885, 135, 90, 90, "", "White", "Icons/Accept.png",
         t("listView.confirm_back_to_list"));
+
+    // 异常保护说明：悬浮在整行上时用可换行的大字号提示
+    if (MouseIn(1000, HIDE_GUARD_Y, 870, 40)) {
+        drawHoverTooltip(t("listView.hide_guard_help"), 900);
+    }
 }
 
 /**
  * 处理隐藏设置页面点击
  */
 export function handleHideSettingsClick(item) {
-    const startY = 450;
-    // 身体拆为 头部/上半身/下半身 后分类数 6→8，行高收紧避免溢出画布底部
-    const rowHeight = 55;
+    // 异常保护总开关
+    if (MouseIn(1620, HIDE_GUARD_Y, 100, 40)) {
+        if (!item.Property) item.Property = { ...DEFAULT_PROPS };
+        item.Property.HideOnlyWhenReady = !(item.Property.HideOnlyWhenReady === true);
+        const C = CharacterGetCurrent();
+        updateHideArray(item, C);
+        Logger.info(`贴图异常保护切换为: ${item.Property.HideOnlyWhenReady}`);
+        syncItemToServer(item);
+        if (C) CharacterRefresh(C, false, false);
+        return;
+    }
 
     for (let i = 0; i < HIDE_CATEGORIES.length; i++) {
         const cat = HIDE_CATEGORIES[i];
-        const y = startY + i * rowHeight;
+        const y = HIDE_ROWS_START_Y + i * HIDE_ROW_HEIGHT;
         if (MouseIn(1620, y, 100, 40)) {
             if (!item.Property) item.Property = { ...DEFAULT_PROPS };
             item.Property[cat.key] = !(item.Property[cat.key] === true);
-            updateHideArray(item);
+            const C = CharacterGetCurrent();
+            updateHideArray(item, C);
             Logger.info(`${cat.label} 切换为: ${item.Property[cat.key]}`);
             syncItemToServer(item);
-            const C = CharacterGetCurrent();
             if (C) CharacterRefresh(C, false, false);
+            return;
+        }
+        if (MouseIn(HIDE_DETAIL_BTN.x, y, HIDE_DETAIL_BTN.w, HIDE_DETAIL_BTN.h)) {
+            state.currentView = "hideDetail";
+            state.hideDetailCategory = i;
+            state.hideDetailPage = 0;
+            state.originalHideOverrides = JSON.parse(JSON.stringify(item.Property?.HideOverrides || {}));
             return;
         }
     }
@@ -236,7 +270,7 @@ export function handleTextureListClick(item, data) {
             if (!item.Property) item.Property = { Textures: [] };
             if (!item.Property.Textures) item.Property.Textures = [];
             // 保存前确保 Hide 数组与开关一致
-            updateHideArray(item);
+            updateHideArray(item, C);
 
             Logger.info("保存贴图数据:", JSON.stringify(item.Property.Textures));
             Logger.info(`隐藏分类 - ${HIDE_CATEGORIES.map(c => `${c.label}: ${item.Property[c.key]}`).join(', ')}`);
@@ -291,6 +325,18 @@ export function handlePlayerBlockClick() {
  * 若正在编辑图层，则视为「取消编辑」：还原为编辑前数据（新增未保存的空图层则移除）
  */
 export function returnToListFromSubview() {
+    // 未确认就离开详细调整：还原进入前的逐组覆盖，避免本地预览状态残留
+    if (state.currentView === "hideDetail" && state.originalHideOverrides !== null) {
+        const item = DialogFocusItem;
+        if (item?.Property) {
+            item.Property.HideOverrides = JSON.parse(JSON.stringify(state.originalHideOverrides));
+            const C = CharacterGetCurrent();
+            updateHideArray(item, C);
+            if (C) CharacterRefresh(C, false, false);
+        }
+        state.originalHideOverrides = null;
+    }
+
     if (state.currentEditTexture >= 0) {
         const item = DialogFocusItem;
         if (item) {

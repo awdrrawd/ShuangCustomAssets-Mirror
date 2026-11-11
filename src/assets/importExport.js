@@ -7,7 +7,7 @@ import { sanitizeTexture } from "./textureValidation.js";
 import { LAYER_NAMES, MAX_TEXTURE_COUNT, HIDE_CATEGORIES, DEFAULT_PROPS, migrateScaleField, trimTrailingNulls } from "./constants.js";
 import { state, showStatus } from "./state.js";
 import { syncItemToServer } from "./serverSync.js";
-import { updateHideArray } from "./hideArray.js";
+import { updateHideArray, sanitizeHideOverrides } from "./hideArray.js";
 import { Logger } from "@lib/utils.js";
 
 /**
@@ -30,6 +30,8 @@ export function exportConfig(item) {
     for (const cat of HIDE_CATEGORIES) {
         config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] = item.Property?.[cat.key] === true;
     }
+    config.hideOnlyWhenReady = item.Property?.HideOnlyWhenReady === true;
+    config.hideOverrides = sanitizeHideOverrides(item.Property?.HideOverrides);
     const json = JSON.stringify(config, null, 2);
 
     // 复制到剪贴板
@@ -161,6 +163,9 @@ export function importConfig(item, mode) {
                 for (const cat of HIDE_CATEGORIES) {
                     item.Property[cat.key] = config[cat.key.charAt(0).toLowerCase() + cat.key.slice(1)] === true;
                 }
+                // 兼容旧版配置：没有该字段时保持关闭
+                item.Property.HideOnlyWhenReady = config.hideOnlyWhenReady === true;
+                item.Property.HideOverrides = sanitizeHideOverrides(config.hideOverrides);
                 // 兼容 v5 及以前配置：旧 hideBody=true 等价于 头部+上半身+下半身 全部隐藏
                 if (config.hideBody === true) {
                     item.Property.HideHead = true;
@@ -177,7 +182,7 @@ export function importConfig(item, mode) {
                 }
             }
 
-            updateHideArray(item);
+            updateHideArray(item, CharacterGetCurrent());
 
             const count = item.Property.Textures.filter(t => t != null).length;
             const modeText = mode === "append" ? "追加" : "覆盖";

@@ -32,6 +32,8 @@ export function setupLoginBadge(HookManager) {
                     for (const cat of HIDE_CATEGORIES) {
                         item.Property[cat.key] = false;
                     }
+                    item.Property.HideOnlyWhenReady = false;
+                    item.Property.HideOverrides = {};
                     item.Property.Hide = [];
                 }
                 CharacterRefresh(LoginCharacter);

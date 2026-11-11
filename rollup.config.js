@@ -25,6 +25,8 @@ function getBuildVersion() {
 }
 const buildVersion = getBuildVersion();
 
+const { patchAssetManagerForR133 } = require("./build/assetManagerCompat.cjs");
+
 module.exports = {
     input: pkg.modConfig.entry,
     output: {
@@ -79,6 +81,15 @@ module.exports = {
                     code: code.replace(/version:\s*"[^"]*"/, `version: "${buildVersion}"`),
                     map: { mappings: "" }
                 };
+            }
+        },
+        {
+            name: "asset-manager-r133-compat",
+            transform(code, id) {
+                if (!/[\\/]@sugarch[\\/]bc-asset-manager[\\/]/.test(id)) return null;
+                const patched = patchAssetManagerForR133(code);
+                if (patched === code) return null;
+                return { code: patched, map: { mappings: "" } };
             }
         },
         alias({

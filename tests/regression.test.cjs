@@ -13,7 +13,7 @@ before(async () => {
     const modules = {
         gizmo: 'assets/freeTransform', settings: 'assets/settings', capacity: 'lib/accountCapacity', editor: 'assets/editPanel', validation: 'assets/textureValidation', renderer: 'assets/render', importer: 'assets/importExport',
         persistence: 'lib/persistence', list: 'assets/listView', slots: 'assets/textureListCanvas',
-        shared: 'assets/state', constants: 'assets/constants', limits: 'lib/imageLimits',
+        hide: 'assets/hideArray', shared: 'assets/state', constants: 'assets/constants', limits: 'lib/imageLimits',
         tutorial: 'assets/tutorial', tutorialPages: 'i18n/tutorial', images: 'lib/gifPlayer', i18n: 'i18n/index', catalog: 'i18n/messages', animation: 'lib/gifAnimationLoop', modTag: 'lib/modTag'
     };
     const bundle = await rollup({
@@ -221,6 +221,68 @@ test('pose input is sanitized, legacy scale migrates, zero values remain valid',
     assert.equal(result.Rotation, 0);
 });
 
+test('hide guard keeps the original outfit until every texture is ready', () => {
+    const { api, player } = session();
+    api.settings.getSettings().urlLoadMode = 'unrestricted';
+    const target = item([texture()]);
+    target.Property.HideHead = true;
+    target.Property.HideOnlyWhenReady = true;
+
+    // 贴图尚未加载完成：不写入 Hide，原服装保留
+    assert.equal(api.hide.updateHideArray(target, player), false);
+    assert.equal(target.Property.Hide, undefined);
+
+    // 关闭保护：恢复原本的隐藏行为
+    target.Property.HideOnlyWhenReady = false;
+    assert.equal(api.hide.updateHideArray(target, player), true);
+    assert.deepEqual(Array.from(target.Property.Hide), ['Head']);
+
+    // 重新开启保护：贴图仍未就绪，撤销隐藏（需要刷新角色）
+    target.Property.HideOnlyWhenReady = true;
+    assert.equal(api.hide.updateHideArray(target, player), true);
+    assert.equal(target.Property.Hide, undefined);
+
+    // 没有任何贴图时没有可等待的对象，隐藏照常生效
+    target.Property.Textures = [];
+    assert.equal(api.hide.updateHideArray(target, player), true);
+    assert.deepEqual(Array.from(target.Property.Hide), ['Head']);
+});
+
+test('per-group hide overrides refine category switches', () => {
+    const { api } = session();
+    const target = item([]);
+    target.Property.HideClothing = true;
+    target.Property.HideOverrides = { Cloth: false, Bra: true };
+
+    assert.equal(api.hide.isGroupHidden(target, 'Cloth'), false);
+    assert.equal(api.hide.isGroupHidden(target, 'Bra'), true);
+    assert.equal(api.hide.isGroupHidden(target, 'Panties'), true);
+
+    api.hide.updateHideArray(target);
+    let hide = new Set(target.Property.Hide);
+    assert.equal(hide.has('Cloth'), false);
+    assert.equal(hide.has('Bra'), true);
+    assert.equal(hide.has('Panties'), true);
+
+    // Cloth 当前因 false 覆盖而显示；再点一次回到分类基准（隐藏），并移除冗余覆盖
+    assert.equal(api.hide.toggleGroupHidden(target, 'Cloth'), true);
+    assert.equal(target.Property.HideOverrides.Cloth, undefined);
+    api.hide.updateHideArray(target);
+    assert.equal(target.Property.Hide.includes('Cloth'), true);
+
+    // 分类关闭后，逐组覆盖仍可单独隐藏
+    target.Property.HideOverrides = {};
+    target.Property.HideClothing = false;
+    api.hide.updateHideArray(target);
+    assert.equal(target.Property.Hide, undefined);
+    assert.equal(api.hide.toggleGroupHidden(target, 'Bra'), true);
+    assert.equal(target.Property.HideOverrides.Bra, true);
+    api.hide.updateHideArray(target);
+    assert.deepEqual(Array.from(target.Property.Hide), ['Bra']);
+
+    assert.deepEqual(JSON.parse(JSON.stringify(api.hide.sanitizeHideOverrides({ Cloth: false, Nope: true, Bra: 'x' }))), { Cloth: false });
+});
+
 test('append overflow is atomic, including hole-filling', async () => {
     for (const textures of [Array.from({ length: 17 }, texture), [...Array.from({ length: 17 }, texture), null]]) {
         const { context, api, calls } = session();
@@ -418,14 +480,95 @@ test('animation disabled skips fetch/decode and untrusted hover skips loading', 
 
 test('decode limits reject huge canvases and excessive frames before allocation', () => {
     const { api } = session();
+    api.settings.getSettings().imageLimitsEnabled = true;
     assert.throws(() => api.limits.checkImageBudget(100000, 100000, 2));
     assert.throws(() => api.limits.checkImageBudget(10, 10, 301));
     assert.doesNotThrow(() => api.limits.checkImageBudget(512, 512, 30));
 });
 
+function anmfWebp(delays) {
+    const chunks = delays.map(delay => {
+        const header = Buffer.alloc(8);
+        header.write('ANMF', 0, 'latin1');
+        header.writeUInt32LE(16, 4);
+        const payload = Buffer.alloc(16);
+        payload.writeUIntLE(delay, 12, 3);
+        return Buffer.concat([header, payload]);
+    });
+    const body = Buffer.concat(chunks);
+    const head = Buffer.alloc(12);
+    head.write('RIFF', 0, 'latin1');
+    head.writeUInt32LE(body.length + 4, 4);
+    head.write('WEBP', 8, 'latin1');
+    const buffer = Buffer.concat([head, body]);
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+}
+
+test('animation storage planner streams only when the full decode cannot fit', () => {
+    const { api } = session();
+    assert.equal(api.images.planAnimationStorage(4096, 4096, 4).mode, 'full');
+    const streamed = api.images.planAnimationStorage(720, 1280, 84);
+    assert.equal(streamed.mode, 'stream');
+    assert.equal(streamed.pixels, 720 * 1280 * api.images.STREAM_DECODED_BUDGET);
+    assert.equal(api.images.planAnimationStorage(8192, 8192, 2).mode, 'fail');
+    const cap = 64 * 1024 * 1024;
+    const budget = 720 * 1280 * api.images.STREAM_DECODED_BUDGET;
+    assert.equal(api.images.planAnimationStorage(720, 1280, 84, cap - budget).mode, 'stream');
+    assert.equal(api.images.planAnimationStorage(720, 1280, 84, cap - budget + 1).mode, 'fail');
+});
+
+test('WebP frame delays come from ANMF headers without decoding pixels', () => {
+    const { api } = session();
+    const buffer = anmfWebp([40, 60, 0, 2000]);
+    assert.deepEqual([...api.images.readWebpFrameDelays(buffer, 4)], [40, 60, 100, 2000]);
+    assert.throws(() => api.images.readWebpFrameDelays(buffer, 3), /mismatch/);
+    assert.throws(() => api.images.readWebpFrameDelays(new ArrayBuffer(4), 1), /Invalid WebP/);
+});
+
+test('streamed frames keep frame 0 pinned and evict the oldest other frame', () => {
+    const { api } = session();
+    const entry = { frames: Array.from({ length: 6 }, () => ({ canvas: null, delay: 40 })), _frameOrder: [0] };
+    entry.frames[0].canvas = 'frame0';
+    for (const index of [1, 2, 3, 4]) api.images.storeStreamFrame(entry, index, `frame${index}`);
+    assert.equal(entry._frameOrder.length, api.images.STREAM_FRAME_CACHE);
+    assert.equal(entry.frames[0].canvas, 'frame0');
+    assert.equal(entry.frames[1].canvas, null);
+    assert.equal(entry.frames[4].canvas, 'frame4');
+    api.images.storeStreamFrame(entry, 4, 'frame4b');
+    assert.equal(entry.frames[4].canvas, 'frame4b');
+    assert.equal(entry._frameOrder.filter(index => index === 4).length, 1);
+});
+
+test('frame resolution holds the last drawn frame while a streamed frame decodes', () => {
+    const { api } = session();
+    const plain = { frames: [{ canvas: 'a' }, { canvas: 'b' }] };
+    const plainHit = api.images.resolveAnimatedFrame(plain, 1);
+    assert.equal(plainHit.canvas, 'b');
+    assert.equal(plainHit.index, 1);
+    assert.equal(plainHit.pending, false);
+
+    const streamed = { streaming: true, frames: [{ canvas: 'f0' }, { canvas: null }, { canvas: 'f2' }], _destroyed: false, _streamFailed: false };
+    const hit = api.images.resolveAnimatedFrame(streamed, 2);
+    assert.equal(hit.canvas, 'f2');
+    assert.equal(hit.index, 2);
+    assert.equal(hit.pending, false);
+
+    const miss = api.images.resolveAnimatedFrame(streamed, 1);
+    assert.equal(miss.canvas, 'f2');
+    assert.equal(miss.index, 2);
+    assert.equal(miss.pending, true);
+
+    streamed._streamFailed = true;
+    const failed = api.images.resolveAnimatedFrame(streamed, 1);
+    assert.equal(failed.canvas, 'f2');
+    assert.equal(failed.index, 2);
+    assert.equal(failed.pending, false);
+});
+
 test('download size limit rejects even without a Content-Length header', async () => {
     const { api } = session({ fetch: async () => ({ ok: true, headers: { get: () => null },
         body: new ReadableStream({ start(c) { c.enqueue(new Uint8Array(21 * 1024 * 1024)); c.close(); } }) }) });
+    api.settings.getSettings().imageLimitsEnabled = true;
     await assert.rejects(api.limits.fetchImageBuffer('https://example.com/huge'), /too large/);
 });
 
@@ -497,7 +640,7 @@ test('bootstrap waits for game globals and concurrent loaders initialize only on
     const first = run(), second = run();
     await Promise.resolve();
     assert.equal(imported, 0);
-    Object.assign(context, { LoginResponse() {}, AssetGroup: [], TextAllScreenCache: new Map(), CraftingLoadServer() {}, AssetGet() {}, GLDraw2DCanvas() {} });
+    Object.assign(context, { LoginResponse() {}, AssetGroup: [], TextAllScreenCache: new Map(), CraftingLoadServer() {}, AssetGet() {}, GLDraw2DCanvas() {}, ChatRoomPublishCustomAction() {} });
     wake();
     await Promise.all([first, second]);
     assert.equal(imported, 1);
@@ -516,7 +659,7 @@ test('bootstrap skips SDK dependencies when a legacy loader already registered, 
         await Promise.resolve();
         if (!initiallyRegistered) {
             registered = true;
-            Object.assign(context, { LoginResponse() {}, AssetGroup: [], TextAllScreenCache: new Map(), CraftingLoadServer() {}, AssetGet() {}, GLDraw2DCanvas() {} });
+            Object.assign(context, { LoginResponse() {}, AssetGroup: [], TextAllScreenCache: new Map(), CraftingLoadServer() {}, AssetGet() {}, GLDraw2DCanvas() {}, ChatRoomPublishCustomAction() {} });
             wake();
         }
         await pending;
@@ -529,7 +672,7 @@ test('bootstrap retries a download failure but never retries a partially registe
     for (const registerBeforeFailure of [false, true]) {
         let imported = 0, registered = false;
         const context = vm.createContext({ console: { error() {} },
-            LoginResponse() {}, AssetGroup: [], TextAllScreenCache: new Map(), CraftingLoadServer() {}, AssetGet() {}, GLDraw2DCanvas() {},
+            LoginResponse() {}, AssetGroup: [], TextAllScreenCache: new Map(), CraftingLoadServer() {}, AssetGet() {}, GLDraw2DCanvas() {}, ChatRoomPublishCustomAction() {},
             bcModSdk: { getModsInfo: () => registered ? [{ name: 'ShuangCustomAssets' }] : [] },
             loadApp: async () => {
                 imported++;
@@ -565,7 +708,8 @@ test('PNG frame control cannot allocate a frame larger than the declared canvas'
     view.setUint32(16, 10); view.setUint32(20, 10);
     view.setUint32(33, 26); view.setUint32(37, 0x6663544c);
     view.setUint32(45, 100000); view.setUint32(49, 100000);
-    assert.throws(() => api.limits.inspectPng(buffer), /limits/);
+    // 帧尺寸超出声明的画布属于畸形数据，与 imageLimitsEnabled 无关，必须无条件拒绝
+    assert.throws(() => api.limits.inspectPng(buffer), /Invalid PNG frame bounds/);
 });
 
 
@@ -962,7 +1106,7 @@ test('seven locales have complete nonempty strings and matching placeholders', (
     const parameters = text => [...text.matchAll(/\{\d+\}/g)].map(m => m[0]).sort();
     for (const language of languages) {
         const table = api.catalog.messages[language];
-        assert.deepEqual(Object.keys(table), Object.keys(reference));
+        assert.deepEqual(Object.keys(table).sort(), Object.keys(reference).sort());
         for (const [key, value] of Object.entries(table)) {
             assert.equal(typeof value, 'string');
             assert.ok(value.trim(), language + ': ' + key);

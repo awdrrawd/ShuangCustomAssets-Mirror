@@ -13,7 +13,7 @@
 导出的内容包含：
 - 所有图层配置（URL、偏移、缩放、旋转、透明度、镜射、姿势独立配置）
 - 图层优先级（OverridePriority）
-- 隐藏分类开关
+- 隐藏分类开关与贴图异常保护开关
 
 ## 导入配置
 
@@ -93,6 +93,8 @@
 | `PoseSettings` | 对象 | 姿势独立配置，键为姿势组合名 |
 | `overridePriority` | 对象 | 图层优先级，键为 LayerN |
 | `hide*` | 布尔 | 隐藏分类开关（`hideEmoticon` / `hideCosplay` / `hideFacial` / `hideHead` / `hideBodyUpper` / `hideBodyLower` / `hideClothing` / `hideItems`） |
+| `hideOnlyWhenReady` | 布尔 | 贴图异常保护：贴图未就绪/失败/域名不可信时不隐藏部位；缺失时按 `false` 处理 |
+| `hideOverrides` | 对象 | 精细隐藏的逐组覆盖：`{ "组名": true=隐藏 / false=显示 }`；缺失时按空对象处理 |
 
 ## 兼容性
 

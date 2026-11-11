@@ -30,11 +30,13 @@ BC（Bondage Club）游戏的自定义贴图/装扮插件，油猴脚本形式�
 ### 当前进度
 - 仅使用两个 ExtensionSettings KEY：ShuangCustomAssets 保存原偏好/白名单及 appearanceBackup，ShuangCustomAssetsCraft 保存 Craft，分别同步；不迁移未发布的旧合并备份。登录校验前捕获原始资料，资产就绪后恢复；正常删除同步备份，冲突槽位保留但不覆盖。实现与限制见 docs/architecture.md。
 - 槽位采用 Canvas 顺序布局，与其他页面一致；方形放大镜悬停预览，加载失败改为警告图标，支持批量删除模式；取消恢复优先级，导入超限不再部分写入，姿势字段统一校验。
+- 隐藏设置新增「贴图异常保护」道具属性 `HideOnlyWhenReady`：开启后只要有贴图未就绪、加载失败、域名不可信或被屏蔽就不写入 `Property.Hide`，保留原服装；就绪后自动重算并完整刷新角色。导出导入携带该字段，老配置缺失按关闭处理。
+- 隐藏设置新增「详细调整」：每个分类行右侧独立入口，按分类分页列出全部部位组，逐组设置 `HideOverrides`（true 强制隐藏 / false 强制显示）覆盖分类开关；切换只在本机预览，确认后统一同步一次，返回/退出还原进入前快照。分类存在覆盖时外层按钮显示「部分」；悬停部位组显示当前穿戴物品名（优先本地化描述，空部位灰色显示「无」）；异常保护说明改为可换行的大字号悬浮提示。
 - 设置页从 Y=75 加宽，四区锚点导航及 200px 备份容量摘要；独立插件总开关与加载贴图开关，停用插件拒绝他人新增/修改自己的贴图。容量仅显示 ShuangCustomAssetsCraft 估算，外观备份并入原设置 KEY；缓存管理导入/导出外观与 Craft JSON 备份。他人管理页可快捷封锁佩戴者。登入还原前重建 Craft 索引，残缺登入/验证结果不覆盖完整备份。
 - 编辑页保留原始 MouseX/MouseY 差值「移动」与缩放「拖移」两个 100×40 按钮，和任意变形互斥；缩放拖移每像素 0.5%，支持等比与独立 XY，旋转保留 BAR。BAR 使用 SCA_slider.png 缩为 35px；容量摘要带底框与线性进度条。
 - 实验任意变形：编辑页新增独立按钮，支持中心缩放/旋转与平移，仅当前编辑角色/物件/图层启用；与旧移动/拖移互斥。不可见/未信任或无有效绘图捕获时不画框；最小边长约 32 CSS px，启用工具时恢复旧零/极小尺寸。
 - 清理完成：容量只保留纯计算，不再 hook ServerSend 统计历史；拖曳鼠标/触控共用开始/结束处理；移除旧容量词条与重复封锁按钮分派。
-- 图片下载有超时/大小限制，动图解码有单图和全局预算；关闭动图跳过完整 JS 解码。翻译引擎、字库及教程结构集中 src/i18n/，支持 TW/CN/EN/DE/FR/RU/UA；字库按语言拆分于 src/i18n/locales/，messages.js 仅汇出目录；教程保存 key 并在绘制时翻译，旧 L(cn,en) 标签经字库映射沿用七语。npm test 运行回归测试。
+- 图片下载有超时/大小限制，动图解码有单图和全局预算；关闭动图跳过完整 JS 解码。超出 64M px 解码预算的 Animated WebP 不再直接失败，改走串流模式：保留压缩数据与 ImageDecoder，LRU 缓存 4 帧（第 0 帧钉住）+ 1 帧「上一次画出的帧」，预取 3 帧、未就绪时保留上一帧并在 16 ms 后快速重绘；帧时长读 ANMF 头。单张 720×1280×84 帧从 295 MiB 降到约 38 MB，代价是每帧约 10 ms 解码。翻译引擎、字库及教程结构集中 src/i18n/，支持 TW/CN/EN/DE/FR/RU/UA；字库按语言拆分于 src/i18n/locales/，messages.js 仅汇出目录；教程保存 key 并在绘制时翻译，旧 L(cn,en) 标签经字库映射沿用七语。npm test 运行回归测试。
 - Rollup 输出 dist/assets/main.js + 内容哈希应用模块，SDK 随包，入口在载入相依模块前检查同名 SDK 注册（等待游戏后再次检查）；旧 shuang-assets.js 保留相容入口，构建复制 PNG 资源。部署整个 dist。
 - AssetManager 使用 SCA_INFO 安装标记限制自定义资产：未安装插件的目标角色不在道具列表显示贴图资产，操作来源也必须已广播 SCA 标记；标记按 MemberNumber 缓存，避免 BC 替换角色对象后误判，离房时清除。
 
@@ -51,6 +53,7 @@ BC（Bondage Club）游戏的自定义贴图/装扮插件，油猴脚本形式�
 - **拖曳与 Canvas**：旧变形框曾在实机错位。新实验模式由 render.js 捕获当前编辑角色/物件/图层几何，通过 DrawCharacter 内最终 DrawImageEx 的 SourcePos/目标尺寸/上下文矩阵映射到 SVG，反矩阵处理指针。GLDraw2DCanvas 捕获当前贴图实际 atlas 偏移（含 ECHO 扩画布），排除眨眼。 不 hook 原生 Canvas；受控浏览器已验证，仍待完整游戏测试。原始移动/拖移保留。
 - **Crafting 校验**：BC 的 `CraftingValidate` 用 `typeof value !== typeof baseline[key]` 校验，删字段会导致老配置被静默丢弃 → 删字段时必须留兼容字段 + Load 钩子迁移。
 - **R132 noarch 属性丢弃**：R132 的 `CraftingUpdateFromItem` 把 noarch 道具的 `craft.TypeRecord` 强写为 `{}`（R131 只在道具自身有 TypeRecord 时才写，noarch 保持 null），而 `ExtendedItemSetOptionByRecord` 收集允许字段的循环跳过 NoArch 选项 → 传入非空 TypeRecord 时，`Textures` / `Hide*` 等 baselineProperty 字段被判非法丢弃（控制台报 "Ignoring unsanctioned/invalid item properties"），预览刷新与佩戴时配置不生效。解法：app.js hook `InventoryCraft`，把本插件道具的空 TypeRecord 归一为 null（对 noarch 而言 {} 与 null 语义一致）。
+- **R133 与 bc-asset-manager 的 patchFunction 锚点**：@sugarch/bc-asset-manager(<=1.4.3) 内置的 `GLDrawLoadImage`(crossOrigin) 与 `ItemColorLoad`(ColorGroups.csv 路径) 补丁锚点在 R133 已失效，启动时报 "ModSDK: Patching ...: Patch ... not applied"。`build/assetManagerCompat.cjs` 由 rollup 插件 `asset-manager-r133-compat` 在打包时作两件事：更新 `ItemColorLoad` 的锚点文字（R133 起路径不再带 `AssetFamily`），并给这两处 `patchFunction` 的补丁表包一层**运行时过滤** —— 只把「当前游戏函数源码里仍然存在」的锚点交给 ModSDK，失效的丢弃并留一条 `console.debug` 线索（取源码优先用 ModSDK 记录的 `original`，避免别的 mod 已把全局换成 router）。因此同一份产物在 R132（锚点仍在，crossOrigin 补丁照常生效）与 R133（锚点消失，自动跳过）都正常；函式库自行修好后自动退化为原样传递，转换幂等。本插件图层均 `AllowColorize:false`，ItemColorLoad 那条注入本身对本插件无功能影响。
 - **锁机制**：noarch archetype 的 `ChangeWhenLocked` 不自动生效，需手动检查 `item.Property.LockedBy`。
 - **Block 拦截**：贴图需 `Block=[]` + `InventoryGroupIsBlockedForCharacter` 豁免，避免被其他道具 Block。
 - **拖拽卡顿**：`CharacterRefresh` 节流 200ms，拖拽场景需独立更短的刷新间隔。

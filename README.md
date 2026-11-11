@@ -44,7 +44,7 @@
 | [贴图管理基础](./docs/usage-textures.md) | 添加、编辑、删除图层，显示/隐藏切换 | [Textures](./docs/en/usage-textures.md) |
 | [编辑面板详解](./docs/usage-edit-panel.md) | URL、偏移、缩放、旋转、透明度、镜射、移动拖拽 | [Edit Panel](./docs/en/usage-edit-panel.md) |
 | [姿势独立配置](./docs/usage-pose-settings.md) | 为不同姿势设置不同的贴图参数 | [Per-Pose](./docs/en/usage-pose-settings.md) |
-| [隐藏设置](./docs/usage-hide-settings.md) | 隐藏头部、身体、服饰、道具等部位（8 个分类） | [Hide Settings](./docs/en/usage-hide-settings.md) |
+| [隐藏设置](./docs/usage-hide-settings.md) | 隐藏头部、身体、服饰、道具等部位（8 个分类），支持逐组详细调整与贴图异常时保留原服装 | [Hide Settings](./docs/en/usage-hide-settings.md) |
 | [导入导出](./docs/usage-import-export.md) | JSON 配置的导出、分享和导入 | [Import/Export](./docs/en/usage-import-export.md) |
 | [安全设置](./docs/usage-security.md) | 域名白名单、不可信域名提示、动图播放 | [Security](./docs/en/usage-security.md) |
 

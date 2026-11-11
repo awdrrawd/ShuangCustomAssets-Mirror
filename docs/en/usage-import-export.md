@@ -13,7 +13,7 @@ Supports exporting the texture config as JSON text (copied to the clipboard) and
 The exported content includes:
 - All layer configs (URL, offset, scale, rotation, opacity, mirror, per-pose settings)
 - Layer priorities (OverridePriority)
-- Hide category toggles
+- Hide category toggles and the texture failure guard
 
 ## Import
 
@@ -93,6 +93,8 @@ The list page provides two separate import buttons at the bottom — click eithe
 | `PoseSettings` | object | Per-pose settings; keys are pose-combination names |
 | `overridePriority` | object | Layer priorities; keys are LayerN |
 | `hide*` | boolean | Hide category toggles (`hideEmoticon` / `hideCosplay` / `hideFacial` / `hideHead` / `hideBodyUpper` / `hideBodyLower` / `hideClothing` / `hideItems`) |
+| `hideOnlyWhenReady` | boolean | Texture failure guard: skip hiding while textures load, fail, or come from an untrusted domain; missing means `false` |
+| `hideOverrides` | object | Per-group fine-tuning: `{ "GroupName": true=hide / false=show }`; missing means an empty object |
 
 ## Compatibility
 

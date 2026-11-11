@@ -3,18 +3,13 @@ import { state } from "./state.js";
 import { TEXTURES_PER_PAGE, MAX_TEXTURE_COUNT } from "./constants.js";
 import { getCorsImage } from "../lib/utils.js";
 import { getAnimatedImage } from "../lib/gifPlayer.js";
-import { resolvePoseParams } from "./render.js";
-import { isUrlAllowed, isDomainInWhitelist, getAnimatedImageEnabled, getImageLoadingEnabled, isPlayerBlocked } from "./settings.js";
+import { resolvePoseParams, isTextureBlocked } from "./textureReadiness.js";
+import { isUrlAllowed, isDomainInWhitelist, getAnimatedImageEnabled, getImageLoadingEnabled } from "./settings.js";
 
 export function slotActions(texture, deleting) {
     if (deleting) return texture ? ["delete"] : [];
     if (!texture) return ["add"];
     return ["visible", "edit", texture.TextureURL && !isDomainInWhitelist(texture.TextureURL) ? "trust" : "preview"];
-}
-
-function blocked(texture) {
-    const players = Player?.ExtensionSettings?.ShuangCustomAssets?.blockedPlayers;
-    return Array.isArray(players) && [texture.TextureURLSource, texture.CurrentConfigurator].some(id => id > 0 && players.includes(id));
 }
 
 /** The list and renderer share caches; hovering never bypasses trust or player blocking. */
@@ -23,7 +18,7 @@ export function textureStatus(texture, character) {
     const url = resolvePoseParams(texture, character?.DrawPose).TextureURL;
     if (!url) return { state: "empty" };
     if (!getImageLoadingEnabled()) return { state: "disabled", url };
-    if (isPlayerBlocked(character?.MemberNumber) || blocked(texture) || !isUrlAllowed(url)) return { state: "blocked", url };
+    if (isTextureBlocked(texture, character) || !isUrlAllowed(url)) return { state: "blocked", url };
     const animation = getAnimatedImage(url, undefined, getAnimatedImageEnabled());
     if (!animation.loaded) return { state: "loading", url };
     if (animation.error) return { state: "failed", url };

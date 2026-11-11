@@ -8,6 +8,7 @@
 // @icon         https://shuang-custom-assets.pages.dev/SCA_slider.png
 // @match        https://*.bondageprojects.elementfx.com/R*/*
 // @match        https://*.bondage-europe.com/R*/*
+// @match        https://*.bondageeurope.com/R*/*
 // @match        https://*.bondageprojects.com/R*/*
 // @match        https://*.bondage-asia.com/club/R*/*
 // @grant        none
@@ -17,6 +18,7 @@
 const supportedDomains = [
     'bondageprojects.elementfx.com',
     'bondage-europe.com',
+    'bondageeurope.com',
     'bondageprojects.com',
     'bondage-asia.com'
 ];

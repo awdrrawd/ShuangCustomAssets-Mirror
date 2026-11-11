@@ -62,7 +62,7 @@ Detailed documentation:
 | [Texture Management Basics](./docs/en/usage-textures.md) | Add / edit / delete layers, show/hide toggle |
 | [Edit Panel Details](./docs/en/usage-edit-panel.md) | URL, offset, scale, rotation, opacity, mirror, drag-move |
 | [Per-Pose Settings](./docs/en/usage-pose-settings.md) | Different texture parameters per pose |
-| [Hide Settings](./docs/en/usage-hide-settings.md) | Hide head, body, clothing, restraints (8 categories) |
+| [Hide Settings](./docs/en/usage-hide-settings.md) | Hide head, body, clothing, restraints (8 categories), with per-group detailed controls and original-outfit fallback |
 | [Import / Export](./docs/en/usage-import-export.md) | Export, share, and import JSON configs |
 | [Security Settings](./docs/en/usage-security.md) | Domain whitelist & untrusted-domain warning |
 
@@ -80,7 +80,7 @@ Detailed documentation:
 - **Local editing**: adjustments are not uploaded until you confirm
 - **Import / Export**: JSON config import/export for easy sharing
 - **Per-pose settings**: different parameters per arm/leg/full-body pose
-- **Hide settings**: 6 categories to hide body parts, clothing, restraints
+- **Hide settings**: 8 categories to hide body parts, clothing, restraints, plus a texture-failure guard that keeps the original outfit visible
 - **Animated GIFs**: toggle playback, adjustable frame rate, game FPS sync
 - **Security**: domain whitelist, untrusted-domain warning, CDN fallback
 

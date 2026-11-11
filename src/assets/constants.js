@@ -50,6 +50,11 @@ export const DEFAULT_PROPS = {
     HideBodyLower: false,  // 隐藏下半身
     HideClothing: false,   // 隐藏服饰
     HideItems: false,      // 隐藏拘束道具
+    // 贴图异常保护：开启后只要有贴图未就绪/加载失败/域名不可信，就不隐藏上面选中的部位，
+    // 避免「原服装被隐藏、贴图衣服又没显示」；跟随道具属性同步，各玩家按自己的加载结果判定
+    HideOnlyWhenReady: false,
+    // 逐组覆盖：{ 组名: true=强制隐藏, false=强制显示 }，未列出的组跟随分类开关
+    HideOverrides: {},
     // 兼容字段：v5 及以前用单一 HideBody 开关，v6 拆为 头部/上半身/下半身 三个。
     // 这里保留 HideBody 是为了让 BC 的 CraftingValidate (ItemProperty.Validate) 能通过
     // ——否则老自制道具的 ItemProperty 里带 HideBody，而新 BaselineProperty 没有该键时，

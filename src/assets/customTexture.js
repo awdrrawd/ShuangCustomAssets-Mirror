@@ -16,7 +16,7 @@ import {
     BADGE_IMAGE_URL, assetStrings, migrateScaleField
 } from "./constants.js";
 import { state, resetDragState } from "./state.js";
-import { updateHideArray } from "./hideArray.js";
+import { updateHideArray, sanitizeHideOverrides } from "./hideArray.js";
 import { syncItemToServer, recordItemBaseline } from "./serverSync.js";
 import {
     drawTextureEditPanel, handleTextureEditClick,
@@ -28,6 +28,7 @@ import {
     drawTextureListMain, handleTextureListClick, returnToListFromSubview, handlePlayerBlockClick
 } from "./listView.js";
 import { drawTutorial, handleTutorialClick } from "./tutorial.js";
+import { drawHideDetail, handleHideDetailClick } from "./hideDetail.js";
 import { renderTexture } from "./render.js";
 
 
@@ -109,6 +110,8 @@ const extended = {
         HideBodyLower: false,  // 隐藏下半身
         HideClothing: false,   // 隐藏服饰
         HideItems: false,      // 隐藏拘束道具
+        HideOnlyWhenReady: false, // 贴图全部就绪时才隐藏部位，异常时保留原服装
+        HideOverrides: {}, // 逐组覆盖：{ 组名: true=隐藏, false=显示 }
         // 兼容字段：保留 HideBody 让老自制道具(v5)的 ItemProperty 能通过 CraftingValidate，
         // 避免 Textures 被连带丢弃。详见 DEFAULT_PROPS 中同样位置的注释。
         HideBody: false
@@ -133,6 +136,8 @@ const extended = {
             for (const cat of HIDE_CATEGORIES) {
                 if (item.Property[cat.key] === undefined) item.Property[cat.key] = false;
             }
+            if (typeof item.Property.HideOnlyWhenReady !== "boolean") item.Property.HideOnlyWhenReady = false;
+            item.Property.HideOverrides = sanitizeHideOverrides(item.Property.HideOverrides);
             // 根据开关刷新 Hide 数组，确保生效
             updateHideArray(item);
 
@@ -148,6 +153,9 @@ const extended = {
             state.originalOverridePriority = undefined;
             state.currentListPage = 0;
             state.currentView = "list";
+            state.hideDetailCategory = 0;
+            state.hideDetailPage = 0;
+            state.originalHideOverrides = null;
             state._pendingTextureRefresh = false;
             resetDragState();
             // 记录配置基线：让后续配置变化有对比依据（供 syncItemToServer 检测并广播编辑动作）
@@ -172,6 +180,8 @@ const extended = {
                 drawTextureEditPanel(item, state.currentEditTexture, data);
             } else if (state.currentView === "hide") {
                 drawHideSettings(item);
+            } else if (state.currentView === "hideDetail") {
+                drawHideDetail(item);
             } else {
                 drawTextureListMain(item, data, isItemLockedForPlayer(item));
             }
@@ -230,6 +240,8 @@ const extended = {
                 handleTextureEditClick(item, state.currentEditTexture, data);
             } else if (state.currentView === "hide") {
                 handleHideSettingsClick(item);
+            } else if (state.currentView === "hideDetail") {
+                handleHideDetailClick(item);
             } else {
                 handleTextureListClick(item, data);
             }
@@ -244,6 +256,9 @@ const extended = {
             state.originalOverridePriority = undefined;
             state.currentListPage = 0;
             state.currentView = "list";
+            state.hideDetailCategory = 0;
+            state.hideDetailPage = 0;
+            state.originalHideOverrides = null;
             state.tutorialPage = 0;
             state.poseSwitchMode = false;
             state.poseSelectedList = [];

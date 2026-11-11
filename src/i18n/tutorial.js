@@ -69,7 +69,7 @@ export const TUTORIAL_PAGES = [
             { key: "tutorial.head_body_upper_body_lower" },
             { key: "tutorial.clothing_clothes_shoes_etc" },
             { key: "tutorial.restraints_all_restraint_items" },
-            {},
+            { key: "tutorial.hide_guard_keeps_outfit_when_textures_fail" },
             { key: "tutorial.click_the_hide_icon_on_the_list_page", color: "Gray" },
         ]
     },

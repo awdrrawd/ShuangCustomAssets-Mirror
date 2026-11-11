@@ -18,6 +18,8 @@ import { fetchImageBuffer, checkImageBudget, inspectPng } from "./imageLimits.js
  * 解码只会做一次：结果依网址缓存在 Map 里，之后同一个网址不会重复下载、
  * 不会重复解压缩。播放时只是从已经解码好的帧数组里，依时间挑出该显示的
  * 那一张帧（整数索引），并不会持续对图片做任何重新取样或反复的网络请求。
+ * 唯一的例外是超出像素预算的 Animated WebP：它只常驻压缩档和少量已解码帧，
+ * 换到未缓存的帧时才会请 ImageDecoder 当场解那一帧（见 resolveAnimatedFrame）。
  *
  * 缓存不是永久的：每次某个网址被 getAnimatedImage 读取到都会刷新其 lastUsed
  * 戳记，若一张图片长时间不再被任何图层引用（道具移除、网址被改掉等，等同于
@@ -35,12 +37,48 @@ registerPrunableCache(_gifCache, t("gifPlayer.animated_image"));
 
 // Bound the total decoded animation cache as well as individual files.
 const MAX_CACHE_PIXELS = 64 * 1024 * 1024;
+/** 超出全量预算的动图最多同时缓存几帧（含钉住不淘汰的第 0 帧），其余按需解码 */
+export const STREAM_FRAME_CACHE = 4;
+/** 预解码窗口：动画循环可能每 100ms 才重绘一次，单帧 40ms 会一次跨过 2~3 帧 */
+export const STREAM_PREFETCH = 3;
+/** 像素预算：LRU 之外还额外留住「上一次真正画出来的那一帧」，避免解码没跟上时画面跳回第 0 帧 */
+export const STREAM_DECODED_BUDGET = STREAM_FRAME_CACHE + 1;
+/** 串流帧还没解码好时，隔多久补一次重绘 */
+export const STREAM_RETRY_MS = 16;
+
+/**
+ * 决定一张动图要用「全量预解码」还是「串流按需解码」，全部沿用现有像素预算口径。
+ * 纯函数，方便单测覆盖边界。
+ * @param {number} width
+ * @param {number} height
+ * @param {number} frameCount
+ * @param {number} [reserved] - 其他动图已经占用的像素
+ * @returns {{mode: "full"|"stream"|"fail", pixels: number}}
+ */
+export function planAnimationStorage(width, height, frameCount, reserved = 0) {
+    const full = width * height * frameCount;
+    const stream = width * height * Math.min(STREAM_DECODED_BUDGET, frameCount);
+    if (reserved + full <= MAX_CACHE_PIXELS) return { mode: "full", pixels: full };
+    if (reserved + stream <= MAX_CACHE_PIXELS) return { mode: "stream", pixels: stream };
+    return { mode: "fail", pixels: full };
+}
+
+function cacheLimitError() {
+    const error = new Error("Animation cache limit exceeded");
+    error.code = "ANIMATION_CACHE_LIMIT";
+    return error;
+}
+
+function reservedPixels(entry) {
+    let reserved = 0;
+    for (const value of _gifCache.values()) if (value !== entry) reserved += value.pixelBudget || 0;
+    return reserved;
+}
+
 function reserveFrames(entry, width, height, count) {
     checkImageBudget(width, height, count);
     const pixels = width * height * count;
-    let reserved = 0;
-    for (const value of _gifCache.values()) if (value !== entry) reserved += value.pixelBudget || 0;
-    if (reserved + pixels > MAX_CACHE_PIXELS) throw new Error("Animation cache limit exceeded");
+    if (reservedPixels(entry) + pixels > MAX_CACHE_PIXELS) throw cacheLimitError();
     entry.pixelBudget = pixels;
 }
 
@@ -183,16 +221,152 @@ async function decodeApng(buffer, entry) {
 }
 
 /**
- * 用浏览器原生 WebCodecs `ImageDecoder` API 解析 Animated WebP，填入传入的 entry。
- *
- * WebP 动画（VP8/VP8L 有损/无损混合帧 + ANIM/ANMF chunk）的编解码复杂度很高，
- * 不像 GIF/APNG 那样容易手刻或找到轻量的纯 JS 解码库，这里改用浏览器内建的
- * `ImageDecoder` 直接吐出每一帧解码好的 VideoFrame，画到 canvas 存成静态帧，
- * 用法与前两种格式共用同一份 entry.frames 结构，播放逻辑完全不用另外处理。
+ * Animated WebP 的两条解码路线：
+ * - 预算放得下：用 ImageDecoder 一次解完所有帧，画成 canvas 常驻（与旧行为相同）。
+ * - 放不下：只先解第 0 帧，保留 decoder 持有的压缩数据；其余帧播放时按需解码，
+ *   只保留一个小型 LRU（见 resolveAnimatedFrame / requestStreamFrame）。内存从
+ *   「帧数 × 分辨率 × 4 字节」降到约「压缩档 + STREAM_FRAME_CACHE 帧」。
  *
  * 目前仅 Chromium 系（Chrome/Edge）与较新版本的 Safari 支持 `ImageDecoder`；
  * 不支持的浏览器（例如未支持前的 Firefox）一律视为「解析失败」，交还静态图片
  * 管线处理——退化成只显示第一帧、不会动，但不会报错或崩溃。
+ */
+/** VideoFrame.duration 单位是微秒；0 或极短延迟比照 GIF/APNG 分支的惯例视为 100ms */
+function videoFrameDelayMs(duration) {
+    const delay = duration ? duration / 1000 : 0;
+    return delay > 10 ? delay : 100;
+}
+
+function createFrameCanvas(entry, image) {
+    const canvas = document.createElement("canvas");
+    canvas.width = entry.width || 1;
+    canvas.height = entry.height || 1;
+    canvas.getContext("2d").drawImage(image, 0, 0);
+    return canvas;
+}
+
+/**
+ * 不经过解码器，直接从 RIFF/ANMF 容器读出每一帧的显示时长。
+ * 串流模式靠这份时长表建时间轴，不必先解码全部像素。
+ */
+export function readWebpFrameDelays(buffer, frameCount) {
+    if (buffer.byteLength < 12) throw new Error("Invalid WebP");
+    const view = new DataView(buffer);
+    const bytes = new Uint8Array(buffer);
+    const delays = [];
+    for (let offset = 12; offset + 8 <= buffer.byteLength;) {
+        const size = view.getUint32(offset + 4, true);
+        const next = offset + 8 + size + (size & 1);
+        if (next > buffer.byteLength) throw new Error("Invalid WebP chunk bounds");
+        // "ANMF"
+        if (bytes[offset] === 0x41 && bytes[offset + 1] === 0x4e && bytes[offset + 2] === 0x4d && bytes[offset + 3] === 0x46) {
+            if (size < 16) throw new Error("Invalid WebP animation frame");
+            // ANMF payload 前 16 bytes：X(3) Y(3) W-1(3) H-1(3) Duration(3) Flags(1)
+            // Duration 本身就是毫秒，不需要像 VideoFrame.duration 那样换算微秒
+            const delay = view.getUint32(offset + 20, true) & 0xffffff;
+            delays.push(delay > 10 ? delay : 100);
+        }
+        offset = next;
+    }
+    if (delays.length !== frameCount) throw new Error("WebP animation frame table mismatch");
+    return delays;
+}
+
+/**
+ * 串流模式：把一帧画进缓存槽位，并按 STREAM_FRAME_CACHE 做 LRU 淘汰。
+ * 第 0 帧永远钉住（列表预览、循环接缝、解码失败时的后备帧都用它）。
+ */
+export function storeStreamFrame(entry, index, canvas) {
+    const slot = entry?.frames?.[index];
+    if (!slot) return;
+    slot.canvas = canvas;
+    const order = entry._frameOrder;
+    const existing = order.indexOf(index);
+    if (existing >= 0) order.splice(existing, 1);
+    order.push(index);
+    while (order.length > STREAM_FRAME_CACHE) {
+        const victim = order.find((i) => i !== 0);
+        if (victim === undefined) break;
+        order.splice(order.indexOf(victim), 1);
+        entry.frames[victim].canvas = null;
+    }
+}
+
+function decodeStreamFrame(entry, index) {
+    const decoder = entry._decoder;
+    if (!decoder || entry._destroyed || entry.frames[index]?.canvas) return Promise.resolve();
+    return decoder.decode({ frameIndex: index }).then(({ image }) => {
+        try {
+            if (entry._destroyed) return;
+            storeStreamFrame(entry, index, createFrameCanvas(entry, image));
+        } finally { image.close(); }
+    });
+}
+
+/** 请一个还没解码的帧；同一帧不会重复排队 */
+export function requestStreamFrame(entry, index) {
+    if (!entry?.streaming || entry._destroyed || entry._streamFailed || !entry._decoder) return;
+    if (index < 0 || index >= entry.frames.length) return;
+    if (entry.frames[index]?.canvas || entry._inflight.has(index)) return;
+    entry._inflight.add(index);
+    entry._decodeChain = entry._decodeChain
+        .then(() => decodeStreamFrame(entry, index))
+        .catch((err) => {
+            if (entry._destroyed) return;
+            // 解码失败就退化成固定显示第 0 帧，避免重绘计时器每 16ms 反复重试
+            entry._streamFailed = true;
+            Logger.warn("[ShuangAssets] 串流动图帧解码失败，改用第 0 帧", err);
+        })
+        .finally(() => { entry._inflight.delete(index); });
+}
+
+/**
+ * 串流条目取「这一帧该画什么」。
+ * 命中缓存就把后面几帧一并排进解码队列；未命中先沿用上一次真正画出来的帧，
+ * 同时请求当前帧与后续窗口，由调用端在 STREAM_RETRY_MS 后补一次重绘。
+ * @param {GifEntry} entry
+ * @param {number} index
+ * @returns {{canvas: HTMLCanvasElement|null, index: number, pending: boolean}}
+ */
+export function resolveAnimatedFrame(entry, index) {
+    const frames = entry?.frames || [];
+    if (!entry?.streaming) return { canvas: frames[index]?.canvas || null, index, pending: false };
+    if (entry._destroyed || entry._streamFailed) {
+        const fallback = entry._fallbackCanvas || frames[0]?.canvas || null;
+        return { canvas: fallback, index: fallback ? (entry._fallbackIndex ?? 0) : -1, pending: false };
+    }
+    const cached = frames[index]?.canvas;
+    // 重绘间隔通常远大于单帧时长，命中时只预解下一帧会永远差 1~2 帧
+    const first = cached ? index + 1 : index;
+    for (let step = 0; step < STREAM_PREFETCH; step++) {
+        requestStreamFrame(entry, (first + step) % frames.length);
+    }
+    if (cached) {
+        entry._fallbackCanvas = cached;
+        entry._fallbackIndex = index;
+        return { canvas: cached, index, pending: false };
+    }
+    // 还没解好：继续显示上一次真正画出来的那一帧，不要跳回第 0 帧
+    const fallback = entry._fallbackCanvas || frames[0]?.canvas || null;
+    return { canvas: fallback, index: fallback ? (entry._fallbackIndex ?? 0) : -1, pending: true };
+}
+
+function disposeStreamingEntry(entry) {
+    entry._destroyed = true;
+    try { entry._decoder?.close(); } catch { /* 已经关过 */ }
+    entry._decoder = null;
+    entry._decodeChain = Promise.resolve();
+    entry._inflight?.clear();
+    entry._fallbackCanvas = null;
+    entry._fallbackIndex = 0;
+    for (const frame of entry.frames || []) frame.canvas = null;
+    entry.frames = [];
+    entry.pixelBudget = 0;
+}
+
+/**
+ * 用 `ImageDecoder` 解析 Animated WebP 并填入 entry。
+ * 全量解不下时自动改用串流模式，见上方说明。
  * @param {ArrayBuffer} buffer
  * @param {GifEntry} entry
  */
@@ -204,6 +378,7 @@ async function decodeAnimatedWebp(buffer, entry) {
     }
 
     const decoder = new ImageDecoder({ data: buffer, type: "image/webp" });
+    let keepDecoder = false;
     try {
         await decoder.tracks.ready;
         const track = decoder.tracks.selectedTrack;
@@ -217,36 +392,64 @@ async function decodeAnimatedWebp(buffer, entry) {
         const frameCount = track.frameCount;
         checkImageBudget(1, 1, frameCount);
 
-        for (let i = 0; i < frameCount; i++) {
+        // 先解第 0 帧：决定尺寸、列表预览、循环接缝与后备帧都靠它
+        const { image: first } = await decoder.decode({ frameIndex: 0 });
+        let firstCanvas, firstDelay;
+        try {
+            entry.width = first.displayWidth;
+            entry.height = first.displayHeight;
+            firstDelay = videoFrameDelayMs(first.duration);
+            firstCanvas = createFrameCanvas(entry, first);
+        } finally { first.close(); }
+
+        // 使用者自订的「图片大小限制」优先于任何降级策略
+        checkImageBudget(entry.width, entry.height, frameCount);
+        const plan = planAnimationStorage(entry.width, entry.height, frameCount, reservedPixels(entry));
+        if (plan.mode === "fail") throw cacheLimitError();
+
+        if (plan.mode === "stream") {
+            // 全量解码放不下：保留 decoder 持有的压缩数据，只缓存少量帧，播放时按需解码。
+            // 帧时长直接读 ANMF 标头，不需要先把每一帧解出来。
+            const delays = readWebpFrameDelays(buffer, frameCount);
+            delays[0] = firstDelay;
+            entry.frames = delays.map((delay) => ({ canvas: null, delay }));
+            entry.frames[0].canvas = firstCanvas;
+            entry.totalDuration = delays.reduce((sum, delay) => sum + delay, 0);
+            entry.isAnimated = true;
+            entry.streaming = true;
+            entry.pixelBudget = plan.pixels;
+            entry._decoder = decoder;
+            entry._frameOrder = [0];
+            entry._inflight = new Set();
+            entry._decodeChain = Promise.resolve();
+            entry._destroyed = false;
+            entry._streamFailed = false;
+            entry._fallbackCanvas = firstCanvas;
+            entry._fallbackIndex = 0;
+            entry.dispose = () => disposeStreamingEntry(entry);
+            keepDecoder = true;
+            return;
+        }
+
+        entry.pixelBudget = plan.pixels;
+        entry.frames.push({ canvas: firstCanvas, delay: firstDelay });
+        entry.totalDuration = firstDelay;
+        for (let i = 1; i < frameCount; i++) {
             const { image } = await decoder.decode({ frameIndex: i });
-
-            if (i === 0) {
-                entry.width = image.displayWidth;
-                entry.height = image.displayHeight;
-                try { reserveFrames(entry, entry.width, entry.height, frameCount); } catch (error) { image.close(); throw error; }
-            }
-
-            const frameCanvas = document.createElement("canvas");
-            frameCanvas.width = entry.width || 1;
-            frameCanvas.height = entry.height || 1;
-            frameCanvas.getContext("2d").drawImage(image, 0, 0);
-
-            // VideoFrame.duration 单位是微秒；0 或极短延迟比照 GIF/APNG 分支的惯例视为 100ms
-            const rawDelayMs = image.duration ? image.duration / 1000 : 0;
-            const delay = rawDelayMs > 10 ? rawDelayMs : 100;
-
+            const delay = videoFrameDelayMs(image.duration);
+            const canvas = createFrameCanvas(entry, image);
             image.close();
-
-            entry.frames.push({ canvas: frameCanvas, delay });
+            entry.frames.push({ canvas, delay });
             entry.totalDuration += delay;
-
             if ((i + 1) % COMPOSE_CHUNK_SIZE === 0 && i + 1 < frameCount) {
                 await _yieldToMainThread();
             }
         }
 
         entry.isAnimated = true;
-    } finally { decoder.close(); }
+    } finally {
+        if (!keepDecoder) decoder.close();
+    }
 }
 
 /**

@@ -68,4 +68,45 @@ export function queueOneShotRefresh(C) {
     }, 0);
 }
 
-export default { refreshCharacterAppearance, queueOneShotRefresh };
+/** 已经排入延迟重绘、还没执行的角色，避免串流帧解码期间堆积计时器 */
+const _pendingDelayed = new Set();
+
+/**
+ * 排入一次「稍后补画」，用于串流帧还没解码好时提前重试，不必等动画循环的
+ * 100ms 轮询。同一角色同时只会有一个延迟重试在排队。
+ * @param {object} C - 角色对象
+ * @param {number} [delayMs] - 延迟毫秒数
+ */
+export function queueDelayedRefresh(C, delayMs = 16) {
+    if (!C || _pendingDelayed.has(C)) return;
+    _pendingDelayed.add(C);
+    setTimeout(() => {
+        _pendingDelayed.delete(C);
+        refreshCharacterAppearance(C);
+    }, Math.max(0, delayMs));
+}
+
+/** 本轮事件循环内，已经排入「重新计算外观图层」的角色集合 */
+const _pendingLayerRefresh = new Set();
+
+/**
+ * 排入「下一轮事件循环重新计算外观图层」。
+ * Hide 数组变化会改变哪些服装参与绘制，必须走完整的 CharacterRefresh 重建
+ * AppearanceLayers；轻量的 CharacterAppearanceBuildCanvas 只会用旧图层重画像素，
+ * 不足以让隐藏/恢复生效。
+ * @param {object} C - 角色对象
+ */
+export function queueLayerRefresh(C) {
+    if (!C || _pendingLayerRefresh.has(C)) return;
+    _pendingLayerRefresh.add(C);
+    setTimeout(() => {
+        _pendingLayerRefresh.delete(C);
+        try {
+            if (typeof CharacterRefresh === "function") CharacterRefresh(C, false, false);
+        } catch (err) {
+            Logger.error("[ShuangAssets] 角色外观图层重算失败", err);
+        }
+    }, 0);
+}
+
+export default { refreshCharacterAppearance, queueOneShotRefresh, queueLayerRefresh, queueDelayedRefresh };

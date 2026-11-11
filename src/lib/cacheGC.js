@@ -33,6 +33,9 @@ function pruneAll() {
             // 只清理「已经确定加载完成/失败」且「够久没被用到」的条目；
             // 还在飞行中的请求（loaded 为 false）留着，避免误删正在进行的下载
             if (entry?.loaded && now - (entry.lastUsed || 0) > STALE_ENTRY_TIMEOUT_MS) {
+                // 串流动图条目持有 ImageDecoder（压缩数据）与可能的小型帧缓存，
+                // 删除前先让它关掉 decoder，否则压缩数据还会被 decoder 引用着
+                try { entry.dispose?.(); } catch { /* 清理失败不影响其余条目 */ }
                 cache.delete(key);
                 pruned++;
             }

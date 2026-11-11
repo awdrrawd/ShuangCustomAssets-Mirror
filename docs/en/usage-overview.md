@@ -9,7 +9,7 @@ ShuangCustomAssets is a Bondage Club mod that lets players load custom textures 
 | Texture Management | Add, edit, delete layers (up to 16) | [Texture Management Basics](./usage-textures.md) |
 | Edit Panel | Adjust offset, scale, rotation, opacity, mirror, etc. | [Edit Panel Details](./usage-edit-panel.md) |
 | Per-Pose Settings | Set different texture parameters per pose | [Per-Pose Settings](./usage-pose-settings.md) |
-| Hide Settings | Hide head, body, clothing, restraints (8 categories) | [Hide Settings](./usage-hide-settings.md) |
+| Hide Settings | Hide head, body, clothing, restraints (8 categories), with per-group detail controls and optional original-outfit fallback | [Hide Settings](./usage-hide-settings.md) |
 | Import / Export | Export, share, and import JSON configs | [Import / Export](./usage-import-export.md) |
 | Security | Domain whitelist management to block malicious images | [Security Settings](./usage-security.md) |
 | Animated Images | GIF playback toggle, frame rate, game FPS sync | [Security Settings — Animated Images](./usage-security.md#animated-images) |
