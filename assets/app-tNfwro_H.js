@@ -13124,6 +13124,24 @@ const assets = [
     ["自定义贴图", register],
 ];
 
+const CUSTOM_PROPERTY_NAMES = Object.freeze(Object.keys(DEFAULT_PROPS));
+function setupPropertyValidationCompat(hooks) {
+    if (typeof ItemPropertiesValidate !== "function") return;
+    hooks.hookFunction("ItemPropertiesValidate", 0, (args, next) => {
+        const [properties, asset, options] = args;
+        const result = next(args);
+        if (!result || typeof result.value !== "object" || result.value === null) return result;
+        if (asset?.Name !== ASSET_NAME || !properties || typeof properties !== "object") return result;
+        const omit = new Set(options?.omit ?? []);
+        const registered = typeof PropertyData === "object" && PropertyData !== null ? PropertyData : {};
+        for (const name of CUSTOM_PROPERTY_NAMES) {
+            if (omit.has(name) || registered[name]) continue;
+            if (properties[name] !== undefined) result.value[name] = properties[name];
+        }
+        return result;
+    });
+}
+
 (globalThis).ShuangAssets = { Logger };
 let resolveAssets, rejectAssets;
 const assetsLoaded = new Promise((resolve, reject) => { resolveAssets = resolve; rejectAssets = reject; });
@@ -13162,6 +13180,7 @@ async function start() {
         mt.enableCustomAssetUseValidation(hasScaTag);
         setupPersistence(u$1);
         setupSettingsHooks(u$1);
+        setupPropertyValidationCompat(u$1);
         u$1.hookFunction("CraftingDeserialize", 0, (args, next) => {
             const craftString = args[0];
             if (typeof craftString === "string" && craftString.length > 0) {
