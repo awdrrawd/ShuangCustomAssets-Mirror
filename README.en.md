@@ -32,6 +32,28 @@ Load image-host URLs to achieve dynamic texture effects
 4. Paste the downloaded script content
 5. Save and refresh the game page
 
+### Option 3: Load via bookmark (Bookmarklet, no Tampermonkey)
+
+Useful when userscripts are unavailable or on a temporary device. Create a `javascript:` bookmark that injects the plugin module into the current game page.
+
+1. Show the bookmarks bar (`Ctrl+Shift+B` / `Cmd+Shift+B`)
+2. Create a bookmark named `ShuangCustomAssets`
+3. Paste this entire line into the URL field:
+
+```text
+javascript:(async()=>{const h=location.hostname;if(!/(bondageprojects|bondage-europe|bondageeurope|bondage-asia)/.test(h)){alert('Please run this bookmark on a Bondage Club page');return}console.log('[ShuangCustomAssets] loading...');const urls=['https://shuang-custom-assets.pages.dev/assets/main.js','https://awdrrawd.github.io/ShuangCustomAssets-Mirror/assets/main.js'];for(const u of urls){try{await import(u+'?t='+Date.now());return}catch(e){console.warn('[ShuangCustomAssets] failed:',u,e?.message??e)}}alert('ShuangCustomAssets failed to load. Check your network or use the Tampermonkey install.')})()
+```
+
+4. Open Bondage Club and click the `ShuangCustomAssets` bookmark
+5. Success when the console shows `[ShuangCustomAssets] 正在加载...` and the item appears in the game
+
+Notes:
+
+- The bookmark injects `dist/assets/main.js`, the same build used by the userscript
+- **You must click the bookmark again after every page refresh**; install the userscript for long-term use
+- Only the BC mirror domains listed above are supported; if Cloudflare fails it tries the GitHub Pages mirror
+- The hosted [`bookmarklet.html`](https://shuang-custom-assets.pages.dev/bookmarklet.html) page also contains a link you can drag straight to the bookmarks bar
+
 ### Dev install
 
 For local development, use the dev loader: [`loader.dev.user.js`](loader.dev.user.js)
@@ -49,7 +71,7 @@ For local development, use the dev loader: [`loader.dev.user.js`](loader.dev.use
 
 After installation:
 - Refresh the game page
-- The console shows `[ShuangAssets] Shuang自定义道具扩展 v0.1.0 initializing...`
+- The console shows `[ShuangAssets] Shuang自定义道具扩展 v0.2.x ✅ loaded` (the version follows the build)
 - Enter any body slot inventory; you will find the "Custom Texture" item
 
 ## 📚 Usage Guides
@@ -72,7 +94,7 @@ Detailed documentation:
 
 ### Custom Texture item
 
-- **Multi-layer**: a single item supports up to 16 independent layers
+- **Multi-layer**: a single item supports up to 18 independent layers
 - **All slots**: registered in every body-slot group — usable anywhere
 - **URL textures**: players enter an image-host URL to load custom textures dynamically
 - **Per-layer parameters**: X/Y offset, scale, rotation, opacity, mirror — all per layer
@@ -105,6 +127,11 @@ Must support CORS:
 - Netlify
 
 See [Security Settings — Recommended Image Hosts](./docs/en/usage-security.md#recommended-image-hosts) for the full list.
+
+### Config import / export
+
+- **Export**: click "Export" to copy the config JSON to the clipboard
+- **Import**: copy the config JSON, then click "Import (Replace)" or "Import (Append)"
 
 ## 🛠️ Development
 

@@ -14,7 +14,8 @@ before(async () => {
         gizmo: 'assets/freeTransform', settings: 'assets/settings', capacity: 'lib/accountCapacity', editor: 'assets/editPanel', validation: 'assets/textureValidation', renderer: 'assets/render', importer: 'assets/importExport',
         persistence: 'lib/persistence', list: 'assets/listView', slots: 'assets/textureListCanvas',
         hide: 'assets/hideArray', shared: 'assets/state', constants: 'assets/constants', limits: 'lib/imageLimits',
-        tutorial: 'assets/tutorial', tutorialPages: 'i18n/tutorial', images: 'lib/gifPlayer', i18n: 'i18n/index', catalog: 'i18n/messages', animation: 'lib/gifAnimationLoop', modTag: 'lib/modTag'
+        tutorial: 'assets/tutorial', tutorialPages: 'i18n/tutorial', images: 'lib/gifPlayer', i18n: 'i18n/index', catalog: 'i18n/messages', animation: 'lib/gifAnimationLoop', modTag: 'lib/modTag',
+        propertyCompat: 'assets/propertyValidationCompat'
     };
     const bundle = await rollup({
         input: 'test-entry',
@@ -1157,4 +1158,35 @@ test('all tutorial pages render the current locale, including after a language s
             }
         });
     }
+});
+
+test('R134 property validation keeps SCA custom fields but leaves registered fields to BC', () => {
+    const { api } = session({
+        ItemPropertiesValidate: () => ({}),
+        PropertyData: { Hide: {} }
+    });
+    let hook;
+    api.propertyCompat.setupPropertyValidationCompat({
+        hookFunction: (name, priority, fn) => {
+            assert.equal(name, 'ItemPropertiesValidate');
+            assert.equal(priority, 0);
+            hook = fn;
+        }
+    });
+
+    const textures = [{ TextureURL: 'https://example.com/image.png', ScaleX: 100, ScaleY: 100 }];
+    const input = { Textures: textures, HideOverrides: { Clothes: true }, Hide: ['Clothes'], LockedBy: 'MetalPadlock' };
+    const nextOutput = { value: { Hide: ['Clothes'], LockedBy: 'MetalPadlock' }, status: 'ok', errorDescriptions: {} };
+    const result = hook([input, { Name: api.constants.ASSET_NAME }, undefined], () => nextOutput);
+
+    assert.equal(result, nextOutput);
+    assert.equal(result.value.Textures, textures);
+    assert.deepEqual(result.value.HideOverrides, { Clothes: true });
+
+    const other = hook([input, { Name: 'OtherMod' }, undefined], () => ({ value: {} }));
+    assert.deepEqual(other.value, {}, 'other assets keep BC validation output');
+
+    const omitted = hook([input, { Name: api.constants.ASSET_NAME }, { omit: ['Textures'] }], () => ({ value: {} }));
+    assert.equal(omitted.value.Textures, undefined);
+    assert.deepEqual(omitted.value.HideOverrides, { Clothes: true });
 });

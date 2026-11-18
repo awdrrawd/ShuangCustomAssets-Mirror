@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShuangCustomAssets - 书签加载</title>
+<style>
+    :root { color-scheme: light dark; --fg: #111; --muted: #666; --bg: #fff; --panel: #f4f4f4; --accent: #28639a; --border: #ccc; }
+    @media (prefers-color-scheme: dark) {
+        :root { --fg: #eee; --muted: #aaa; --bg: #171717; --panel: #222; --accent: #7ab7ee; --border: #444; }
+    }
+    body { margin: 0 auto; max-width: 760px; padding: 32px 20px 64px; background: var(--bg); color: var(--fg);
+        font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; }
+    h1 { font-size: 24px; margin: 0 0 8px; }
+    p { margin: 8px 0; }
+    .muted { color: var(--muted); }
+    .install { display: inline-block; margin: 20px 0; padding: 12px 22px; border: 2px solid var(--accent);
+        border-radius: 8px; color: var(--accent); font-weight: 600; text-decoration: none; cursor: grab; }
+    .install:active { cursor: grabbing; }
+    pre { overflow: auto; padding: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+        font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+    button { padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+        color: var(--fg); cursor: pointer; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+</style>
+</head>
+<body>
+<h1>ShuangCustomAssets 书签加载</h1>
+<p>把下面的按钮拖到浏览器书签栏，打开 Bondage Club 后点击该书签即可加载插件。</p>
+<p class="muted">无需安装油猴。刷新页面后需要再次点击书签。</p>
+<a class="install" id="install" href="#" draggable="true">ShuangCustomAssets</a>
+<p><button id="copy" type="button">复制书签代码</button></p>
+<pre id="code"></pre>
+<p class="muted">书签只会在 Bondage Club 的游戏域名下执行。若 Cloudflare Pages 加载失败，会自动尝试 GitHub Pages 镜像。</p>
+<script>
+    const code = `(async()=>{const h=location.hostname;if(!/(bondageprojects|bondage-europe|bondageeurope|bondage-asia)/.test(h)){alert('请在 Bondage Club 游戏页面使用此书签');return}console.log('[ShuangCustomAssets] 正在加载...');const urls=['https://shuang-custom-assets.pages.dev/assets/main.js','https://awdrrawd.github.io/ShuangCustomAssets-Mirror/assets/main.js'];for(const u of urls){try{await import(u+'?t='+Date.now());return}catch(e){console.warn('[ShuangCustomAssets] 加载失败:',u,e?.message??e)}}alert('ShuangCustomAssets 加载失败，请检查网络或改用油猴安装')})()`;
+    const href = 'javascript:' + code;
+    document.getElementById('install').href = href;
+    document.getElementById('code').textContent = href;
+    document.getElementById('copy').addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(href);
+            document.getElementById('copy').textContent = '已复制';
+        } catch {
+            document.getElementById('copy').textContent = '复制失败，请手动选择代码';
+        }
+    });
+</script>
+</body>
+</html>

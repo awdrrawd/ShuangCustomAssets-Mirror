@@ -34,6 +34,28 @@
 4. 将下载的脚本内容粘贴进去
 5. 保存并刷新游戏页面
 
+### 方法三：用书签加载（Bookmarklet，无需油猴）
+
+适合无法安装油猴、或在临时设备上使用。原理是新建一个 `javascript:` 书签，点击时把插件模块注入当前游戏页面。
+
+1. 显示浏览器书签栏（`Ctrl+Shift+B` / `Cmd+Shift+B`）
+2. 新建一个书签，名称填 `ShuangCustomAssets`
+3. 网址一栏粘贴下面这一整行：
+
+```text
+javascript:(async()=>{const h=location.hostname;if(!/(bondageprojects|bondage-europe|bondageeurope|bondage-asia)/.test(h)){alert('请在 Bondage Club 游戏页面使用此书签');return}console.log('[ShuangCustomAssets] 正在加载...');const urls=['https://shuang-custom-assets.pages.dev/assets/main.js','https://awdrrawd.github.io/ShuangCustomAssets-Mirror/assets/main.js'];for(const u of urls){try{await import(u+'?t='+Date.now());return}catch(e){console.warn('[ShuangCustomAssets] 加载失败:',u,e?.message??e)}}alert('ShuangCustomAssets 加载失败，请检查网络或改用油猴安装')})()
+```
+
+4. 打开 Bondage Club，点击书签栏里的 `ShuangCustomAssets`
+5. 控制台出现 `[ShuangCustomAssets] 正在加载...` 且角色界面出现插件功能即成功
+
+说明：
+
+- 书签注入的是 `dist/assets/main.js` 模块，和油猴版使用同一份构建
+- **刷新页面后需要再点一次书签**；长期使用建议装油猴版
+- 仅支持上面列出的 BC 镜像域名；Cloudflare 加载失败时会自动尝试 GitHub Pages 镜像
+- 也可以打开 [`bookmarklet.html`](https://shuang-custom-assets.pages.dev/bookmarklet.html) 已部署页面，把页面上的链接直接拖到书签栏
+
 ## 📚 使用教程
 
 详细的使用文档请参考以下链接：
@@ -67,7 +89,7 @@
 
 安装完成后：
 - 刷新游戏页面
-- 控制台会显示 `[ShuangAssets] Shuang自定义道具扩展 v0.1.0 正在初始化...`
+- 控制台会显示 `[ShuangAssets] Shuang自定义道具扩展 v0.2.x ✅ loaded`（版本号随构建变化）
 - 进入任意部位的物品栏，可找到"自定义贴图"道具
 
 ## ✨ 功能特性
@@ -86,7 +108,7 @@
 
 ```
 贴图管理
-├── 图层列表（最多 16 个）
+├── 图层列表（最多 18 个）
 ├── 添加新贴图
 ├── 确认保存（同步到服务器）
 ├── 导出配置（复制到剪贴板）
@@ -120,27 +142,35 @@
 
 ### 配置导入导出
 
-- **导出**：点击"导出配置"，配置 JSON 自动复制到剪贴板
-- **导入**：复制配置 JSON 到剪贴板，点击"导入配置"
+- **导出**：点击「导出配置」，配置 JSON 自动复制到剪贴板
+- **导入**：复制配置 JSON 到剪贴板，点击「覆盖导入」或「追加导入」
 
 配置格式：
+
 ```json
 {
   "type": "ShuangCustomAssets",
-  "version": 1,
+  "version": 7,
   "textures": [
     {
       "TextureURL": "https://...",
+      "Alias": "图层别名",
       "OffsetX": 0,
       "OffsetY": 0,
-      "Scale": 100,
-      "Rotation": 0
+      "ScaleX": 100,
+      "ScaleY": 100,
+      "Rotation": 0,
+      "Opacity": 100,
+      "MirrorH": false,
+      "MirrorV": false,
+      "Visible": true
     }
-  ]
+  ],
+  "overridePriority": { "Layer1": 50 },
+  "hideHead": false,
+  "hideClothing": false
 }
 ```
-
-
 
 ## 🛠️ 开发
 

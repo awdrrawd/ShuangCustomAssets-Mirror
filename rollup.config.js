@@ -65,6 +65,11 @@ module.exports = {
             },
             generateBundle() {
                 this.emitFile({ type: "asset", fileName: "shuang-assets.js", source: 'import "./assets/main.js";\n' });
+                this.emitFile({
+                    type: "asset",
+                    fileName: "bookmarklet.html",
+                    source: fs.readFileSync(path.join(__dirname, "bookmarklet.html"))
+                });
                 for (const file of fs.readdirSync(path.join(__dirname, "assets"))) {
                     if (!file.endsWith(".png")) continue;
                     this.emitFile({ type: "asset", fileName: file, source: fs.readFileSync(path.join(__dirname, "assets", file)) });

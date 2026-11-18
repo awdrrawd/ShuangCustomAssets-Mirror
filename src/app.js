@@ -18,6 +18,7 @@ import { ASSET_NAME } from "./assets/constants.js";
 import { setupLoginBadge, setupDialogHooks } from "./assets/customTexture.js";
 import { initSettings, setupSettingsHooks } from "./assets/settings.js";
 import { setupItemEditBeacon } from "./assets/itemEditBeacon.js";
+import { setupPropertyValidationCompat } from "./assets/propertyValidationCompat.js";
 
 // 暴露给控制台，方便排查时打开过程日志：ShuangAssets.Logger.debugEnabled = true
 /** @type {any} */ (globalThis).ShuangAssets = { Logger };
@@ -87,6 +88,7 @@ export async function start() {
         AssetManager.enableCustomAssetUseValidation(hasScaTag);
         setupPersistence(HookManager);
         setupSettingsHooks(HookManager);
+        setupPropertyValidationCompat(HookManager);
 
         // Hook CraftingDeserialize：修复空名称的自制道具被丢弃的问题
         // BC 的 CraftingDeserialize 在 Name 为空时返回 null，导致无名称的自制道具在重新登录后丢失

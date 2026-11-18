@@ -29,3 +29,12 @@ test("successful builds prune obsolete scripts and maps while preserving current
         fs.rmdirSync(root);
     }
 });
+
+test("build emits the hosted bookmarklet page", () => {
+    const emitted = [];
+    const plugin = config.plugins.find(p => p.name === "distribution-assets");
+    plugin.generateBundle.call({ emitFile: file => emitted.push(file) });
+    const page = emitted.find(file => file.fileName === "bookmarklet.html");
+    assert.ok(page, "bookmarklet.html must be part of the deployed dist");
+    assert.match(String(page.source), /const code = `[\s\S]*assets\/main\.js/);
+});
